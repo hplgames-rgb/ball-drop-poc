@@ -247,27 +247,65 @@
   }
 
   async function connectWallet(){
-    if(!window.ethereum){
-      alert('MetaMask (or another injected EVM wallet) is required for wallet connection. The game itself still works without it.');
+    const provider = window.ethereum;
+
+    if(!provider){
+      networkEl.textContent='MetaMask was not detected by this page.';
+      alert('MetaMask was not detected. Make sure the extension is enabled for this site, then refresh the page.');
       return;
     }
+
+    connectBtn.disabled=true;
+    connectBtn.textContent='CONNECTING…';
+    networkEl.textContent='Waiting for MetaMask…';
+
     try{
-      await ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:BASE_SEPOLIA_CHAIN_ID}]});
+      // Request account access first so MetaMask actually opens its approval prompt.
+      const accts = await provider.request({method:'eth_requestAccounts'});
+      account = accts && accts[0] ? accts[0] : null;
+
+      if(!account) throw new Error('No wallet account was returned by MetaMask.');
+
+      // After wallet approval, switch to Base Sepolia.
+      try{
+        await provider.request({
+          method:'wallet_switchEthereumChain',
+          params:[{chainId:BASE_SEPOLIA_CHAIN_ID}]
+        });
+      }catch(e){
+        if(e && e.code===4902){
+          await provider.request({
+            method:'wallet_addEthereumChain',
+            params:[{
+              chainId:BASE_SEPOLIA_CHAIN_ID,
+              chainName:'Base Sepolia',
+              nativeCurrency:{name:'ETH',symbol:'ETH',decimals:18},
+              rpcUrls:['https://sepolia.base.org'],
+              blockExplorerUrls:['https://sepolia.basescan.org']
+            }]
+          });
+        }else{
+          throw e;
+        }
+      }
+
+      updateWalletUI();
+      if(hasPlayed) ensurePlayer();
+
     }catch(e){
-      if(e.code===4902){
-        await ethereum.request({method:'wallet_addEthereumChain',params:[{
-          chainId:BASE_SEPOLIA_CHAIN_ID,
-          chainName:'Base Sepolia',
-          nativeCurrency:{name:'ETH',symbol:'ETH',decimals:18},
-          rpcUrls:['https://sepolia.base.org'],
-          blockExplorerUrls:['https://sepolia.basescan.org']
-        }]});
-      } else { throw e; }
+      console.error('Wallet connection failed:', e);
+      account=null;
+      updateWalletUI();
+
+      let msg='Wallet connection failed.';
+      if(e && e.code===4001) msg='MetaMask connection was cancelled.';
+      else if(e && e.code===-32002) msg='A MetaMask request is already open. Check the MetaMask extension.';
+      else if(e && e.message) msg='Wallet error: '+e.message;
+
+      networkEl.textContent=msg;
+      connectBtn.disabled=false;
+      connectBtn.textContent='CONNECT';
     }
-    const accts = await ethereum.request({method:'eth_requestAccounts'});
-    account=accts[0]||null;
-    updateWalletUI();
-    if(hasPlayed) ensurePlayer();
   }
 
   function updateWalletUI(){
@@ -284,8 +322,8 @@
   connectBtn.addEventListener('click',connectWallet);
 
   if(window.ethereum){
-    ethereum.on?.('accountsChanged',a=>{account=a[0]||null;updateWalletUI();});
-    ethereum.on?.('chainChanged',()=>location.reload());
+    window.ethereum.on?.('accountsChanged',a=>{account=a[0]||null;updateWalletUI();});
+    window.ethereum.on?.('chainChanged',()=>location.reload());
   }
 
   function ensurePlayer(){
