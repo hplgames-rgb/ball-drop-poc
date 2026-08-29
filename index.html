@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>Ball Drop — Base Sepolia POC</title>
+<style>
+  :root{
+    --bg:#05080d; --panel:#0a1019; --panel2:#0d1623; --line:#1b2a3d;
+    --cyan:#22c7ff; --blue:#157dff; --red:#ff3047; --purple:#d941ff;
+    --yellow:#ffd82e; --green:#33dc78; --text:#ecf5ff; --muted:#92a4ba;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:radial-gradient(circle at 50% 0,#121a26 0,#05080d 48%,#020306 100%);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;overflow:hidden}
+  button{font:inherit}
+  .app{height:100vh;display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:12px;padding:14px}
+  .left,.side{min-height:0}
+  .left{display:grid;grid-template-rows:86px minmax(0,1fr);gap:12px}
+  .topbar,.boardShell,.card{background:linear-gradient(180deg,rgba(17,24,35,.96),rgba(6,10,16,.98));border:1px solid #2a3b52;border-radius:18px;box-shadow:inset 0 0 0 2px rgba(255,255,255,.025),0 14px 40px rgba(0,0,0,.35)}
+  .topbar{display:grid;grid-template-columns:1fr 1.1fr .8fr;align-items:stretch;overflow:hidden}
+  .brand,.time,.scoreTop{display:flex;align-items:center;justify-content:center;flex-direction:column}
+  .brand{font-size:38px;font-weight:1000;letter-spacing:2px;text-shadow:0 0 20px #0af}
+  .brand span:first-child{color:#38d7ff}.brand span:last-child{color:#ffc42f;margin-left:12px}
+  .small{font-size:12px;color:#aab7c8;font-weight:800;letter-spacing:1px}
+  .big{font-size:36px;font-weight:1000}
+  #timer{color:var(--yellow)}
+  .boardShell{position:relative;overflow:hidden;border-color:#36516e}
+  canvas{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
+  .dropHint{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:2;font-weight:900;font-size:14px;text-align:center;pointer-events:none;text-shadow:0 2px 6px #000}
+  .dropHint b{color:var(--cyan)}
+  .pointsBox{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:2;background:rgba(5,10,18,.9);border:1px solid var(--cyan);border-radius:12px;padding:7px 28px;text-align:center;pointer-events:none;box-shadow:0 0 18px rgba(34,199,255,.18)}
+  .pointsBox .label{font-size:11px;color:var(--cyan);font-weight:900}
+  .pointsBox .value{font-size:30px;font-weight:1000;line-height:1}
+  .side{display:grid;grid-template-rows:auto minmax(0,1fr) auto auto;gap:12px}
+  .walletCard{padding:14px}
+  .walletRow{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .walletInfo{min-width:0}
+  .walletAddr{font-size:15px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .network{font-size:11px;color:var(--muted);margin-top:3px}
+  .dot{width:10px;height:10px;border-radius:50%;background:#667;display:inline-block;margin-right:7px;box-shadow:0 0 10px currentColor}
+  .dot.on{background:var(--green);color:var(--green)}
+  .connect{border:1px solid #d43149;background:#19080d;color:#ff5668;border-radius:10px;padding:10px 12px;font-weight:900;cursor:pointer}
+  .connect:hover{filter:brightness(1.2)}
+  .card{padding:12px}
+  .cardTitle{text-align:center;color:#f2b5ff;background:linear-gradient(90deg,#2a0a3d,#43105f,#2a0a3d);margin:-12px -12px 12px;padding:9px;border-bottom:1px solid #7a278e;font-weight:1000}
+  .scoreboard{overflow:auto}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:10px 8px;border-bottom:1px solid #273243;text-align:left;font-size:13px}
+  th{color:#aab6c8;font-size:11px}
+  td.scoreNum{text-align:right;font-weight:1000}
+  .rank{width:34px;text-align:center}
+  .you{color:var(--cyan);font-size:10px;font-weight:900}
+  .status{color:var(--green);font-size:10px;font-weight:900}
+  .roundGrid{display:grid;grid-template-columns:repeat(3,1fr);text-align:center}
+  .roundGrid>div{padding:5px 6px;border-right:1px solid #314052}.roundGrid>div:last-child{border-right:0}
+  .roundGrid .v{font-size:20px;font-weight:1000;margin-top:2px}
+  .reward{font-size:12px;color:#bcc8d6;line-height:1.5}
+  .reward strong{color:var(--yellow)}
+  .boosterBox{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
+  .boosterTitle{font-weight:1000;color:#ffe16b}
+  .boosterMeta{font-size:11px;color:#9fb0c4;margin-top:3px}
+  .fakeBalance{font-size:12px;color:#dce7f5;margin-top:7px}
+  .boostBtn{border:1px solid #ffc928;background:linear-gradient(180deg,#3a2800,#181000);color:#ffe980;border-radius:10px;padding:11px 13px;font-weight:1000;cursor:pointer;min-width:118px}
+  .boostBtn:hover{filter:brightness(1.18)}
+  .boostBtn:disabled{opacity:.45;cursor:not-allowed}
+  .boostActive{color:#66f19a;font-weight:1000}
+  .footer{font-size:10px;text-align:center;color:#76879b;margin-top:8px}
+  .overlay{position:absolute;inset:0;background:rgba(3,5,9,.79);display:none;align-items:center;justify-content:center;z-index:5}
+  .overlay.show{display:flex}
+  .modal{width:min(430px,90%);padding:24px;background:#0a111b;border:1px solid #4d6581;border-radius:18px;text-align:center;box-shadow:0 30px 80px #000}
+  .modal h2{margin:0 0 8px;font-size:30px}
+  .modal .winner{color:var(--yellow);font-weight:1000}
+  .modal button{margin-top:14px;border:1px solid var(--cyan);background:#071c2a;color:#bcebff;border-radius:10px;padding:10px 18px;font-weight:900;cursor:pointer}
+  .flash{animation:flash .25s ease-out}
+  @keyframes flash{50%{filter:brightness(1.8)}}
+  @media(max-width:900px){
+    html,body{overflow:auto}
+    .app{height:auto;min-height:100vh;grid-template-columns:1fr}
+    .left{height:780px}
+    .side{grid-template-rows:auto auto auto auto}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <section class="left">
+    <div class="topbar">
+      <div class="brand"><div><span>BALL</span><span>DROP</span></div><div class="small">BASE SEPOLIA POC</div></div>
+      <div class="time"><div class="small">ROUND TIME LEFT</div><div id="timer" class="big">01:00</div></div>
+      <div class="scoreTop"><div class="small">SCORE</div><div id="topScore" class="big">0</div></div>
+    </div>
+
+    <div class="boardShell">
+      <canvas id="game"></canvas>
+      <div class="dropHint"><b>▼ ▼</b> CLICK NEAR THE TOP TO DROP A BALL <b>▼ ▼</b></div>
+      <div class="pointsBox"><div class="label">YOUR POINTS</div><div id="points" class="value">0</div></div>
+
+      <div id="roundOverlay" class="overlay">
+        <div class="modal">
+          <h2>ROUND COMPLETE</h2>
+          <div id="roundSummary"></div>
+          <button id="newRoundBtn">START NEXT ROUND</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <aside class="side">
+    <div class="card walletCard">
+      <div class="walletRow">
+        <div class="walletInfo">
+          <div class="small">CONNECTED WALLET</div>
+          <div id="walletAddr" class="walletAddr"><span id="walletDot" class="dot"></span>Not connected</div>
+          <div id="network" class="network">Connect MetaMask to Base Sepolia</div>
+        </div>
+        <button id="connectBtn" class="connect">CONNECT</button>
+      </div>
+    </div>
+
+    <div class="card scoreboard">
+      <div class="cardTitle">SCOREBOARD</div>
+      <table>
+        <thead><tr><th class="rank">#</th><th>PLAYER</th><th style="text-align:right">SCORE</th><th>STATUS</th></tr></thead>
+        <tbody id="scoreRows">
+          <tr><td colspan="4" style="text-align:center;color:#75869b;padding:28px 8px">Drop a ball to join this round.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="cardTitle">ROUND INFO</div>
+      <div class="roundGrid">
+        <div><div class="small">ROUND</div><div id="roundNo" class="v">#1</div></div>
+        <div><div class="small">PLAYERS</div><div id="playerCount" class="v">0</div></div>
+        <div><div class="small">REWARD POOL</div><div class="v"><span id="pool">1,000</span> <small>TEST-HPL</small></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="cardTitle">POWER-UP SHOP</div>
+      <div class="boosterBox">
+        <div>
+          <div class="boosterTitle">⚡ 1.5× BALL BOOSTER</div>
+          <div class="boosterMeta">Applies 1.5× to every ball you score for the rest of this round.</div>
+          <div class="fakeBalance">Fake HPL Balance: <strong id="fakeHplBalance">1,000</strong> HPL</div>
+          <div id="boostStatus" class="boosterMeta">Cost: 100 Fake HPL</div>
+        </div>
+        <button id="boostBtn" class="boostBtn">BUY • 100 HPL</button>
+      </div>
+    </div>
+
+    <div class="card reward">
+      <div class="cardTitle">POC REWARD RULES</div>
+      <div>Winner gets <strong>50%</strong> of the round reward pool.</div>
+      <div>The other <strong>50%</strong> is split equally among the other participating wallets.</div>
+      <div class="footer">Game is playable now. Paddle multipliers are pass-through triggers; the round-contract hook is stubbed until a rewards-contract address/ABI is supplied.</div>
+    </div>
+  </aside>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const timerEl = document.getElementById('timer');
+  const topScoreEl = document.getElementById('topScore');
+  const pointsEl = document.getElementById('points');
+  const scoreRows = document.getElementById('scoreRows');
+  const connectBtn = document.getElementById('connectBtn');
+  const walletAddrEl = document.getElementById('walletAddr');
+  const walletDot = document.getElementById('walletDot');
+  const networkEl = document.getElementById('network');
+  const playerCountEl = document.getElementById('playerCount');
+  const roundNoEl = document.getElementById('roundNo');
+  const fakeHplBalanceEl = document.getElementById('fakeHplBalance');
+  const boostStatusEl = document.getElementById('boostStatus');
+  const boostBtn = document.getElementById('boostBtn');
+  const overlay = document.getElementById('roundOverlay');
+  const roundSummary = document.getElementById('roundSummary');
+  const newRoundBtn = document.getElementById('newRoundBtn');
+
+  let W=0,H=0,dpr=1;
+  let balls=[], pegs=[], particles=[];
+  let score=0, round=1, timeLeft=60, roundActive=true, hasPlayed=false;
+  let account=null;
+  let fakeHplBalance=1000;
+  let boosterActive=false;
+  const BOOST_COST=100;
+  const BOOST_MULTIPLIER=1.5;
+  let lastTime=performance.now(), secondBucket=0;
+  let players = new Map(); // POC local scoreboard; contract/backend would replace this.
+  let nextBallId=1;
+
+  const BASE_SEPOLIA_CHAIN_ID = '0x14a34'; // 84532
+  const WORLD = { gravity: 980, ballR: 9, pegR: 7, restitution:.72, friction:.995 };
+
+  const paddles = [
+    { id:'upper', side:'left', y:.38, x:.20, width:.28, height:34, dir:1, speed:.13, multiplier:2, color:'#1680ff', phase:0 },
+    { id:'lower', side:'right', y:.68, x:.60, width:.28, height:34, dir:-1, speed:.13, multiplier:4, color:'#ff3047', phase:0 }
+  ];
+
+  function resize(){
+    const r=canvas.getBoundingClientRect(); dpr=Math.max(1,Math.min(2,devicePixelRatio||1));
+    canvas.width=Math.floor(r.width*dpr); canvas.height=Math.floor(r.height*dpr);
+    W=r.width; H=r.height; ctx.setTransform(dpr,0,0,dpr,0,0);
+    makePegs();
+  }
+  addEventListener('resize',resize);
+
+  function makePegs(){
+    pegs=[];
+    const rows=8, cols=6;
+    const top=H*.16, bottom=H*.78;
+    for(let r=0;r<rows;r++){
+      const y=top+(bottom-top)*(r/(rows-1));
+      const offset=(r%2)*0.5;
+      for(let c=0;c<cols;c++){
+        const x=W*(.12 + (.76)*((c+offset)/(cols-.5)));
+        if(x>W*.08 && x<W*.92) pegs.push({x,y});
+      }
+    }
+  }
+
+  function updateBoosterUI(){
+    fakeHplBalanceEl.textContent=fakeHplBalance.toLocaleString();
+    if(boosterActive){
+      boostStatusEl.innerHTML='<span class="boostActive">ACTIVE • 1.5× ALL SCORED BALLS</span>';
+      boostBtn.textContent='ACTIVE';
+      boostBtn.disabled=true;
+    }else{
+      boostStatusEl.textContent='Cost: '+BOOST_COST+' Fake HPL';
+      boostBtn.textContent='BUY • '+BOOST_COST+' HPL';
+      boostBtn.disabled=!roundActive || fakeHplBalance<BOOST_COST;
+    }
+  }
+
+  function buyBooster(){
+    if(!roundActive || boosterActive || fakeHplBalance<BOOST_COST) return;
+    fakeHplBalance-=BOOST_COST;
+    boosterActive=true;
+    updateBoosterUI();
+  }
+  boostBtn.addEventListener('click',buyBooster);
+
+  function walletLabel(addr){
+    return addr ? addr.slice(0,6)+'…'+addr.slice(-4) : 'LOCAL-GUEST';
+  }
+
+  async function connectWallet(){
+    if(!window.ethereum){
+      alert('MetaMask (or another injected EVM wallet) is required for wallet connection. The game itself still works without it.');
+      return;
+    }
+    try{
+      await ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:BASE_SEPOLIA_CHAIN_ID}]});
+    }catch(e){
+      if(e.code===4902){
+        await ethereum.request({method:'wallet_addEthereumChain',params:[{
+          chainId:BASE_SEPOLIA_CHAIN_ID,
+          chainName:'Base Sepolia',
+          nativeCurrency:{name:'ETH',symbol:'ETH',decimals:18},
+          rpcUrls:['https://sepolia.base.org'],
+          blockExplorerUrls:['https://sepolia.basescan.org']
+        }]});
+      } else { throw e; }
+    }
+    const accts = await ethereum.request({method:'eth_requestAccounts'});
+    account=accts[0]||null;
+    updateWalletUI();
+    if(hasPlayed) ensurePlayer();
+  }
+
+  function updateWalletUI(){
+    if(account){
+      walletAddrEl.innerHTML='<span id="walletDot" class="dot on"></span>'+walletLabel(account);
+      networkEl.textContent='Base Sepolia • chain 84532';
+      connectBtn.textContent='CONNECTED';
+      connectBtn.disabled=true;
+    }else{
+      walletAddrEl.innerHTML='<span class="dot"></span>Not connected';
+      networkEl.textContent='Connect MetaMask to Base Sepolia';
+    }
+  }
+  connectBtn.addEventListener('click',connectWallet);
+
+  if(window.ethereum){
+    ethereum.on?.('accountsChanged',a=>{account=a[0]||null;updateWalletUI();});
+    ethereum.on?.('chainChanged',()=>location.reload());
+  }
+
+  function ensurePlayer(){
+    const id = account || 'LOCAL-GUEST';
+    if(!players.has(id)) players.set(id,{address:id,score:0});
+    players.get(id).score=score;
+    playerCountEl.textContent=players.size;
+    renderScoreboard();
+  }
+
+  function renderScoreboard(){
+    const arr=[...players.values()].sort((a,b)=>b.score-a.score);
+    if(!arr.length){
+      scoreRows.innerHTML='<tr><td colspan="4" style="text-align:center;color:#75869b;padding:28px 8px">Drop a ball to join this round.</td></tr>';
+      return;
+    }
+    scoreRows.innerHTML=arr.map((p,i)=>{
+      const mine=p.address===(account||'LOCAL-GUEST');
+      return `<tr>
+        <td class="rank">${i+1}</td>
+        <td><strong>${walletLabel(p.address)}</strong>${mine?'<div class="you">YOU</div>':''}</td>
+        <td class="scoreNum">${Math.round(p.score)}</td>
+        <td><span class="status">${roundActive?'PLAYING':'FINAL'}</span></td>
+      </tr>`;
+    }).join('');
+  }
+
+  function dropBall(clientX){
+    if(!roundActive) return;
+    const rect=canvas.getBoundingClientRect();
+    const x=Math.max(W*.08,Math.min(W*.92,clientX-rect.left));
+    balls.push({id:nextBallId++,x,y:55,vx:(Math.random()-.5)*40,vy:0,r:WORLD.ballR,value:10,lastHit:0,trail:[],dead:false,touchedPaddles:new Set()});
+    hasPlayed=true; ensurePlayer();
+  }
+
+  canvas.addEventListener('pointerdown',e=>{
+    const rect=canvas.getBoundingClientRect();
+    if(e.clientY-rect.top < H*.22) dropBall(e.clientX);
+  });
+
+  function collideCircle(ball,cx,cy,cr){
+    const dx=ball.x-cx,dy=ball.y-cy,d=Math.hypot(dx,dy),min=ball.r+cr;
+    if(d>0 && d<min){
+      const nx=dx/d,ny=dy/d,over=min-d;
+      ball.x+=nx*over; ball.y+=ny*over;
+      const vn=ball.vx*nx+ball.vy*ny;
+      if(vn<0){
+        ball.vx-= (1+WORLD.restitution)*vn*nx;
+        ball.vy-= (1+WORLD.restitution)*vn*ny;
+        ball.vx += (Math.random()-.5)*20;
+      }
+    }
+  }
+
+  function paddleRect(p){
+    return {x:p.x*W,y:p.y*H,w:p.width*W,h:p.height};
+  }
+
+  function collidePaddle(ball,p,now){
+    // The paddle is a scoring trigger only: the ball passes straight through it.
+    // A given ball can collect each paddle's multiplier only once.
+    const r=paddleRect(p);
+    const cx=Math.max(r.x,Math.min(ball.x,r.x+r.w));
+    const cy=Math.max(r.y,Math.min(ball.y,r.y+r.h));
+    const dx=ball.x-cx,dy=ball.y-cy;
+    const touching=(dx*dx+dy*dy < ball.r*ball.r);
+
+    if(touching && !ball.touchedPaddles.has(p.id)){
+      ball.touchedPaddles.add(p.id);
+      ball.value*=p.multiplier;
+      ball.lastHit=now;
+      spawnBurst(ball.x,ball.y,p.color,p.multiplier);
+    }
+  }
+
+  function spawnBurst(x,y,color,m){
+    for(let i=0;i<12;i++) particles.push({x,y,vx:(Math.random()-.5)*180,vy:(Math.random()-.5)*180,life:1,color});
+    particles.push({x,y,life:1,text:'×'+m,color});
+  }
+
+  function update(dt,now){
+    if(!roundActive) return;
+    for(const p of paddles){
+      p.x += p.dir*p.speed*dt;
+      const min=p.side==='left'?.07:.50, max=p.side==='left'?.34:.72;
+      if(p.x<min){p.x=min;p.dir=1}
+      if(p.x>max){p.x=max;p.dir=-1}
+      p.phase += dt;
+      if(p.phase>4.2){
+        p.phase=0;
+        p.multiplier=2+Math.floor(Math.random()*4);
+      }
+    }
+
+    for(const b of balls){
+      b.vy += WORLD.gravity*dt;
+      b.vx *= Math.pow(WORLD.friction,dt*60);
+      b.x += b.vx*dt; b.y += b.vy*dt;
+      b.trail.push({x:b.x,y:b.y}); if(b.trail.length>8)b.trail.shift();
+
+      if(b.x-b.r<W*.035){b.x=W*.035+b.r;b.vx=Math.abs(b.vx)*.75}
+      if(b.x+b.r>W*.965){b.x=W*.965-b.r;b.vx=-Math.abs(b.vx)*.75}
+
+      for(const peg of pegs) collideCircle(b,peg.x,peg.y,WORLD.pegR);
+      for(const p of paddles) collidePaddle(b,p,now);
+
+      // Funnel walls
+      const fy=H*.80, throatY=H*.92, throatHalf=W*.075;
+      if(b.y>fy && b.y<throatY){
+        const t=(b.y-fy)/(throatY-fy);
+        const left=W*(.04+(0.5-.075-.04)*t);
+        const right=W*(.96-(.96-(.5+.075))*t);
+        if(b.x-b.r<left){b.x=left+b.r;b.vx=Math.abs(b.vx)*.7}
+        if(b.x+b.r>right){b.x=right-b.r;b.vx=-Math.abs(b.vx)*.7}
+      }
+
+      if(b.y>H*.92 && Math.abs(b.x-W*.5)<W*.10){
+        const scoredValue = Math.round(b.value * (boosterActive ? BOOST_MULTIPLIER : 1));
+        score += scoredValue;
+        topScoreEl.textContent=score;
+        pointsEl.textContent=score;
+        ensurePlayer();
+        spawnBurst(W*.5,H*.92,boosterActive ? '#ffd82e' : '#22c7ff',scoredValue);
+        b.dead=true;
+      }else if(b.y>H+60) b.dead=true;
+    }
+    balls=balls.filter(b=>!b.dead);
+
+    for(const p of particles){
+      if(!p.text){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=120*dt}
+      p.life-=dt*1.5;
+    }
+    particles=particles.filter(p=>p.life>0);
+  }
+
+  function drawRoundedRect(x,y,w,h,r){
+    ctx.beginPath(); ctx.roundRect(x,y,w,h,r); ctx.fill(); ctx.stroke();
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    const grad=ctx.createRadialGradient(W*.5,H*.2,20,W*.5,H*.45,W*.8);
+    grad.addColorStop(0,'#102038'); grad.addColorStop(.45,'#091421'); grad.addColorStop(1,'#050a11');
+    ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
+
+    // playfield glow
+    ctx.strokeStyle='rgba(34,199,255,.7)';ctx.lineWidth=1.5;
+    ctx.strokeRect(4,4,W-8,H-8);
+
+    // pegs
+    for(const p of pegs){
+      const g=ctx.createRadialGradient(p.x-2,p.y-3,1,p.x,p.y,WORLD.pegR+2);
+      g.addColorStop(0,'#44566f');g.addColorStop(.55,'#182332');g.addColorStop(1,'#05080d');
+      ctx.fillStyle=g;ctx.strokeStyle='#53647a';ctx.lineWidth=1;
+      ctx.beginPath();ctx.arc(p.x,p.y,WORLD.pegR,0,Math.PI*2);ctx.fill();ctx.stroke();
+    }
+
+    // paddles
+    paddles.forEach(p=>{
+      const r=paddleRect(p);
+      ctx.save();
+      ctx.shadowBlur=20;ctx.shadowColor=p.color;
+      ctx.fillStyle=p.color;ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=2;
+      drawRoundedRect(r.x,r.y,r.w,r.h,9);
+      ctx.restore();
+      ctx.fillStyle='white';ctx.font='900 23px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText('x'+p.multiplier,r.x+r.w/2,r.y+r.h/2);
+      ctx.fillStyle=p.color;ctx.font='900 20px system-ui';
+      ctx.fillText('◀',r.x-17,r.y+r.h/2);ctx.fillText('▶',r.x+r.w+17,r.y+r.h/2);
+    });
+
+    // funnel
+    const fy=H*.80, throatY=H*.92, lh=W*.425, rh=W*.575;
+    ctx.strokeStyle='#455a72';ctx.lineWidth=22;ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(W*.04,fy);ctx.lineTo(lh,throatY);ctx.lineTo(lh,H*.97);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(W*.96,fy);ctx.lineTo(rh,throatY);ctx.lineTo(rh,H*.97);ctx.stroke();
+    ctx.strokeStyle='#22c7ff';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(W*.04,fy);ctx.lineTo(lh,throatY);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(W*.96,fy);ctx.lineTo(rh,throatY);ctx.stroke();
+
+    // balls + trails
+    for(const b of balls){
+      b.trail.forEach((t,i)=>{
+        ctx.fillStyle=`rgba(160,205,255,${(i/b.trail.length)*.15})`;
+        ctx.beginPath();ctx.arc(t.x,t.y,b.r*(i/b.trail.length),0,Math.PI*2);ctx.fill();
+      });
+      const g=ctx.createRadialGradient(b.x-3,b.y-4,1,b.x,b.y,b.r);
+      g.addColorStop(0,'#fff');g.addColorStop(.45,'#d7dde8');g.addColorStop(1,'#657180');
+      ctx.fillStyle=g;ctx.shadowBlur=10;ctx.shadowColor='#bfe5ff';
+      ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+      ctx.fillStyle='#0b1622';ctx.font='800 8px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(String(Math.round(b.value)),b.x,b.y);
+    }
+
+    // particles
+    for(const p of particles){
+      ctx.globalAlpha=Math.max(0,p.life);
+      ctx.fillStyle=p.color;
+      if(p.text){
+        ctx.font='900 18px system-ui';ctx.textAlign='center';ctx.fillText(p.text,p.x,p.y-18*(1-p.life));
+      }else{
+        ctx.beginPath();ctx.arc(p.x,p.y,2.5,0,Math.PI*2);ctx.fill();
+      }
+    }
+    ctx.globalAlpha=1;
+  }
+
+  function endRound(){
+    roundActive=false;
+    updateBoosterUI();
+    renderScoreboard();
+    const arr=[...players.values()].sort((a,b)=>b.score-a.score);
+    let text='';
+    if(arr.length){
+      const winner=arr[0];
+      text=`<div class="winner">${walletLabel(winner.address)} wins with ${Math.round(winner.score)} points!</div>
+      <p>POC reward split: winner receives 50% of the TEST-HPL pool; the other 50% is reserved for the other participating wallets.</p>`;
+    } else text='<p>No players participated in this round.</p>';
+    roundSummary.innerHTML=text;
+    overlay.classList.add('show');
+
+    // SMART CONTRACT POC HOOK:
+    // This is where an authorized finalizer would call the Base Sepolia rewards contract
+    // with round number, winner address, and participant list. The contract itself should
+    // calculate/reserve the 50/50 distribution.
+  }
+
+  function resetRound(){
+    round++;score=0;timeLeft=60;roundActive=true;hasPlayed=false;balls=[];particles=[];players.clear();
+    boosterActive=false;
+    topScoreEl.textContent='0';pointsEl.textContent='0';timerEl.textContent='01:00';
+    roundNoEl.textContent='#'+round;playerCountEl.textContent='0';overlay.classList.remove('show');renderScoreboard();
+    paddles.forEach((p,i)=>{p.multiplier=2+Math.floor(Math.random()*4);p.phase=i*1.6});
+    updateBoosterUI();
+  }
+  newRoundBtn.addEventListener('click',resetRound);
+
+  function loop(now){
+    const dt=Math.min(.033,(now-lastTime)/1000); lastTime=now;
+    if(roundActive){
+      secondBucket+=dt;
+      if(secondBucket>=1){
+        const whole=Math.floor(secondBucket);secondBucket-=whole;timeLeft=Math.max(0,timeLeft-whole);
+        timerEl.textContent='00:'+String(timeLeft).padStart(2,'0');
+        if(timeLeft<=0)endRound();
+      }
+    }
+    update(dt,now);draw();requestAnimationFrame(loop);
+  }
+
+  resize();renderScoreboard();updateBoosterUI();requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
