@@ -158,6 +158,7 @@
   </aside>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 (() => {
   const canvas = document.getElementById('game');
@@ -181,15 +182,26 @@
 
   let W=0,H=0,dpr=1;
   let balls=[], pegs=[], particles=[];
-  let score=0, round=1, timeLeft=60, roundActive=true, hasPlayed=false;
+  const SUPABASE_URL = 'https://edoaonjcbodpccqiglzn.supabase.co';
+  const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_Pfbv5shn4OdBrIe1C3XC3g_NAkHpeZR';
+  const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+  const getRoundId = () => Math.floor(Date.now()/60000); // Everyone shares the same UTC minute.
+  const shortRound = id => String(id).slice(-6);
+
+  let score=0, round=getRoundId(), timeLeft=60, roundActive=true, hasPlayed=false;
   let account=null;
   let fakeHplBalance=1000;
   let boosterActive=false;
   const BOOST_COST=100;
   const BOOST_MULTIPLIER=1.5;
-  let lastTime=performance.now(), secondBucket=0;
-  let players = new Map(); // POC local scoreboard; contract/backend would replace this.
+  let lastTime=performance.now();
+  let players = new Map();
   let nextBallId=1;
+  let realtimeChannel=null;
+  let lastRoundSeen=round;
+  let roundTransition=false;
+  let scoreSyncTimer=null;
 
   const BASE_SEPOLIA_CHAIN_ID = '0x14a34'; // 84532
   const WORLD = { gravity: 980, ballR: 9, pegR: 7, restitution:.72, friction:.995 };
@@ -290,6 +302,8 @@
       }
 
       updateWalletUI();
+      await restoreMyScore();
+      await loadRoundScores();
       if(hasPlayed) ensurePlayer();
 
     }catch(e){
@@ -326,22 +340,71 @@
     window.ethereum.on?.('chainChanged',()=>location.reload());
   }
 
+  async function loadRoundScores(){
+    const {data,error} = await db
+      .from('round_scores')
+      .select('wallet,score')
+      .eq('round_id', round)
+      .order('score', {ascending:false});
+
+    if(error){
+      console.error('Supabase score load failed:', error);
+      networkEl.textContent = account ? 'Base Sepolia • scoreboard sync error' : 'Scoreboard sync error';
+      return;
+    }
+
+    players.clear();
+    for(const row of data || []){
+      players.set(row.wallet.toLowerCase(), {address:row.wallet, score:Number(row.score)||0});
+    }
+    playerCountEl.textContent=players.size;
+    renderScoreboard();
+  }
+
+  async function syncMyScore(){
+    if(!account || !hasPlayed) return;
+    const wallet=account.toLowerCase();
+
+    const {error} = await db
+      .from('round_scores')
+      .upsert({
+        id: Date.now(),
+        round_id: round,
+        wallet,
+        score: Math.round(score),
+        updated_at: new Date().toISOString()
+      }, {onConflict:'round_id,wallet'});
+
+    if(error){
+      console.error('Supabase score write failed:', error);
+      networkEl.textContent='Base Sepolia • score sync error';
+    }
+  }
+
+  function queueScoreSync(){
+    clearTimeout(scoreSyncTimer);
+    scoreSyncTimer=setTimeout(syncMyScore, 100);
+  }
+
   function ensurePlayer(){
-    const id = account || 'LOCAL-GUEST';
+    if(!account) return;
+    const id=account.toLowerCase();
     if(!players.has(id)) players.set(id,{address:id,score:0});
     players.get(id).score=score;
     playerCountEl.textContent=players.size;
     renderScoreboard();
+    queueScoreSync();
   }
 
   function renderScoreboard(){
     const arr=[...players.values()].sort((a,b)=>b.score-a.score);
     if(!arr.length){
-      scoreRows.innerHTML='<tr><td colspan="4" style="text-align:center;color:#75869b;padding:28px 8px">Drop a ball to join this round.</td></tr>';
+      scoreRows.innerHTML='<tr><td colspan="4" style="text-align:center;color:#75869b;padding:28px 8px">No wallets have scored in this round yet.</td></tr>';
       return;
     }
+    const mineAddr=account ? account.toLowerCase() : '';
     scoreRows.innerHTML=arr.map((p,i)=>{
-      const mine=p.address===(account||'LOCAL-GUEST');
+      const mine=p.address.toLowerCase()===mineAddr;
       return `<tr>
         <td class="rank">${i+1}</td>
         <td><strong>${walletLabel(p.address)}</strong>${mine?'<div class="you">YOU</div>':''}</td>
@@ -351,8 +414,45 @@
     }).join('');
   }
 
+  function subscribeToRound(){
+    if(realtimeChannel) db.removeChannel(realtimeChannel);
+
+    realtimeChannel=db
+      .channel('round_scores_'+round)
+      .on('postgres_changes',{
+        event:'*',
+        schema:'public',
+        table:'round_scores',
+        filter:`round_id=eq.${round}`
+      },()=>loadRoundScores())
+      .subscribe();
+
+    loadRoundScores();
+  }
+
+  async function restoreMyScore(){
+    if(!account) return;
+    const {data,error}=await db
+      .from('round_scores')
+      .select('score')
+      .eq('round_id',round)
+      .eq('wallet',account.toLowerCase())
+      .maybeSingle();
+
+    if(!error && data){
+      score=Number(data.score)||0;
+      hasPlayed=true;
+      topScoreEl.textContent=score;
+      pointsEl.textContent=score;
+    }
+  }
+
   function dropBall(clientX){
     if(!roundActive) return;
+    if(!account){
+      networkEl.textContent='Connect MetaMask before playing.';
+      return;
+    }
     const rect=canvas.getBoundingClientRect();
     const x=Math.max(W*.08,Math.min(W*.92,clientX-rect.left));
     balls.push({id:nextBallId++,x,y:55,vx:(Math.random()-.5)*40,vy:0,r:WORLD.ballR,value:10,lastHit:0,trail:[],dead:false,touchedPaddles:new Set()});
@@ -532,6 +632,7 @@
   }
 
   function endRound(){
+    if(!roundActive) return;
     roundActive=false;
     updateBoosterUI();
     renderScoreboard();
@@ -544,37 +645,63 @@
     } else text='<p>No players participated in this round.</p>';
     roundSummary.innerHTML=text;
     overlay.classList.add('show');
-
-    // SMART CONTRACT POC HOOK:
-    // This is where an authorized finalizer would call the Base Sepolia rewards contract
-    // with round number, winner address, and participant list. The contract itself should
-    // calculate/reserve the 50/50 distribution.
   }
 
-  function resetRound(){
-    round++;score=0;timeLeft=60;roundActive=true;hasPlayed=false;balls=[];particles=[];players.clear();
+  function resetForSharedRound(newRound){
+    round=newRound;
+    lastRoundSeen=newRound;
+    score=0;
+    timeLeft=60;
+    roundActive=true;
+    roundTransition=false;
+    hasPlayed=false;
+    balls=[];
+    particles=[];
+    players.clear();
     boosterActive=false;
-    topScoreEl.textContent='0';pointsEl.textContent='0';timerEl.textContent='01:00';
-    roundNoEl.textContent='#'+round;playerCountEl.textContent='0';overlay.classList.remove('show');renderScoreboard();
+    topScoreEl.textContent='0';
+    pointsEl.textContent='0';
+    roundNoEl.textContent='#'+shortRound(round);
+    playerCountEl.textContent='0';
+    overlay.classList.remove('show');
     paddles.forEach((p,i)=>{p.multiplier=2+Math.floor(Math.random()*4);p.phase=i*1.6});
     updateBoosterUI();
+    subscribeToRound();
+    restoreMyScore();
   }
-  newRoundBtn.addEventListener('click',resetRound);
+
+  newRoundBtn.textContent='JOIN CURRENT ROUND';
+  newRoundBtn.addEventListener('click',()=>resetForSharedRound(getRoundId()));
+
+  function updateSharedClock(){
+    const now=Date.now();
+    const current=getRoundId();
+    const secondsIntoMinute=Math.floor((now%60000)/1000);
+    timeLeft=60-secondsIntoMinute;
+    timerEl.textContent='00:'+String(timeLeft).padStart(2,'0');
+
+    if(current!==lastRoundSeen && !roundTransition){
+      roundTransition=true;
+      endRound();
+      setTimeout(()=>resetForSharedRound(getRoundId()),2500);
+    }
+  }
 
   function loop(now){
     const dt=Math.min(.033,(now-lastTime)/1000); lastTime=now;
-    if(roundActive){
-      secondBucket+=dt;
-      if(secondBucket>=1){
-        const whole=Math.floor(secondBucket);secondBucket-=whole;timeLeft=Math.max(0,timeLeft-whole);
-        timerEl.textContent='00:'+String(timeLeft).padStart(2,'0');
-        if(timeLeft<=0)endRound();
-      }
-    }
-    update(dt,now);draw();requestAnimationFrame(loop);
+    updateSharedClock();
+    update(dt,now);
+    draw();
+    requestAnimationFrame(loop);
   }
 
-  resize();renderScoreboard();updateBoosterUI();requestAnimationFrame(loop);
+  resize();
+  roundNoEl.textContent='#'+shortRound(round);
+  renderScoreboard();
+  updateBoosterUI();
+  subscribeToRound();
+  updateSharedClock();
+  requestAnimationFrame(loop);
 })();
 </script>
 </body>
