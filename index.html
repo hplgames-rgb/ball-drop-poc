@@ -740,18 +740,31 @@
     particles.push({x,y,life:1,text:'×'+m,color});
   }
 
+  // Shared paddle multipliers:
+  // Every browser derives the same values from the same 10-second UTC time slot.
+  // No database write is needed, so players stay synced even after refresh.
+  function sharedMultiplier(slot, paddleIndex){
+    // Simple deterministic mix -> integer 2..5.
+    let x = (BigInt(slot) * 1103515245n + BigInt(paddleIndex + 1) * 12345n) & 0x7fffffffn;
+    x = (x ^ (x >> 11n) ^ (x << 7n)) & 0x7fffffffn;
+    return 2 + Number(x % 4n);
+  }
+
+  function syncPaddleMultipliers(){
+    const slot = Math.floor(Date.now()/10000); // one shared slot every 10 seconds
+    paddles.forEach((p,i)=>{
+      p.multiplier = sharedMultiplier(slot,i);
+    });
+  }
+
   function update(dt,now){
+    syncPaddleMultipliers();
     if(!roundActive) return;
     for(const p of paddles){
       p.x += p.dir*p.speed*dt;
       const min=p.side==='left'?.07:.50, max=p.side==='left'?.34:.72;
       if(p.x<min){p.x=min;p.dir=1}
       if(p.x>max){p.x=max;p.dir=-1}
-      p.phase += dt;
-      if(p.phase>4.2){
-        p.phase=0;
-        p.multiplier=2+Math.floor(Math.random()*4);
-      }
     }
 
     for(const b of balls){
@@ -900,7 +913,7 @@
     roundNoEl.textContent='#'+shortRound(round);
     playerCountEl.textContent='0';
     overlay.classList.remove('show');
-    paddles.forEach((p,i)=>{p.multiplier=2+Math.floor(Math.random()*4);p.phase=i*1.6});
+    syncPaddleMultipliers();
     updateBoosterUI();
     subscribeToRound();
     restoreMyScore();
@@ -933,6 +946,7 @@
   }
 
   resize();
+  syncPaddleMultipliers();
   roundNoEl.textContent='#'+shortRound(round);
   renderScoreboard();
   updateBoosterUI();
