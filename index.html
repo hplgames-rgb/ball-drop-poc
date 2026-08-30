@@ -71,6 +71,14 @@
   .claimBtn:hover{filter:brightness(1.18)}
   .claimBtn:disabled{opacity:.45;cursor:not-allowed}
   .claimStatus{font-size:11px;color:#9fb0c4;margin-top:7px}
+  .adminBox{font-size:12px;line-height:1.45}
+  .adminGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:9px}
+  .adminStat{background:#07101a;border:1px solid #26384d;border-radius:9px;padding:8px}
+  .adminStat .v{font-weight:1000;margin-top:2px;overflow-wrap:anywhere}
+  .adminParticipants{font-size:10px;color:#9fb0c4;max-height:62px;overflow:auto;margin:7px 0;overflow-wrap:anywhere}
+  .finalizeBtn{width:100%;border:1px solid #d941ff;background:linear-gradient(180deg,#351044,#17071d);color:#f4baff;border-radius:10px;padding:11px 13px;font-weight:1000;cursor:pointer}
+  .finalizeBtn:hover{filter:brightness(1.18)} .finalizeBtn:disabled{opacity:.45;cursor:not-allowed}
+  .adminStatus{font-size:11px;color:#9fb0c4;margin-top:7px}
   .footer{font-size:10px;text-align:center;color:#76879b;margin-top:8px}
   .overlay{position:absolute;inset:0;background:rgba(3,5,9,.79);display:none;align-items:center;justify-content:center;z-index:5}
   .overlay.show{display:flex}
@@ -169,16 +177,32 @@
       </div>
     </div>
 
+    <div class="card">
+      <div class="cardTitle">ADMIN • FINALIZE LAST ROUND</div>
+      <div class="adminBox">
+        <div class="adminGrid">
+          <div class="adminStat"><div class="small">ROUND</div><div id="adminRound" class="v">—</div></div>
+          <div class="adminStat"><div class="small">AVAILABLE POOL</div><div id="adminPool" class="v">—</div></div>
+          <div class="adminStat"><div class="small">WINNER</div><div id="adminWinner" class="v">—</div></div>
+          <div class="adminStat"><div class="small">PLAYERS</div><div id="adminPlayers" class="v">0</div></div>
+        </div>
+        <div id="adminParticipants" class="adminParticipants">Waiting for a completed round…</div>
+        <button id="finalizeBtn" class="finalizeBtn" disabled>FINALIZE ROUND</button>
+        <div id="adminStatus" class="adminStatus">Connect the Rewards Contract owner wallet to finalize.</div>
+      </div>
+    </div>
+
     <div class="card reward">
       <div class="cardTitle">POC REWARD RULES</div>
       <div>Winner gets <strong>50%</strong> of the round reward pool.</div>
       <div>The other <strong>50%</strong> is split equally among the other participating wallets.</div>
-      <div class="footer">Live rounds + Supabase scoreboard + on-chain TEST-HPL claims are active. Automatic round finalization is the next phase.</div>
+      <div class="footer">Live rounds + Supabase scoreboard + on-chain claims + owner-approved round finalization are active.</div>
     </div>
   </aside>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.umd.min.js"></script>
 <script>
 (() => {
   const canvas = document.getElementById('game');
@@ -202,6 +226,10 @@
   const claimAmountEl = document.getElementById('claimAmount');
   const claimStatusEl = document.getElementById('claimStatus');
   const claimBtn = document.getElementById('claimBtn');
+  const adminRoundEl=document.getElementById('adminRound'), adminPoolEl=document.getElementById('adminPool');
+  const adminWinnerEl=document.getElementById('adminWinner'), adminPlayersEl=document.getElementById('adminPlayers');
+  const adminParticipantsEl=document.getElementById('adminParticipants'), adminStatusEl=document.getElementById('adminStatus');
+  const finalizeBtn=document.getElementById('finalizeBtn');
 
   let W=0,H=0,dpr=1;
   let balls=[], pegs=[], particles=[];
@@ -234,6 +262,13 @@
   const CLAIM_SELECTOR = '0x4e71d92d';     // claim()
 
   let claimableRaw = 0n;
+  const REWARDS_OWNER='0x4aA43223516A42053eBA7d33bD3fc43c525a4433';
+  const REWARDS_ABI=[
+    'function availableRewards() view returns (uint256)',
+    'function roundFinalized(uint256) view returns (bool)',
+    'function finalizeRound(uint256 roundId,address winner,address[] participants)'
+  ];
+  let lastCompletedRound=null;
   const WORLD = { gravity: 980, ballR: 9, pegR: 7, restitution:.72, friction:.995 };
 
   const paddles = [
@@ -385,6 +420,67 @@
 
   claimBtn.addEventListener('click',claimRewards);
 
+  async function readAvailableRewards(){
+    try{
+      const provider=new ethers.BrowserProvider(window.ethereum);
+      const c=new ethers.Contract(REWARDS_CONTRACT,REWARDS_ABI,provider);
+      return await c.availableRewards();
+    }catch(e){ console.error('Available rewards read failed:',e); return null; }
+  }
+
+  async function loadCompletedRound(roundId){
+    try{
+      const {data,error}=await db.from('round_scores').select('wallet,score').eq('round_id',roundId).order('score',{ascending:false});
+      if(error) throw error;
+      const rows=(data||[]).filter(r=>r.wallet);
+      const pool=await readAvailableRewards();
+      lastCompletedRound=rows.length?{roundId,winner:rows[0].wallet.toLowerCase(),participants:rows.map(r=>r.wallet.toLowerCase()),scores:rows}:null;
+      adminRoundEl.textContent='#'+shortRound(roundId);
+      adminPoolEl.textContent=pool===null?'—':formatTokenAmount(BigInt(pool))+' HPL';
+      adminWinnerEl.textContent=lastCompletedRound?walletLabel(lastCompletedRound.winner):'NO PLAYERS';
+      adminPlayersEl.textContent=rows.length;
+      adminParticipantsEl.innerHTML=rows.length?rows.map((r,i)=>`${i+1}. ${walletLabel(r.wallet)} • ${Number(r.score)||0} pts`).join('<br>'):'Nobody participated in this completed round.';
+      let already=false;
+      if(rows.length){
+        try{
+          const provider=new ethers.BrowserProvider(window.ethereum);
+          const c=new ethers.Contract(REWARDS_CONTRACT,REWARDS_ABI,provider);
+          already=await c.roundFinalized(roundId);
+        }catch(e){console.error(e)}
+      }
+      const isOwner=!!account&&account.toLowerCase()===REWARDS_OWNER.toLowerCase();
+      if(already){finalizeBtn.disabled=true;finalizeBtn.textContent='ALREADY FINALIZED';adminStatusEl.textContent='This round is already finalized on-chain.';}
+      else if(!rows.length){finalizeBtn.disabled=true;finalizeBtn.textContent='NO PLAYERS';adminStatusEl.textContent='Nothing to finalize for this round.';}
+      else if(!isOwner){finalizeBtn.disabled=true;finalizeBtn.textContent='FINALIZE ROUND';adminStatusEl.textContent=account?'Only the Rewards Contract owner wallet can finalize.':'Connect the Rewards Contract owner wallet to finalize.';}
+      else if(pool===0n){finalizeBtn.disabled=true;finalizeBtn.textContent='NO REWARD POOL';adminStatusEl.textContent='The Rewards Contract has no available TEST-HPL.';}
+      else{finalizeBtn.disabled=false;finalizeBtn.textContent='FINALIZE ROUND';adminStatusEl.textContent='Owner connected • ready for MetaMask approval.';}
+    }catch(e){console.error(e);adminStatusEl.textContent='Could not load the completed round.';finalizeBtn.disabled=true;}
+  }
+
+  async function refreshLastCompletedRound(){ await loadCompletedRound(getRoundId()-1); }
+
+  async function finalizeLastRound(){
+    if(!lastCompletedRound||!account||account.toLowerCase()!==REWARDS_OWNER.toLowerCase()) return;
+    try{
+      finalizeBtn.disabled=true; finalizeBtn.textContent='CHECK WALLET…'; adminStatusEl.textContent='Confirm finalizeRound() in MetaMask.';
+      const provider=new ethers.BrowserProvider(window.ethereum);
+      const signer=await provider.getSigner();
+      const c=new ethers.Contract(REWARDS_CONTRACT,REWARDS_ABI,signer);
+      const tx=await c.finalizeRound(lastCompletedRound.roundId,lastCompletedRound.winner,lastCompletedRound.participants);
+      finalizeBtn.textContent='FINALIZING…'; adminStatusEl.textContent='Transaction submitted. Waiting for Base Sepolia…';
+      const receipt=await tx.wait();
+      if(!receipt||receipt.status!==1) throw new Error('Transaction did not succeed.');
+      finalizeBtn.textContent='FINALIZED ✓'; adminStatusEl.textContent='Round finalized! Player rewards are now reserved on-chain. 🎉';
+      await refreshClaimable();
+      await loadCompletedRound(lastCompletedRound.roundId);
+    }catch(e){
+      console.error(e); finalizeBtn.textContent='FINALIZE ROUND';
+      adminStatusEl.textContent=(e&&(e.code===4001||e.code==='ACTION_REJECTED'))?'Finalization cancelled in MetaMask.':'Finalization failed: '+(e?.shortMessage||e?.message||'unknown error');
+      await refreshLastCompletedRound();
+    }
+  }
+  finalizeBtn.addEventListener('click',finalizeLastRound);
+
   async function connectWallet(){
     const provider = window.ethereum;
 
@@ -432,6 +528,7 @@
       await restoreMyScore();
       await loadRoundScores();
       await refreshClaimable();
+      await refreshLastCompletedRound();
       if(hasPlayed) ensurePlayer();
 
     }catch(e){
@@ -474,6 +571,7 @@
       await restoreMyScore();
       await loadRoundScores();
       await refreshClaimable();
+      await refreshLastCompletedRound();
     });
     window.ethereum.on?.('chainChanged',()=>location.reload());
   }
@@ -821,6 +919,7 @@
     if(current!==lastRoundSeen && !roundTransition){
       roundTransition=true;
       endRound();
+      loadCompletedRound(lastRoundSeen);
       setTimeout(()=>resetForSharedRound(getRoundId()),2500);
     }
   }
@@ -838,6 +937,7 @@
   renderScoreboard();
   updateBoosterUI();
   subscribeToRound();
+  refreshLastCompletedRound();
   updateSharedClock();
   requestAnimationFrame(loop);
 })();
