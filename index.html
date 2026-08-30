@@ -64,6 +64,13 @@
   .boostBtn:hover{filter:brightness(1.18)}
   .boostBtn:disabled{opacity:.45;cursor:not-allowed}
   .boostActive{color:#66f19a;font-weight:1000}
+  .claimBox{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
+  .claimAmount{font-size:25px;font-weight:1000;color:#66f19a;line-height:1.05}
+  .claimMeta{font-size:11px;color:#9fb0c4;margin-top:5px;line-height:1.4}
+  .claimBtn{border:1px solid #33dc78;background:linear-gradient(180deg,#07351d,#061a10);color:#8dffb8;border-radius:10px;padding:11px 13px;font-weight:1000;cursor:pointer;min-width:118px}
+  .claimBtn:hover{filter:brightness(1.18)}
+  .claimBtn:disabled{opacity:.45;cursor:not-allowed}
+  .claimStatus{font-size:11px;color:#9fb0c4;margin-top:7px}
   .footer{font-size:10px;text-align:center;color:#76879b;margin-top:8px}
   .overlay{position:absolute;inset:0;background:rgba(3,5,9,.79);display:none;align-items:center;justify-content:center;z-index:5}
   .overlay.show{display:flex}
@@ -149,11 +156,24 @@
       </div>
     </div>
 
+    <div class="card">
+      <div class="cardTitle">YOUR ON-CHAIN REWARDS</div>
+      <div class="claimBox">
+        <div>
+          <div class="small">CLAIMABLE TEST-HPL</div>
+          <div id="claimAmount" class="claimAmount">0</div>
+          <div id="claimStatus" class="claimStatus">Connect MetaMask to check rewards.</div>
+          <div class="claimMeta">Rewards can come from a completed round you played earlier. Claiming does not affect the current round.</div>
+        </div>
+        <button id="claimBtn" class="claimBtn" disabled>CLAIM</button>
+      </div>
+    </div>
+
     <div class="card reward">
       <div class="cardTitle">POC REWARD RULES</div>
       <div>Winner gets <strong>50%</strong> of the round reward pool.</div>
       <div>The other <strong>50%</strong> is split equally among the other participating wallets.</div>
-      <div class="footer">Game is playable now. Paddle multipliers are pass-through triggers; the round-contract hook is stubbed until a rewards-contract address/ABI is supplied.</div>
+      <div class="footer">Live rounds + Supabase scoreboard + on-chain TEST-HPL claims are active. Automatic round finalization is the next phase.</div>
     </div>
   </aside>
 </div>
@@ -179,6 +199,9 @@
   const overlay = document.getElementById('roundOverlay');
   const roundSummary = document.getElementById('roundSummary');
   const newRoundBtn = document.getElementById('newRoundBtn');
+  const claimAmountEl = document.getElementById('claimAmount');
+  const claimStatusEl = document.getElementById('claimStatus');
+  const claimBtn = document.getElementById('claimBtn');
 
   let W=0,H=0,dpr=1;
   let balls=[], pegs=[], particles=[];
@@ -204,6 +227,13 @@
   let scoreSyncTimer=null;
 
   const BASE_SEPOLIA_CHAIN_ID = '0x14a34'; // 84532
+  const REWARDS_CONTRACT = '0xd7a85DcE951D9c81Fb0464c6d238A82162A926a1';
+
+  // Minimal ABI encoding for the two functions the player UI needs.
+  const CLAIMABLE_SELECTOR = '0x402914f5'; // claimable(address)
+  const CLAIM_SELECTOR = '0x4e71d92d';     // claim()
+
+  let claimableRaw = 0n;
   const WORLD = { gravity: 980, ballR: 9, pegR: 7, restitution:.72, friction:.995 };
 
   const paddles = [
@@ -258,6 +288,103 @@
     return addr ? addr.slice(0,6)+'…'+addr.slice(-4) : 'LOCAL-GUEST';
   }
 
+  function encodeAddressCall(selector, addr){
+    return selector + addr.toLowerCase().replace(/^0x/,'').padStart(64,'0');
+  }
+
+  function formatTokenAmount(raw){
+    const base = 10n ** 18n;
+    const whole = raw / base;
+    const frac = raw % base;
+    if(frac === 0n) return whole.toLocaleString();
+    let f = frac.toString().padStart(18,'0').replace(/0+$/,'').slice(0,6);
+    return Number(whole).toLocaleString() + '.' + f;
+  }
+
+  async function refreshClaimable(){
+    if(!account || !window.ethereum){
+      claimableRaw=0n;
+      claimAmountEl.textContent='0';
+      claimStatusEl.textContent='Connect MetaMask to check rewards.';
+      claimBtn.disabled=true;
+      return;
+    }
+
+    try{
+      claimStatusEl.textContent='Checking Base Sepolia…';
+      const data = encodeAddressCall(CLAIMABLE_SELECTOR, account);
+      const result = await window.ethereum.request({
+        method:'eth_call',
+        params:[{to:REWARDS_CONTRACT,data}, 'latest']
+      });
+      claimableRaw = BigInt(result || '0x0');
+      claimAmountEl.textContent = formatTokenAmount(claimableRaw);
+      claimBtn.disabled = claimableRaw === 0n;
+      claimStatusEl.textContent = claimableRaw > 0n
+        ? 'Reserved on-chain and ready to claim.'
+        : 'No rewards are currently reserved for this wallet.';
+    }catch(e){
+      console.error('Claimable lookup failed:',e);
+      claimableRaw=0n;
+      claimAmountEl.textContent='—';
+      claimStatusEl.textContent='Could not read rewards contract.';
+      claimBtn.disabled=true;
+    }
+  }
+
+  async function claimRewards(){
+    if(!account || claimableRaw===0n) return;
+
+    try{
+      claimBtn.disabled=true;
+      claimBtn.textContent='CHECK WALLET…';
+      claimStatusEl.textContent='Confirm the claim in MetaMask.';
+
+      const txHash = await window.ethereum.request({
+        method:'eth_sendTransaction',
+        params:[{
+          from:account,
+          to:REWARDS_CONTRACT,
+          data:CLAIM_SELECTOR,
+          value:'0x0'
+        }]
+      });
+
+      claimBtn.textContent='CLAIMING…';
+      claimStatusEl.textContent='Transaction submitted. Waiting for Base Sepolia…';
+
+      // Poll for receipt; no external library required.
+      let receipt=null;
+      for(let i=0;i<60;i++){
+        await new Promise(r=>setTimeout(r,2000));
+        receipt=await window.ethereum.request({
+          method:'eth_getTransactionReceipt',
+          params:[txHash]
+        });
+        if(receipt) break;
+      }
+
+      if(receipt && receipt.status==='0x1'){
+        claimStatusEl.textContent='Claim successful! TEST-HPL sent to your wallet. 🎉';
+      }else if(receipt){
+        claimStatusEl.textContent='Claim transaction failed.';
+      }else{
+        claimStatusEl.textContent='Transaction submitted. Refresh shortly to see the updated reward balance.';
+      }
+
+      await refreshClaimable();
+    }catch(e){
+      console.error('Claim failed:',e);
+      if(e && e.code===4001) claimStatusEl.textContent='Claim cancelled in MetaMask.';
+      else claimStatusEl.textContent='Claim failed: '+(e?.message || 'unknown wallet error');
+    }finally{
+      claimBtn.textContent='CLAIM';
+      claimBtn.disabled=claimableRaw===0n;
+    }
+  }
+
+  claimBtn.addEventListener('click',claimRewards);
+
   async function connectWallet(){
     const provider = window.ethereum;
 
@@ -304,6 +431,7 @@
       updateWalletUI();
       await restoreMyScore();
       await loadRoundScores();
+      await refreshClaimable();
       if(hasPlayed) ensurePlayer();
 
     }catch(e){
@@ -336,7 +464,17 @@
   connectBtn.addEventListener('click',connectWallet);
 
   if(window.ethereum){
-    window.ethereum.on?.('accountsChanged',a=>{account=a[0]||null;updateWalletUI();});
+    window.ethereum.on?.('accountsChanged',async a=>{
+      account=a[0]||null;
+      score=0;
+      hasPlayed=false;
+      topScoreEl.textContent='0';
+      pointsEl.textContent='0';
+      updateWalletUI();
+      await restoreMyScore();
+      await loadRoundScores();
+      await refreshClaimable();
+    });
     window.ethereum.on?.('chainChanged',()=>location.reload());
   }
 
