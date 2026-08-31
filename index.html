@@ -255,13 +255,15 @@
   let scoreSyncTimer=null;
 
   const BASE_SEPOLIA_CHAIN_ID = '0x14a34'; // 84532
-  const REWARDS_CONTRACT = '0xd7a85DcE951D9c81Fb0464c6d238A82162A926a1';
+  const REWARDS_CONTRACT = '0xDfA45F0C110CDB5d9209F8bb7cfAf03d2b2C9c32';
 
   // Minimal ABI encoding for the two functions the player UI needs.
   const CLAIMABLE_SELECTOR = '0x402914f5'; // claimable(address)
   const CLAIM_SELECTOR = '0x4e71d92d';     // claim()
 
   let claimableRaw = 0n;
+  let claimRefreshTimer = null;
+  let lastClaimableRaw = 0n;
   const REWARDS_OWNER='0x4aA43223516A42053eBA7d33bD3fc43c525a4433';
   const REWARDS_ABI=[
     'function availableRewards() view returns (uint256)',
@@ -336,9 +338,10 @@
     return Number(whole).toLocaleString() + '.' + f;
   }
 
-  async function refreshClaimable(){
+  async function refreshClaimable(silent=false){
     if(!account || !window.ethereum){
       claimableRaw=0n;
+      lastClaimableRaw=0n;
       claimAmountEl.textContent='0';
       claimStatusEl.textContent='Connect MetaMask to check rewards.';
       claimBtn.disabled=true;
@@ -346,24 +349,57 @@
     }
 
     try{
-      claimStatusEl.textContent='Checking Base Sepolia…';
+      if(!silent) claimStatusEl.textContent='Checking Base Sepolia…';
       const data = encodeAddressCall(CLAIMABLE_SELECTOR, account);
       const result = await window.ethereum.request({
         method:'eth_call',
         params:[{to:REWARDS_CONTRACT,data}, 'latest']
       });
+      const previous = claimableRaw;
       claimableRaw = BigInt(result || '0x0');
       claimAmountEl.textContent = formatTokenAmount(claimableRaw);
       claimBtn.disabled = claimableRaw === 0n;
-      claimStatusEl.textContent = claimableRaw > 0n
-        ? 'Reserved on-chain and ready to claim.'
-        : 'No rewards are currently reserved for this wallet.';
+
+      if(claimableRaw > previous && previous >= 0n){
+        claimStatusEl.textContent = 'New reward detected! Reserved on-chain and ready to claim. 🎉';
+      }else{
+        claimStatusEl.textContent = claimableRaw > 0n
+          ? 'Reserved on-chain and ready to claim. Auto-checking every 5 seconds.'
+          : 'No rewards reserved yet • auto-checking every 5 seconds.';
+      }
+      lastClaimableRaw = claimableRaw;
     }catch(e){
       console.error('Claimable lookup failed:',e);
-      claimableRaw=0n;
-      claimAmountEl.textContent='—';
-      claimStatusEl.textContent='Could not read rewards contract.';
-      claimBtn.disabled=true;
+      if(!silent){
+        claimAmountEl.textContent='—';
+        claimStatusEl.textContent='Could not read rewards contract.';
+      }
+      claimBtn.disabled=claimableRaw===0n;
+    }
+  }
+
+  function startClaimableAutoRefresh(){
+    if(claimRefreshTimer) clearInterval(claimRefreshTimer);
+    claimRefreshTimer=setInterval(()=>{
+      if(account && document.visibilityState==='visible') refreshClaimable(true);
+    },5000);
+  }
+
+  async function restoreConnectedWallet(){
+    if(!window.ethereum) return;
+    try{
+      const accts=await window.ethereum.request({method:'eth_accounts'});
+      account=accts && accts[0] ? accts[0] : null;
+      updateWalletUI();
+      if(account){
+        await restoreMyScore();
+        await loadRoundScores();
+        await refreshClaimable();
+        await refreshLastCompletedRound();
+        if(hasPlayed) ensurePlayer();
+      }
+    }catch(e){
+      console.error('Silent wallet restore failed:',e);
     }
   }
 
@@ -575,6 +611,11 @@
     });
     window.ethereum.on?.('chainChanged',()=>location.reload());
   }
+
+  window.addEventListener('focus',()=>{ if(account) refreshClaimable(true); });
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible' && account) refreshClaimable(true);
+  });
 
   async function loadRoundScores(){
     const {data,error} = await db
@@ -933,6 +974,11 @@
       roundTransition=true;
       endRound();
       loadCompletedRound(lastRoundSeen);
+      // The cron finalizer normally lands shortly after the minute changes.
+      // These checks make a newly reserved reward appear without a manual refresh/reconnect.
+      setTimeout(()=>refreshClaimable(true),5000);
+      setTimeout(()=>refreshClaimable(true),12000);
+      setTimeout(()=>refreshClaimable(true),25000);
       setTimeout(()=>resetForSharedRound(getRoundId()),2500);
     }
   }
@@ -952,6 +998,8 @@
   updateBoosterUI();
   subscribeToRound();
   refreshLastCompletedRound();
+  startClaimableAutoRefresh();
+  restoreConnectedWallet();
   updateSharedClock();
   requestAnimationFrame(loop);
 })();
