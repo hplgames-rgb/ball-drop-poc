@@ -120,7 +120,7 @@
   <section class="left">
     <div class="topbar">
       <div class="brand"><div><span>BALL</span><span>DROP</span></div><div class="small">BASE SEPOLIA POC</div></div>
-      <div class="time"><div class="small">ROUND TIME LEFT</div><div id="timer" class="big">01:00</div></div>
+      <div class="time"><div class="small">ROUND TIME LEFT</div><div id="timer" class="big">01:30</div></div>
       <div class="scoreTop"><div class="small">SCORE</div><div id="topScore" class="big">0</div></div>
     </div>
 
@@ -288,10 +288,11 @@
   const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_Pfbv5shn4OdBrIe1C3XC3g_NAkHpeZR';
   const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
-  const getRoundId = () => Math.floor(Date.now()/60000); // Everyone shares the same UTC minute.
+  const ROUND_MS = 90000; // Shared 90-second wall-clock rounds.
+  const getRoundId = () => Math.floor(Date.now()/ROUND_MS);
   const shortRound = id => String(id).slice(-6);
 
-  let score=0, round=getRoundId(), timeLeft=60, roundActive=true, hasPlayed=false;
+  let score=0, round=getRoundId(), timeLeft=90, roundActive=true, hasPlayed=false;
   let account=null;
   let fakeHplBalance=1000;
   let boosterActive=false;
@@ -1123,7 +1124,7 @@
     round=newRound;
     lastRoundSeen=newRound;
     score=0;
-    timeLeft=60;
+    timeLeft=90;
     roundActive=true;
     roundTransition=false;
     hasPlayed=false;
@@ -1148,18 +1149,25 @@
   function updateSharedClock(){
     const now=Date.now();
     const current=getRoundId();
-    const secondsIntoMinute=Math.floor((now%60000)/1000);
-    timeLeft=60-secondsIntoMinute;
-    timerEl.textContent='00:'+String(timeLeft).padStart(2,'0');
+    const elapsed=Math.floor((now%ROUND_MS)/1000);
+    timeLeft=90-elapsed;
+
+    const mins=Math.floor(timeLeft/60);
+    const secs=timeLeft%60;
+    timerEl.textContent=String(mins).padStart(2,'0')+':'+String(secs).padStart(2,'0');
 
     if(current!==lastRoundSeen && !roundTransition){
       roundTransition=true;
       endRound();
-      // The cron finalizer normally lands shortly after the minute changes.
-      // These checks make a newly reserved reward appear without a manual refresh/reconnect.
+
+      // Cron can stay OFF during gameplay/power-up testing.
+      // These claimable checks are harmless and will simply find nothing new
+      // until automatic finalization is enabled again.
       setTimeout(()=>refreshClaimable(true),5000);
       setTimeout(()=>refreshClaimable(true),12000);
       setTimeout(()=>refreshClaimable(true),25000);
+
+      // Brief results overlay, then everybody joins the next shared round.
       setTimeout(()=>resetForSharedRound(getRoundId()),2500);
     }
   }
@@ -1178,7 +1186,7 @@
   renderScoreboard();
   updateBoosterUI();
   subscribeToRound();
-  refreshLastCompletedRound();
+  // Phase 4: no stale admin-finalizer startup call; gameplay loop reaches requestAnimationFrame normally.
   startClaimableAutoRefresh();
   setInterval(()=>{ if(window.ethereum && document.visibilityState==='visible'){ refreshPool(); if(account) refreshWalletBalances(); } },10000);
   restoreConnectedWallet();
