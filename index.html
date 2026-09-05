@@ -120,6 +120,14 @@
   .prepNotice.play{border-color:#174d77;background:#071725;color:#78d7ff}
 
 
+
+  .dexStats{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}
+  .dexStat{border:1px solid #28394e;background:#07101a;border-radius:9px;padding:8px;min-width:0}
+  .dexStatLabel{font-size:8px;color:#91a5bb;font-weight:900;letter-spacing:.55px}
+  .dexStatValue{font-size:14px;color:#eaf7ff;font-weight:1000;margin-top:3px;word-break:break-word}
+  .dexStatValue.smallValue{font-size:11px}
+  .dexStatsNote{font-size:9px;color:#71869c;margin-top:5px;line-height:1.35}
+
   .reflGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .reflStat{padding:8px;border:1px solid #29384c;border-radius:9px;background:#070d15}
   .reflWide{grid-column:1/-1}
@@ -187,6 +195,26 @@
         </div>
       </div>
 
+      <div class="dexStats">
+        <div class="dexStat">
+          <div class="dexStatLabel">TEST-HPL2 POOL PRICE</div>
+          <div id="tokenPriceEth" class="dexStatValue">— ETH</div>
+        </div>
+        <div class="dexStat">
+          <div class="dexStatLabel">1 ETH ≈</div>
+          <div id="hplPerEth" class="dexStatValue">— HPL</div>
+        </div>
+        <div class="dexStat">
+          <div class="dexStatLabel">POOL LIQUIDITY</div>
+          <div id="poolLiquidity" class="dexStatValue smallValue">—</div>
+        </div>
+        <div class="dexStat">
+          <div class="dexStatLabel">YOUR 24H SELL ROOM</div>
+          <div id="sellAllowance" class="dexStatValue smallValue">—</div>
+        </div>
+      </div>
+      <div class="dexStatsNote">Live from the TEST-HPL2/WETH Base Sepolia pair • market price is derived from pool reserves.</div>
+
       <div id="tradePanel" class="tradePanel">
         <div class="tradeTabs">
           <button id="buyTab" class="tradeTab active">BUY HPL</button>
@@ -198,21 +226,21 @@
             <input id="buyEthInput" class="tradeInput" type="number" min="0" step="0.000001" placeholder="0.00001">
             <span class="tradeUnit">ETH</span>
           </div>
-          <div id="buyEstimate" class="tradeEstimate">Enter an amount to estimate TEST-HPL received.</div>
-          <div class="tradeTax">TEST-HPL's 10% tokenomics apply to the token transfer.</div>
+          <div id="buyEstimate" class="tradeEstimate">Enter an amount to estimate TEST-HPL2 received.</div>
+          <div class="tradeTax">TEST-HPL2's 10% tokenomics apply to AMM buys and sells.</div>
           <button id="buyHplBtn" class="tradeAction">BUY TEST-HPL2</button>
         </div>
         <div id="sellTrade" style="display:none">
           <div class="tradeLabel">YOU SELL</div>
           <div class="tradeInputWrap">
             <input id="sellHplInput" class="tradeInput" type="number" min="0" step="1" placeholder="1000">
-            <span class="tradeUnit">TEST-HPL</span>
+            <span class="tradeUnit">TEST-HPL2</span>
           </div>
           <div id="sellEstimate" class="tradeEstimate">Enter an amount to estimate ETH received.</div>
           <div class="tradeTax">Approval is handled automatically when the Router needs it.</div>
           <button id="sellHplBtn" class="tradeAction sell">SELL TEST-HPL2</button>
         </div>
-        <div id="tradeStatus" class="tradeStatus">Trades use the HPL POC V2 Router on Base Sepolia.</div>
+        <div id="tradeStatus" class="tradeStatus">LIVE POC DEX • TEST-HPL2/WETH • 10% tokenomics on buys/sells.</div>
       </div>
     </div>
 
@@ -315,7 +343,7 @@
       <div class="cardTitle">POC REWARD RULES</div>
       <div>Winner gets <strong>50%</strong> of the round reward pool.</div>
       <div>The other <strong>50%</strong> is split equally among the other participating wallets.</div>
-      <div class="footer">30s prep + 90s gameplay • TEST-HPL2 marketplace + inventory + reflections + claims • DEX swaps disabled until TEST-HPL2 LP is seeded.</div>
+      <div class="footer">PHASE 8 • 30s prep + 90s gameplay • TEST-HPL2 live DEX + marketplace + inventory + rewards + compounding reflections.</div>
     </div>
   </aside>
 </div>
@@ -375,6 +403,10 @@
   const buyHplBtn = document.getElementById('buyHplBtn');
   const sellHplBtn = document.getElementById('sellHplBtn');
   const tradeStatusEl = document.getElementById('tradeStatus');
+  const tokenPriceEthEl = document.getElementById('tokenPriceEth');
+  const hplPerEthEl = document.getElementById('hplPerEth');
+  const poolLiquidityEl = document.getElementById('poolLiquidity');
+  const sellAllowanceEl = document.getElementById('sellAllowance');
 
   let W=0,H=0,dpr=1;
   let balls=[], pegs=[], particles=[];
@@ -423,6 +455,7 @@
   const TEST_HPL = '0x5fdcf9bcf8bd5b37e2f986d4965ed302e4feff92';
   const WETH = '0x4200000000000000000000000000000000000006';
   const ROUTER = '0x837e965e801b64429cf4aa070a1834a578688497';
+  const PAIR = '0x7afec6afd8a377dc03a5aa4389bffaf258daba6f';
   const POWERUPS_CONTRACT = '0xc49eccd7ae6b9e0c5c4ee33cfc14afbcf49e8767';
   const REFLECTIONS_CONTRACT = '0x84ac9828cf9b4193749e9779ac36cba70acdbb70';
   const HPL_DECIMALS = 18;
@@ -430,12 +463,18 @@
   const TOKEN_ABI = [
     'function balanceOf(address) view returns (uint256)',
     'function allowance(address,address) view returns (uint256)',
-    'function approve(address,uint256) returns (bool)'
+    'function approve(address,uint256) returns (bool)',
+    'function remainingSellAllowance(address) view returns (uint256)'
   ];
   const ROUTER_ABI = [
     'function getAmountsOut(uint256,address[]) view returns (uint256[])',
     'function swapExactETHForTokensSupportingFeeOnTransferTokens(uint256,address[],address,uint256) payable',
     'function swapExactTokensForETHSupportingFeeOnTransferTokens(uint256,uint256,address[],address,uint256)'
+  ];
+  const PAIR_ABI = [
+    'function token0() view returns (address)',
+    'function token1() view returns (address)',
+    'function getReserves() view returns (uint112 reserve0,uint112 reserve1,uint32 blockTimestampLast)'
   ];
   const POWERUPS_ABI = [
     'function powerUps(uint256) view returns (uint256 price,bool active,string name)',
@@ -663,7 +702,7 @@
       );
 
       reflectionStatusEl.textContent=claimable>0n
-        ? 'Reflections are already compounding while unclaimed.'
+        ? 'Reflections are compounding while unclaimed • live refresh every 5s.'
         : 'No unclaimed reflections right now.';
     }catch(e){
       console.error('Reflection read failed:',e);
@@ -789,7 +828,7 @@
         await restoreMyScore();
         await loadRoundScores();
         await refreshClaimable();
-        await Promise.all([refreshWalletBalances(), refreshPool(), refreshInventoryAndActivations(), refreshReflections()]);
+        await Promise.all([refreshWalletBalances(), refreshPool(), refreshInventoryAndActivations(), refreshReflections(), refreshDexStats()]);
         if(hasPlayed) ensurePlayer();
       }
     }catch(e){
@@ -863,6 +902,85 @@
     poolEl.textContent = pool === null ? '—' : Number(ethers.formatUnits(pool,18)).toLocaleString(undefined,{maximumFractionDigits:2});
   }
 
+  function compactNumber(n, maxFrac=2){
+    return Number(n).toLocaleString(undefined,{maximumFractionDigits:maxFrac});
+  }
+
+  function formatTinyEth(n){
+    const x=Number(n);
+    if(!Number.isFinite(x) || x<=0) return '— ETH';
+    if(x>=0.0001) return x.toFixed(8).replace(/0+$/,'').replace(/\.$/,'')+' ETH';
+    return x.toExponential(6)+' ETH';
+  }
+
+  async function refreshDexStats(){
+    if(!window.ethereum){
+      tokenPriceEthEl.textContent='— ETH';
+      hplPerEthEl.textContent='— HPL';
+      poolLiquidityEl.textContent='—';
+      sellAllowanceEl.textContent='—';
+      return;
+    }
+
+    try{
+      const provider=new ethers.BrowserProvider(window.ethereum);
+      const pair=new ethers.Contract(PAIR,PAIR_ABI,provider);
+
+      const [token0,token1,reserves]=await Promise.all([
+        pair.token0(),
+        pair.token1(),
+        pair.getReserves()
+      ]);
+
+      const r0=reserves[0];
+      const r1=reserves[1];
+      const token0Lower=token0.toLowerCase();
+      const wethLower=WETH.toLowerCase();
+      const hplLower=TEST_HPL.toLowerCase();
+
+      let wethReserve;
+      let hplReserve;
+
+      if(token0Lower===wethLower && token1.toLowerCase()===hplLower){
+        wethReserve=r0;
+        hplReserve=r1;
+      }else if(token0Lower===hplLower && token1.toLowerCase()===wethLower){
+        hplReserve=r0;
+        wethReserve=r1;
+      }else{
+        throw new Error('Unexpected tokens in configured pair.');
+      }
+
+      const weth=Number(ethers.formatEther(wethReserve));
+      const hpl=Number(ethers.formatUnits(hplReserve,HPL_DECIMALS));
+      const priceEth=hpl>0 ? weth/hpl : 0;
+      const perEth=weth>0 ? hpl/weth : 0;
+
+      tokenPriceEthEl.textContent=formatTinyEth(priceEth);
+      hplPerEthEl.textContent=compactNumber(perEth,0)+' HPL';
+      poolLiquidityEl.textContent=compactNumber(hpl,0)+' HPL • '+weth.toFixed(6)+' ETH';
+
+      if(account){
+        const token=new ethers.Contract(TEST_HPL,TOKEN_ABI,provider);
+        const remaining=await token.remainingSellAllowance(account);
+        // owner/system exemptions return uint256 max; don't render that absurd integer.
+        if(remaining > 10n**50n){
+          sellAllowanceEl.textContent='EXEMPT';
+        }else{
+          sellAllowanceEl.textContent=compactNumber(ethers.formatUnits(remaining,HPL_DECIMALS),2)+' HPL';
+        }
+      }else{
+        sellAllowanceEl.textContent='Connect wallet';
+      }
+    }catch(e){
+      console.error('DEX stats refresh failed:',e);
+      tokenPriceEthEl.textContent='— ETH';
+      hplPerEthEl.textContent='— HPL';
+      poolLiquidityEl.textContent='Could not read LP';
+      sellAllowanceEl.textContent=account?'—':'Connect wallet';
+    }
+  }
+
   async function refreshWalletBalances(){
     if(!account || !window.ethereum){
       walletHplBalanceEl.textContent='—';
@@ -916,7 +1034,7 @@
         const net=gross*90n/100n;
         buyEstimateEl.innerHTML=`Pool quote: <strong>${Number(ethers.formatUnits(gross,18)).toLocaleString(undefined,{maximumFractionDigits:2})} HPL</strong><br>Estimated after 10% tokenomics: <strong>≈ ${Number(ethers.formatUnits(net,18)).toLocaleString(undefined,{maximumFractionDigits:2})} HPL</strong>`;
       }catch(e){ buyEstimateEl.textContent='Could not estimate this buy.'; }
-    }else buyEstimateEl.textContent='Enter an amount to estimate TEST-HPL received.';
+    }else buyEstimateEl.textContent='Enter an amount to estimate TEST-HPL2 received.';
 
     const sellVal=sellHplInput.value.trim();
     if(sellVal && Number(sellVal)>0){
@@ -961,9 +1079,9 @@
       buyHplBtn.textContent='BUYING…';
       tradeStatusEl.textContent='Buy submitted • waiting for Base Sepolia…';
       await tx.wait();
-      tradeStatusEl.textContent='BUY complete! TEST-HPL received and tokenomics applied. 🎉';
+      tradeStatusEl.textContent='BUY complete! TEST-HPL2 received and tokenomics applied. 🎉';
       buyEthInput.value='';
-      await Promise.all([refreshWalletBalances(),refreshPool(),refreshClaimable(true),refreshInventoryAndActivations()]);
+      await Promise.all([refreshWalletBalances(),refreshPool(),refreshClaimable(true),refreshInventoryAndActivations(),refreshReflections(),refreshDexStats()]);
       await updateTradeEstimates();
     }catch(e){
       console.error('Buy failed:',e);
@@ -977,7 +1095,7 @@
   async function sellHpl(){
     if(!account) return;
     const val=sellHplInput.value.trim();
-    if(!val || Number(val)<=0){tradeStatusEl.textContent='Enter a TEST-HPL amount first.';return;}
+    if(!val || Number(val)<=0){tradeStatusEl.textContent='Enter a TEST-HPL2 amount first.';return;}
     try{
       sellHplBtn.disabled=true;
       sellHplBtn.textContent='CHECKING…';
@@ -988,7 +1106,7 @@
       const router=new ethers.Contract(ROUTER,ROUTER_ABI,signer);
       const amountIn=ethers.parseUnits(val,HPL_DECIMALS);
       const balance=await token.balanceOf(account);
-      if(balance<amountIn) throw new Error('Not enough TEST-HPL in this wallet.');
+      if(balance<amountIn) throw new Error('Not enough TEST-HPL2 in this wallet.');
 
       const allowance=await token.allowance(account,ROUTER);
       if(allowance<amountIn){
@@ -1013,7 +1131,7 @@
       await tx.wait();
       tradeStatusEl.textContent='SELL complete! Base Sepolia ETH returned to your wallet. 🎉';
       sellHplInput.value='';
-      await Promise.all([refreshWalletBalances(),refreshPool(),refreshClaimable(true),refreshInventoryAndActivations()]);
+      await Promise.all([refreshWalletBalances(),refreshPool(),refreshClaimable(true),refreshInventoryAndActivations(),refreshReflections(),refreshDexStats()]);
       await updateTradeEstimates();
     }catch(e){
       console.error('Sell failed:',e);
@@ -1074,7 +1192,7 @@
       await restoreMyScore();
       await loadRoundScores();
       await refreshClaimable();
-      await Promise.all([refreshWalletBalances(), refreshPool(), refreshInventoryAndActivations(), refreshReflections()]);
+      await Promise.all([refreshWalletBalances(), refreshPool(), refreshInventoryAndActivations(), refreshReflections(), refreshDexStats()]);
       if(hasPlayed) ensurePlayer();
 
     }catch(e){
@@ -1124,7 +1242,7 @@
       await restoreMyScore();
       await loadRoundScores();
       await refreshClaimable();
-      await Promise.all([refreshWalletBalances(), refreshPool(), refreshInventoryAndActivations(), refreshReflections()]);
+      await Promise.all([refreshWalletBalances(), refreshPool(), refreshInventoryAndActivations(), refreshReflections(), refreshDexStats()]);
     });
     window.ethereum.on?.('chainChanged',()=>location.reload());
   }
@@ -1542,17 +1660,6 @@
   }
 
 
-  // Phase 7 intentionally disables DEX swaps until a TEST-HPL2/WETH pool is seeded.
-  const dexBuyActionBtn = document.getElementById('dexBuyBtn');
-  const dexSellActionBtn = document.getElementById('dexSellBtn');
-  if(dexBuyActionBtn){
-    dexBuyActionBtn.disabled=true;
-    dexBuyActionBtn.title='TEST-HPL2 liquidity pool has not been created yet.';
-  }
-  if(dexSellActionBtn){
-    dexSellActionBtn.disabled=true;
-    dexSellActionBtn.title='TEST-HPL2 liquidity pool has not been created yet.';
-  }
 
   resize();
   if(currentPhase==='prep') enterPrepPhase(round); else enterPlayPhase();
@@ -1562,11 +1669,22 @@
   renderCart();
   renderInventory();
   refreshReflections();
+  refreshDexStats();
   subscribeToRound();
   // Phase 4: no stale admin-finalizer startup call; gameplay loop reaches requestAnimationFrame normally.
   startClaimableAutoRefresh();
+
+  // Live holder-reflection refresh: read-only calls, no MetaMask popup.
+  setInterval(()=>{
+    if(window.ethereum && document.visibilityState==='visible'){
+      refreshDexStats();
+      if(account) refreshReflections();
+    }
+  },5000);
+
   setInterval(()=>{ if(window.ethereum && document.visibilityState==='visible'){
     refreshPool();
+    refreshDexStats();
     if(account){
       refreshWalletBalances();
       refreshInventoryAndActivations();
