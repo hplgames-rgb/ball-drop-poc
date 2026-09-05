@@ -119,6 +119,17 @@
   .prepNotice{font-size:11px;text-align:center;padding:7px;border:1px solid #6b4c12;background:#201706;color:#ffe083;border-radius:9px;margin-bottom:8px}
   .prepNotice.play{border-color:#174d77;background:#071725;color:#78d7ff}
 
+
+  .reflGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .reflStat{padding:8px;border:1px solid #29384c;border-radius:9px;background:#070d15}
+  .reflWide{grid-column:1/-1}
+  .reflLabel{font-size:9px;color:#9fb0c4;font-weight:900;letter-spacing:.6px}
+  .reflValue{font-size:17px;font-weight:1000;color:#e9f6ff;margin-top:3px}
+  .reflEarn{color:#63f29b}
+  .reflNote{font-size:10px;color:#9fb0c4;line-height:1.45;margin-top:8px}
+  .claimReflBtn{width:100%;margin-top:8px;border:1px solid #33dc78;background:#071f13;color:#88ffb3;border-radius:9px;padding:10px;font-weight:1000;cursor:pointer}
+  .claimReflBtn:disabled{opacity:.42;cursor:not-allowed}
+
   .footer{font-size:10px;text-align:center;color:#76879b;margin-top:8px}
   .overlay{position:absolute;inset:0;background:rgba(3,5,9,.79);display:none;align-items:center;justify-content:center;z-index:5}
   .overlay.show{display:flex}
@@ -189,7 +200,7 @@
           </div>
           <div id="buyEstimate" class="tradeEstimate">Enter an amount to estimate TEST-HPL received.</div>
           <div class="tradeTax">TEST-HPL's 10% tokenomics apply to the token transfer.</div>
-          <button id="buyHplBtn" class="tradeAction">BUY TEST-HPL</button>
+          <button id="buyHplBtn" class="tradeAction">BUY TEST-HPL2</button>
         </div>
         <div id="sellTrade" style="display:none">
           <div class="tradeLabel">YOU SELL</div>
@@ -199,7 +210,7 @@
           </div>
           <div id="sellEstimate" class="tradeEstimate">Enter an amount to estimate ETH received.</div>
           <div class="tradeTax">Approval is handled automatically when the Router needs it.</div>
-          <button id="sellHplBtn" class="tradeAction sell">SELL TEST-HPL</button>
+          <button id="sellHplBtn" class="tradeAction sell">SELL TEST-HPL2</button>
         </div>
         <div id="tradeStatus" class="tradeStatus">Trades use the HPL POC V2 Router on Base Sepolia.</div>
       </div>
@@ -267,6 +278,27 @@
     </div>
 
     <div class="card">
+      <div class="cardTitle">✨ HPL REFLECTIONS</div>
+      <div class="reflGrid">
+        <div class="reflStat">
+          <div class="reflLabel">WALLET BALANCE</div>
+          <div id="reflWalletBalance" class="reflValue">—</div>
+        </div>
+        <div class="reflStat">
+          <div class="reflLabel">UNCLAIMED REFLECTIONS</div>
+          <div id="reflClaimable" class="reflValue reflEarn">—</div>
+        </div>
+        <div class="reflStat reflWide">
+          <div class="reflLabel">REFLECTION-ELIGIBLE HOLDINGS</div>
+          <div id="reflEligible" class="reflValue">—</div>
+        </div>
+      </div>
+      <div class="reflNote">3% of taxable HPL activity is allocated to eligible holders. No staking • No lockup • Unclaimed reflections keep compounding.</div>
+      <button id="claimReflectionsBtn" class="claimReflBtn" disabled>CLAIM REFLECTIONS</button>
+      <div id="reflectionStatus" class="marketStatus">Connect a wallet to view holder reflections.</div>
+    </div>
+
+    <div class="card">
       <div class="cardTitle">YOUR ON-CHAIN REWARDS</div>
       <div class="claimBox">
         <div>
@@ -283,7 +315,7 @@
       <div class="cardTitle">POC REWARD RULES</div>
       <div>Winner gets <strong>50%</strong> of the round reward pool.</div>
       <div>The other <strong>50%</strong> is split equally among the other participating wallets.</div>
-      <div class="footer">30s prep + 90s gameplay • V2 marketplace + on-chain inventory/activation • claims + POC DEX trading. Cron may remain off during testing.</div>
+      <div class="footer">30s prep + 90s gameplay • TEST-HPL2 marketplace + inventory + reflections + claims • DEX swaps disabled until TEST-HPL2 LP is seeded.</div>
     </div>
   </aside>
 </div>
@@ -311,6 +343,11 @@
   const marketStatusEl = document.getElementById('marketStatus');
   const prepNoticeEl = document.getElementById('prepNotice');
   const inventoryStatusEl = document.getElementById('inventoryStatus');
+  const reflWalletBalanceEl = document.getElementById('reflWalletBalance');
+  const reflClaimableEl = document.getElementById('reflClaimable');
+  const reflEligibleEl = document.getElementById('reflEligible');
+  const claimReflectionsBtn = document.getElementById('claimReflectionsBtn');
+  const reflectionStatusEl = document.getElementById('reflectionStatus');
   const qtyEls = {1:document.getElementById('qty1'),2:document.getElementById('qty2'),3:document.getElementById('qty3')};
   const invEls = {1:document.getElementById('inv1'),2:document.getElementById('inv2'),3:document.getElementById('inv3')};
   const activeEls = {1:document.getElementById('active1'),2:document.getElementById('active2'),3:document.getElementById('active3')};
@@ -373,7 +410,7 @@
   let scoreSyncTimer=null;
 
   const BASE_SEPOLIA_CHAIN_ID = '0x14a34'; // 84532
-  const REWARDS_CONTRACT = '0xDfA45F0C110CDB5d9209F8bb7cfAf03d2b2C9c32';
+  const REWARDS_CONTRACT = '0xe3658fd720f6d6b2c1f2757a9ea645630457d7f7';
 
   // Minimal ABI encoding for the two functions the player UI needs.
   const CLAIMABLE_SELECTOR = '0x402914f5'; // claimable(address)
@@ -383,10 +420,11 @@
   let claimRefreshTimer = null;
   let lastClaimableRaw = 0n;
 
-  const TEST_HPL = '0xD8d06926930D7d2280ba7F58068110118226B5cE';
+  const TEST_HPL = '0x5fdcf9bcf8bd5b37e2f986d4965ed302e4feff92';
   const WETH = '0x4200000000000000000000000000000000000006';
   const ROUTER = '0x837e965e801b64429cf4aa070a1834a578688497';
-  const POWERUPS_CONTRACT = '0xcd21ccab26169d170ca382daed1985d18918fbeb';
+  const POWERUPS_CONTRACT = '0xc49eccd7ae6b9e0c5c4ee33cfc14afbcf49e8767';
+  const REFLECTIONS_CONTRACT = '0x84ac9828cf9b4193749e9779ac36cba70acdbb70';
   const HPL_DECIMALS = 18;
   const REWARDS_ABI = ['function availableRewards() view returns (uint256)'];
   const TOKEN_ABI = [
@@ -406,6 +444,11 @@
     'function inventoryOf(address,uint256) view returns (uint256)',
     'function isActiveForRound(uint256,address,uint256) view returns (bool)',
     'function activatePowerUp(uint256,uint256)'
+  ];
+  const REFLECTIONS_ABI = [
+    'function claimableReflections(address) view returns (uint256)',
+    'function reflectionEligibleHoldings(address) view returns (uint256)',
+    'function claimReflections() returns (uint256)'
   ];
   const WORLD = { gravity: 980, ballR: 9, pegR: 7, restitution:.72, friction:.995 };
 
@@ -582,6 +625,96 @@
 
   for(const id of [1,2,3]) activateBtns[id].addEventListener('click',()=>activateInventoryItem(id));
 
+  let reflectionBusy=false;
+
+  function formatHpl(raw){
+    const n=Number(ethers.formatUnits(raw,HPL_DECIMALS));
+    return n.toLocaleString(undefined,{maximumFractionDigits:4})+' HPL';
+  }
+
+  async function refreshReflections(){
+    if(!account || !window.ethereum){
+      reflWalletBalanceEl.textContent='—';
+      reflClaimableEl.textContent='—';
+      reflEligibleEl.textContent='—';
+      claimReflectionsBtn.disabled=true;
+      reflectionStatusEl.textContent='Connect a wallet to view holder reflections.';
+      return;
+    }
+
+    try{
+      const provider=new ethers.BrowserProvider(window.ethereum);
+      const token=new ethers.Contract(TEST_HPL,TOKEN_ABI,provider);
+      const refl=new ethers.Contract(REFLECTIONS_CONTRACT,REFLECTIONS_ABI,provider);
+
+      const [walletBal,claimable,eligible]=await Promise.all([
+        token.balanceOf(account),
+        refl.claimableReflections(account),
+        refl.reflectionEligibleHoldings(account)
+      ]);
+
+      reflWalletBalanceEl.textContent=formatHpl(walletBal);
+      reflClaimableEl.textContent='+'+formatHpl(claimable);
+      reflEligibleEl.textContent=formatHpl(eligible);
+
+      claimReflectionsBtn.disabled=reflectionBusy || claimable===0n;
+      claimReflectionsBtn.textContent=reflectionBusy?'CLAIMING…':(
+        claimable===0n?'NO REFLECTIONS TO CLAIM':'CLAIM '+Number(ethers.formatUnits(claimable,HPL_DECIMALS)).toLocaleString(undefined,{maximumFractionDigits:4})+' HPL'
+      );
+
+      reflectionStatusEl.textContent=claimable>0n
+        ? 'Reflections are already compounding while unclaimed.'
+        : 'No unclaimed reflections right now.';
+    }catch(e){
+      console.error('Reflection read failed:',e);
+      reflWalletBalanceEl.textContent='—';
+      reflClaimableEl.textContent='—';
+      reflEligibleEl.textContent='—';
+      claimReflectionsBtn.disabled=true;
+      reflectionStatusEl.textContent='Could not read reflection data.';
+    }
+  }
+
+  async function claimReflectionsFromUI(){
+    if(!account || reflectionBusy) return;
+
+    try{
+      reflectionBusy=true;
+      claimReflectionsBtn.disabled=true;
+      claimReflectionsBtn.textContent='CLAIMING…';
+      reflectionStatusEl.textContent='Confirm your reflection claim in MetaMask.';
+
+      await ensureBaseSepolia();
+
+      const provider=new ethers.BrowserProvider(window.ethereum);
+      const signer=await provider.getSigner();
+      const refl=new ethers.Contract(REFLECTIONS_CONTRACT,REFLECTIONS_ABI,signer);
+
+      const claimable=await refl.claimableReflections(account);
+      if(claimable===0n) throw new Error('No reflections available to claim.');
+
+      const tx=await refl.claimReflections();
+      reflectionStatusEl.textContent='Claim submitted • waiting for Base Sepolia…';
+      await tx.wait();
+
+      reflectionStatusEl.textContent='Reflections claimed tax-free. ✨';
+      await Promise.all([
+        refreshReflections(),
+        refreshWalletBalances()
+      ]);
+    }catch(e){
+      console.error('Reflection claim failed:',e);
+      reflectionStatusEl.textContent=(e?.code===4001||e?.code==='ACTION_REJECTED')
+        ? 'Reflection claim cancelled in MetaMask.'
+        : 'Claim failed: '+(e?.shortMessage||e?.message||'unknown error');
+    }finally{
+      reflectionBusy=false;
+      await refreshReflections();
+    }
+  }
+
+  claimReflectionsBtn.addEventListener('click',claimReflectionsFromUI);
+
   function walletLabel(addr){
     return addr ? addr.slice(0,6)+'…'+addr.slice(-4) : 'LOCAL-GUEST';
   }
@@ -656,7 +789,7 @@
         await restoreMyScore();
         await loadRoundScores();
         await refreshClaimable();
-        await Promise.all([refreshWalletBalances(), refreshPool(), refreshInventoryAndActivations()]);
+        await Promise.all([refreshWalletBalances(), refreshPool(), refreshInventoryAndActivations(), refreshReflections()]);
         if(hasPlayed) ensurePlayer();
       }
     }catch(e){
@@ -837,7 +970,7 @@
       tradeStatusEl.textContent=(e?.code===4001||e?.code==='ACTION_REJECTED')?'Buy cancelled in MetaMask.':'Buy failed: '+(e?.shortMessage||e?.message||'unknown error');
     }finally{
       buyHplBtn.disabled=false;
-      buyHplBtn.textContent='BUY TEST-HPL';
+      buyHplBtn.textContent='BUY TEST-HPL2';
     }
   }
 
@@ -887,7 +1020,7 @@
       tradeStatusEl.textContent=(e?.code===4001||e?.code==='ACTION_REJECTED')?'Sell/approval cancelled in MetaMask.':'Sell failed: '+(e?.shortMessage||e?.message||'unknown error');
     }finally{
       sellHplBtn.disabled=false;
-      sellHplBtn.textContent='SELL TEST-HPL';
+      sellHplBtn.textContent='SELL TEST-HPL2';
     }
   }
 
@@ -941,7 +1074,7 @@
       await restoreMyScore();
       await loadRoundScores();
       await refreshClaimable();
-      await Promise.all([refreshWalletBalances(), refreshPool(), refreshInventoryAndActivations()]);
+      await Promise.all([refreshWalletBalances(), refreshPool(), refreshInventoryAndActivations(), refreshReflections()]);
       if(hasPlayed) ensurePlayer();
 
     }catch(e){
@@ -991,7 +1124,7 @@
       await restoreMyScore();
       await loadRoundScores();
       await refreshClaimable();
-      await Promise.all([refreshWalletBalances(), refreshPool(), refreshInventoryAndActivations()]);
+      await Promise.all([refreshWalletBalances(), refreshPool(), refreshInventoryAndActivations(), refreshReflections()]);
     });
     window.ethereum.on?.('chainChanged',()=>location.reload());
   }
@@ -1408,6 +1541,19 @@
     requestAnimationFrame(loop);
   }
 
+
+  // Phase 7 intentionally disables DEX swaps until a TEST-HPL2/WETH pool is seeded.
+  const dexBuyActionBtn = document.getElementById('dexBuyBtn');
+  const dexSellActionBtn = document.getElementById('dexSellBtn');
+  if(dexBuyActionBtn){
+    dexBuyActionBtn.disabled=true;
+    dexBuyActionBtn.title='TEST-HPL2 liquidity pool has not been created yet.';
+  }
+  if(dexSellActionBtn){
+    dexSellActionBtn.disabled=true;
+    dexSellActionBtn.title='TEST-HPL2 liquidity pool has not been created yet.';
+  }
+
   resize();
   if(currentPhase==='prep') enterPrepPhase(round); else enterPlayPhase();
   syncPaddleMultipliers();
@@ -1415,6 +1561,7 @@
   renderScoreboard();
   renderCart();
   renderInventory();
+  refreshReflections();
   subscribeToRound();
   // Phase 4: no stale admin-finalizer startup call; gameplay loop reaches requestAnimationFrame normally.
   startClaimableAutoRefresh();
@@ -1423,6 +1570,7 @@
     if(account){
       refreshWalletBalances();
       refreshInventoryAndActivations();
+      refreshReflections();
     }
   } },10000);
   restoreConnectedWallet();
