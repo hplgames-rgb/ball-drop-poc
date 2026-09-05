@@ -98,6 +98,27 @@
   .tradeStatus{font-size:10px;color:#9fb0c4;margin-top:7px;min-height:15px;line-height:1.4}
   .poolLive{font-size:10px;color:#7be8a6;text-align:center;margin-top:6px}
 
+
+  .marketRows,.inventoryRows{display:grid;gap:8px}
+  .marketItem,.inventoryItem{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:8px;border:1px solid #29384c;border-radius:10px;background:#070d15}
+  .marketName,.inventoryName{font-weight:1000;font-size:12px}
+  .marketDesc,.inventoryMeta{font-size:10px;color:#92a4ba;margin-top:2px;line-height:1.35}
+  .marketPrice{color:#ffd82e;font-weight:1000;font-size:11px;margin-top:3px}
+  .qtyCtl{display:flex;align-items:center;gap:5px}
+  .qtyBtn{width:27px;height:27px;border:1px solid #40536b;background:#0c1724;color:#d9e8f7;border-radius:7px;font-weight:1000;cursor:pointer}
+  .qtyVal{width:28px;text-align:center;font-weight:1000}
+  .cartSummary{display:flex;justify-content:space-between;align-items:center;margin-top:9px;padding-top:8px;border-top:1px solid #27384d;font-size:12px}
+  .cartTotal{font-size:17px;font-weight:1000;color:#ffd82e}
+  .marketBuy{width:100%;margin-top:8px;border:1px solid #ffc928;background:linear-gradient(180deg,#3a2800,#181000);color:#ffe980;border-radius:9px;padding:10px;font-weight:1000;cursor:pointer}
+  .marketBuy:disabled{opacity:.45;cursor:not-allowed}
+  .marketStatus{font-size:10px;color:#9fb0c4;margin-top:7px;line-height:1.4;min-height:14px}
+  .inventoryCount{color:#fff;font-weight:1000}
+  .activateBtn{border:1px solid #33dc78;background:#071f13;color:#88ffb3;border-radius:8px;padding:8px 9px;font-weight:1000;cursor:pointer;min-width:88px}
+  .activateBtn:disabled{opacity:.4;cursor:not-allowed}
+  .activeBadge{color:#63f29b;font-weight:1000;font-size:10px}
+  .prepNotice{font-size:11px;text-align:center;padding:7px;border:1px solid #6b4c12;background:#201706;color:#ffe083;border-radius:9px;margin-bottom:8px}
+  .prepNotice.play{border-color:#174d77;background:#071725;color:#78d7ff}
+
   .footer{font-size:10px;text-align:center;color:#76879b;margin-top:8px}
   .overlay{position:absolute;inset:0;background:rgba(3,5,9,.79);display:none;align-items:center;justify-content:center;z-index:5}
   .overlay.show{display:flex}
@@ -120,13 +141,13 @@
   <section class="left">
     <div class="topbar">
       <div class="brand"><div><span>BALL</span><span>DROP</span></div><div class="small">BASE SEPOLIA POC</div></div>
-      <div class="time"><div class="small">ROUND TIME LEFT</div><div id="timer" class="big">01:30</div></div>
+      <div class="time"><div id="phaseLabel" class="small">NEXT ROUND STARTS IN</div><div id="timer" class="big">00:30</div></div>
       <div class="scoreTop"><div class="small">SCORE</div><div id="topScore" class="big">0</div></div>
     </div>
 
     <div class="boardShell">
       <canvas id="game"></canvas>
-      <div class="dropHint"><b>▼ ▼</b> CLICK NEAR THE TOP TO DROP A BALL <b>▼ ▼</b></div>
+      <div id="dropHint" class="dropHint"><b>⚡</b> PREP PHASE • EQUIP POWER-UPS <b>⚡</b></div>
       <div class="pointsBox"><div class="label">YOUR POINTS</div><div id="points" class="value">0</div></div>
 
       <div id="roundOverlay" class="overlay">
@@ -205,16 +226,44 @@
     </div>
 
     <div class="card">
-      <div class="cardTitle">POWER-UP SHOP</div>
-      <div class="boosterBox">
-        <div>
-          <div class="boosterTitle">⚡ 1.5× BALL BOOSTER</div>
-          <div class="boosterMeta">Applies 1.5× to every ball you score for the rest of this round.</div>
-          <div class="fakeBalance">Wallet TEST-HPL: <strong id="boostHplBalance">—</strong></div>
-          <div id="boostStatus" class="boosterMeta">On-chain • Tax-free in-game spend • 100 HPL → Rewards V2</div>
+      <div class="cardTitle">HPL MARKETPLACE</div>
+      <div class="marketRows">
+        <div class="marketItem">
+          <div><div class="marketName">⚡ 1.5× Ball Booster</div><div class="marketDesc">Multiplies scored balls by 1.5× for the equipped round.</div><div class="marketPrice">100 HPL each</div></div>
+          <div class="qtyCtl"><button class="qtyBtn" data-id="1" data-delta="-1">−</button><span id="qty1" class="qtyVal">0</span><button class="qtyBtn" data-id="1" data-delta="1">+</button></div>
         </div>
-        <button id="boostBtn" class="boostBtn">BUY • 100 HPL</button>
+        <div class="marketItem">
+          <div><div class="marketName">🎯 Extra Ball Drop</div><div class="marketDesc">Each click drops a bonus second ball during the equipped round.</div><div class="marketPrice">50 HPL each</div></div>
+          <div class="qtyCtl"><button class="qtyBtn" data-id="2" data-delta="-1">−</button><span id="qty2" class="qtyVal">0</span><button class="qtyBtn" data-id="2" data-delta="1">+</button></div>
+        </div>
+        <div class="marketItem">
+          <div><div class="marketName">☠️ 2× Score Booster</div><div class="marketDesc">Doubles final scored points for the equipped round. Completely reasonable.</div><div class="marketPrice">250 HPL each</div></div>
+          <div class="qtyCtl"><button class="qtyBtn" data-id="3" data-delta="-1">−</button><span id="qty3" class="qtyVal">0</span><button class="qtyBtn" data-id="3" data-delta="1">+</button></div>
+        </div>
       </div>
+      <div class="cartSummary"><span>Cart total</span><span id="cartTotal" class="cartTotal">0 HPL</span></div>
+      <button id="buyCartBtn" class="marketBuy" disabled>BUY CART</button>
+      <div id="marketStatus" class="marketStatus">Tax-free in-game purchase • 100% of spent HPL goes to Rewards V2.</div>
+    </div>
+
+    <div class="card">
+      <div class="cardTitle">POWER-UP INVENTORY</div>
+      <div id="prepNotice" class="prepNotice">PREP PHASE • Activate items for this upcoming round.</div>
+      <div class="inventoryRows">
+        <div class="inventoryItem">
+          <div><div class="inventoryName">⚡ 1.5× Ball Booster × <span id="inv1" class="inventoryCount">0</span></div><div id="active1" class="inventoryMeta">Not equipped</div></div>
+          <button id="activate1" class="activateBtn" data-id="1">ACTIVATE</button>
+        </div>
+        <div class="inventoryItem">
+          <div><div class="inventoryName">🎯 Extra Ball Drop × <span id="inv2" class="inventoryCount">0</span></div><div id="active2" class="inventoryMeta">Not equipped</div></div>
+          <button id="activate2" class="activateBtn" data-id="2">ACTIVATE</button>
+        </div>
+        <div class="inventoryItem">
+          <div><div class="inventoryName">☠️ 2× Score Booster × <span id="inv3" class="inventoryCount">0</span></div><div id="active3" class="inventoryMeta">Not equipped</div></div>
+          <button id="activate3" class="activateBtn" data-id="3">ACTIVATE</button>
+        </div>
+      </div>
+      <div id="inventoryStatus" class="marketStatus">Inventory is stored on-chain by wallet.</div>
     </div>
 
     <div class="card">
@@ -234,7 +283,7 @@
       <div class="cardTitle">POC REWARD RULES</div>
       <div>Winner gets <strong>50%</strong> of the round reward pool.</div>
       <div>The other <strong>50%</strong> is split equally among the other participating wallets.</div>
-      <div class="footer">Live rounds + shared scoreboard + on-chain power-ups + claims + POC DEX trading. Auto-finalizer cron may remain off during testing.</div>
+      <div class="footer">30s prep + 90s gameplay • V2 marketplace + on-chain inventory/activation • claims + POC DEX trading. Cron may remain off during testing.</div>
     </div>
   </aside>
 </div>
@@ -255,9 +304,17 @@
   const networkEl = document.getElementById('network');
   const playerCountEl = document.getElementById('playerCount');
   const roundNoEl = document.getElementById('roundNo');
-  const boostHplBalanceEl = document.getElementById('boostHplBalance');
-  const boostStatusEl = document.getElementById('boostStatus');
-  const boostBtn = document.getElementById('boostBtn');
+  const phaseLabelEl = document.getElementById('phaseLabel');
+  const dropHintEl = document.getElementById('dropHint');
+  const cartTotalEl = document.getElementById('cartTotal');
+  const buyCartBtn = document.getElementById('buyCartBtn');
+  const marketStatusEl = document.getElementById('marketStatus');
+  const prepNoticeEl = document.getElementById('prepNotice');
+  const inventoryStatusEl = document.getElementById('inventoryStatus');
+  const qtyEls = {1:document.getElementById('qty1'),2:document.getElementById('qty2'),3:document.getElementById('qty3')};
+  const invEls = {1:document.getElementById('inv1'),2:document.getElementById('inv2'),3:document.getElementById('inv3')};
+  const activeEls = {1:document.getElementById('active1'),2:document.getElementById('active2'),3:document.getElementById('active3')};
+  const activateBtns = {1:document.getElementById('activate1'),2:document.getElementById('activate2'),3:document.getElementById('activate3')};
   const overlay = document.getElementById('roundOverlay');
   const roundSummary = document.getElementById('roundSummary');
   const newRoundBtn = document.getElementById('newRoundBtn');
@@ -288,19 +345,25 @@
   const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_Pfbv5shn4OdBrIe1C3XC3g_NAkHpeZR';
   const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
-  const ROUND_MS = 90000; // Shared 90-second wall-clock rounds.
-  const getRoundId = () => Math.floor(Date.now()/ROUND_MS);
+  const PREP_MS = 30000;
+  const GAME_MS = 90000;
+  const CYCLE_MS = PREP_MS + GAME_MS;
+  const getRoundId = () => Math.floor(Date.now()/CYCLE_MS);
+  const cyclePos = () => Date.now()%CYCLE_MS;
+  const isPrepPhase = () => cyclePos()<PREP_MS;
   const shortRound = id => String(id).slice(-6);
-  const onChainRoundId = () => BigInt(shortRound(round)); // Matches the ROUND INFO number shown to players.
+  const onChainRoundId = () => BigInt(shortRound(round));
 
-  let score=0, round=getRoundId(), timeLeft=90, roundActive=true, hasPlayed=false;
+  let score=0, round=getRoundId(), timeLeft=0, roundActive=!isPrepPhase(), hasPlayed=false;
   let account=null;
-  let boosterActive=false;
-  let boosterBusy=false;
-  const BOOST_COST=100;
-  const BOOST_COST_RAW=ethers.parseUnits('100',18);
-  const BOOST_MULTIPLIER=1.5;
-  const POWERUP_ID=1;
+  let currentPhase=isPrepPhase()?'prep':'play';
+  let marketplaceBusy=false;
+  let activationBusy=false;
+  const POWERUP_PRICES = {1:ethers.parseUnits('100',18),2:ethers.parseUnits('50',18),3:ethers.parseUnits('250',18)};
+  const MARKET_ALLOWANCE = ethers.parseUnits('5000',18);
+  const cartQty = {1:0,2:0,3:0};
+  const inventoryQty = {1:0n,2:0n,3:0n};
+  const activePowerUps = {1:false,2:false,3:false};
   let lastTime=performance.now();
   let players = new Map();
   let nextBallId=1;
@@ -323,7 +386,7 @@
   const TEST_HPL = '0xD8d06926930D7d2280ba7F58068110118226B5cE';
   const WETH = '0x4200000000000000000000000000000000000006';
   const ROUTER = '0x837e965e801b64429cf4aa070a1834a578688497';
-  const POWERUPS_CONTRACT = '0xed70006a0143a0f1ffecf74dd9232f6125a01f40';
+  const POWERUPS_CONTRACT = '0xcd21ccab26169d170ca382daed1985d18918fbeb';
   const HPL_DECIMALS = 18;
   const REWARDS_ABI = ['function availableRewards() view returns (uint256)'];
   const TOKEN_ABI = [
@@ -337,9 +400,12 @@
     'function swapExactTokensForETHSupportingFeeOnTransferTokens(uint256,uint256,address[],address,uint256)'
   ];
   const POWERUPS_ABI = [
-    'function purchases(uint256,address,uint256) view returns (uint256)',
-    'function hasPowerUp(uint256,address,uint256) view returns (bool)',
-    'function purchasePowerUp(uint256,uint256)'
+    'function powerUps(uint256) view returns (uint256 price,bool active,string name)',
+    'function quoteCart(uint256[],uint256[]) view returns (uint256)',
+    'function purchaseCart(uint256[],uint256[])',
+    'function inventoryOf(address,uint256) view returns (uint256)',
+    'function isActiveForRound(uint256,address,uint256) view returns (bool)',
+    'function activatePowerUp(uint256,uint256)'
   ];
   const WORLD = { gravity: 980, ballR: 9, pegR: 7, restitution:.72, friction:.995 };
 
@@ -370,125 +436,151 @@
     }
   }
 
-  function updateBoosterUI(){
-    if(boosterActive){
-      boostStatusEl.innerHTML='<span class="boostActive">ACTIVE • 1.5× ALL SCORED BALLS • ON-CHAIN</span>';
-      boostBtn.textContent='ACTIVE';
-      boostBtn.disabled=true;
-    }else if(boosterBusy){
-      boostBtn.disabled=true;
-    }else{
-      boostStatusEl.textContent='On-chain • Tax-free in-game spend • 100 HPL → Rewards V2';
-      boostBtn.textContent='BUY • '+BOOST_COST+' HPL';
-      boostBtn.disabled=!roundActive || !account;
-    }
+  function cartTotalRaw(){
+    return POWERUP_PRICES[1]*BigInt(cartQty[1]) + POWERUP_PRICES[2]*BigInt(cartQty[2]) + POWERUP_PRICES[3]*BigInt(cartQty[3]);
   }
 
-  async function refreshBoosterBalance(){
-    if(!account || !window.ethereum){
-      boostHplBalanceEl.textContent='—';
-      return;
-    }
+  function renderCart(){
+    for(const id of [1,2,3]) qtyEls[id].textContent=cartQty[id];
+    const total=cartTotalRaw();
+    const human=Number(ethers.formatUnits(total,18));
+    cartTotalEl.textContent=human.toLocaleString()+' HPL';
+    buyCartBtn.disabled=!account || marketplaceBusy || total===0n;
+    buyCartBtn.textContent=marketplaceBusy?'WORKING…':(total===0n?'BUY CART':'BUY CART • '+human.toLocaleString()+' HPL');
+  }
+
+  document.querySelectorAll('.qtyBtn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const id=Number(btn.dataset.id),delta=Number(btn.dataset.delta);
+      cartQty[id]=Math.max(0,Math.min(99,cartQty[id]+delta));
+      renderCart();
+    });
+  });
+
+  async function refreshInventoryAndActivations(){
+    for(const id of [1,2,3]){ inventoryQty[id]=0n; activePowerUps[id]=false; }
+    if(!account || !window.ethereum){ renderInventory(); return; }
+
     try{
       const provider=new ethers.BrowserProvider(window.ethereum);
-      const token=new ethers.Contract(TEST_HPL,TOKEN_ABI,provider);
-      const raw=await token.balanceOf(account);
-      boostHplBalanceEl.textContent=Number(ethers.formatUnits(raw,HPL_DECIMALS)).toLocaleString(undefined,{maximumFractionDigits:2})+' HPL';
+      const p=new ethers.Contract(POWERUPS_CONTRACT,POWERUPS_ABI,provider);
+      const rid=onChainRoundId();
+      const vals=await Promise.all([
+        p.inventoryOf(account,1),p.isActiveForRound(rid,account,1),
+        p.inventoryOf(account,2),p.isActiveForRound(rid,account,2),
+        p.inventoryOf(account,3),p.isActiveForRound(rid,account,3)
+      ]);
+      for(let i=0;i<3;i++){
+        const id=i+1;
+        inventoryQty[id]=vals[i*2];
+        activePowerUps[id]=vals[i*2+1];
+      }
     }catch(e){
-      console.error('Booster balance read failed:',e);
-      boostHplBalanceEl.textContent='—';
+      console.error('Inventory/activation refresh failed:',e);
+      inventoryStatusEl.textContent='Could not read power-up inventory.';
     }
+    renderInventory();
   }
 
-  async function refreshBoosterEntitlement(){
-    boosterActive=false;
-    if(!account || !window.ethereum){
-      updateBoosterUI();
-      return;
+  function renderInventory(){
+    const prep=currentPhase==='prep';
+    prepNoticeEl.classList.toggle('play',!prep);
+    prepNoticeEl.textContent=prep
+      ? 'PREP PHASE • Activate inventory for Round #'+shortRound(round)+'.'
+      : 'ROUND IN PROGRESS • Activations reopen during the next 30-second prep phase.';
+
+    for(const id of [1,2,3]){
+      invEls[id].textContent=inventoryQty[id].toString();
+      const active=activePowerUps[id];
+      activeEls[id].innerHTML=active?'<span class="activeBadge">✓ EQUIPPED FOR ROUND #'+shortRound(round)+'</span>':'Not equipped';
+      activateBtns[id].disabled=!account || !prep || activationBusy || active || inventoryQty[id]===0n;
+      activateBtns[id].textContent=active?'ACTIVE':'ACTIVATE';
     }
-    try{
-      const provider=new ethers.BrowserProvider(window.ethereum);
-      const powerups=new ethers.Contract(POWERUPS_CONTRACT,POWERUPS_ABI,provider);
-      boosterActive=await powerups.hasPowerUp(onChainRoundId(),account,POWERUP_ID);
-    }catch(e){
-      console.error('Power-up entitlement read failed:',e);
-    }
-    updateBoosterUI();
+
+    const effects=[];
+    if(activePowerUps[1]) effects.push('1.5× Ball');
+    if(activePowerUps[2]) effects.push('Extra Ball');
+    if(activePowerUps[3]) effects.push('2× Score');
+    inventoryStatusEl.textContent=effects.length?'Equipped: '+effects.join(' + '):'Inventory is stored on-chain by wallet.';
   }
 
-  async function buyBooster(){
-    if(!roundActive || boosterActive || boosterBusy || !account) return;
+  async function buyCart(){
+    const total=cartTotalRaw();
+    if(!account || total===0n || marketplaceBusy) return;
 
     try{
-      boosterBusy=true;
-      boostBtn.disabled=true;
-      boostBtn.textContent='CHECKING…';
-      boostStatusEl.textContent='Checking TEST-HPL balance and approval…';
-
+      marketplaceBusy=true; renderCart();
+      marketStatusEl.textContent='Checking wallet balance and marketplace allowance…';
       await ensureBaseSepolia();
 
       const provider=new ethers.BrowserProvider(window.ethereum);
       const signer=await provider.getSigner();
       const token=new ethers.Contract(TEST_HPL,TOKEN_ABI,signer);
-      const powerups=new ethers.Contract(POWERUPS_CONTRACT,POWERUPS_ABI,signer);
+      const p=new ethers.Contract(POWERUPS_CONTRACT,POWERUPS_ABI,signer);
 
       const balance=await token.balanceOf(account);
-      if(balance<BOOST_COST_RAW){
-        throw new Error('You need at least 100 TEST-HPL to buy this booster.');
-      }
+      if(balance<total) throw new Error('Not enough TEST-HPL for this cart.');
 
-      // If the round rolled over while the wallet prompt was open, purchase for
-      // the round currently visible at the instant the transaction is prepared.
-      const purchaseRound=onChainRoundId();
+      const ids=[],qtys=[];
+      for(const id of [1,2,3]) if(cartQty[id]>0){ ids.push(id); qtys.push(cartQty[id]); }
 
-      const alreadyOwned=await powerups.hasPowerUp(purchaseRound,account,POWERUP_ID);
-      if(alreadyOwned){
-        boosterActive=true;
-        boostStatusEl.innerHTML='<span class="boostActive">ACTIVE • entitlement already exists on-chain</span>';
-        return;
-      }
+      const quoted=await p.quoteCart(ids,qtys);
+      if(quoted!==total) throw new Error('Cart quote changed. Refresh and try again.');
 
       const allowance=await token.allowance(account,POWERUPS_CONTRACT);
-      if(allowance<BOOST_COST_RAW){
-        boostBtn.textContent='APPROVE…';
-        boostStatusEl.textContent='Step 1 of 2 • Approve 100 TEST-HPL in MetaMask.';
-        const approveTx=await token.approve(POWERUPS_CONTRACT,BOOST_COST_RAW);
-        boostStatusEl.textContent='Approval submitted • waiting for Base Sepolia…';
+      if(allowance<total){
+        const approvalAmount=total>MARKET_ALLOWANCE?total:MARKET_ALLOWANCE;
+        marketStatusEl.textContent='First marketplace use • approve up to '+Number(ethers.formatUnits(approvalAmount,18)).toLocaleString()+' HPL in MetaMask.';
+        const approveTx=await token.approve(POWERUPS_CONTRACT,approvalAmount);
         await approveTx.wait();
       }
 
-      // Prevent buying for a round that expired while approval was confirming.
-      if(purchaseRound!==onChainRoundId()){
-        throw new Error('The round changed during approval. Click BUY again for the new round.');
-      }
-
-      boostBtn.textContent='BUYING…';
-      boostStatusEl.textContent='Step 2 of 2 • Confirm the tax-free power-up purchase in MetaMask.';
-      const tx=await powerups.purchasePowerUp(purchaseRound,POWERUP_ID);
-      boostStatusEl.textContent='Purchase submitted • waiting for Base Sepolia…';
+      marketStatusEl.textContent='Confirm the '+Number(ethers.formatUnits(total,18)).toLocaleString()+' HPL cart purchase in MetaMask.';
+      const tx=await p.purchaseCart(ids,qtys);
+      marketStatusEl.textContent='Cart submitted • waiting for Base Sepolia…';
       await tx.wait();
 
-      boosterActive=true;
-      boostStatusEl.innerHTML='<span class="boostActive">ACTIVE • 100 HPL sent tax-free to Rewards V2 🎉</span>';
-
-      await Promise.all([
-        refreshBoosterBalance(),
-        refreshWalletBalances(),
-        refreshPool()
-      ]);
+      for(const id of [1,2,3]) cartQty[id]=0;
+      marketStatusEl.textContent='Purchase complete! Full HPL amount sent tax-free to Rewards V2. 🛒🎉';
+      await Promise.all([refreshInventoryAndActivations(),refreshWalletBalances(),refreshPool()]);
     }catch(e){
-      console.error('Power-up purchase failed:',e);
-      if(e?.code===4001 || e?.code==='ACTION_REJECTED'){
-        boostStatusEl.textContent='Power-up purchase cancelled in MetaMask.';
-      }else{
-        boostStatusEl.textContent='Power-up failed: '+(e?.shortMessage||e?.message||'unknown error');
-      }
+      console.error('Cart purchase failed:',e);
+      marketStatusEl.textContent=(e?.code===4001||e?.code==='ACTION_REJECTED')?'Marketplace transaction cancelled in MetaMask.':'Marketplace failed: '+(e?.shortMessage||e?.message||'unknown error');
     }finally{
-      boosterBusy=false;
-      updateBoosterUI();
+      marketplaceBusy=false; renderCart();
     }
   }
-  boostBtn.addEventListener('click',buyBooster);
+  buyCartBtn.addEventListener('click',buyCart);
+
+  async function activateInventoryItem(powerUpId){
+    if(!account || currentPhase!=='prep' || activationBusy || activePowerUps[powerUpId] || inventoryQty[powerUpId]===0n) return;
+
+    try{
+      activationBusy=true; renderInventory();
+      inventoryStatusEl.textContent='Confirm activation for Round #'+shortRound(round)+' in MetaMask.';
+      await ensureBaseSepolia();
+
+      const rid=onChainRoundId();
+      const provider=new ethers.BrowserProvider(window.ethereum);
+      const signer=await provider.getSigner();
+      const p=new ethers.Contract(POWERUPS_CONTRACT,POWERUPS_ABI,signer);
+
+      if(currentPhase!=='prep') throw new Error('Prep phase ended. Activate during the next prep window.');
+
+      const tx=await p.activatePowerUp(rid,powerUpId);
+      inventoryStatusEl.textContent='Activation submitted • waiting for Base Sepolia…';
+      await tx.wait();
+      inventoryStatusEl.textContent='Power-up equipped for Round #'+shortRound(round)+'! ⚡';
+      await refreshInventoryAndActivations();
+    }catch(e){
+      console.error('Activation failed:',e);
+      inventoryStatusEl.textContent=(e?.code===4001||e?.code==='ACTION_REJECTED')?'Activation cancelled in MetaMask.':'Activation failed: '+(e?.shortMessage||e?.message||'unknown error');
+    }finally{
+      activationBusy=false; renderInventory();
+    }
+  }
+
+  for(const id of [1,2,3]) activateBtns[id].addEventListener('click',()=>activateInventoryItem(id));
 
   function walletLabel(addr){
     return addr ? addr.slice(0,6)+'…'+addr.slice(-4) : 'LOCAL-GUEST';
@@ -564,7 +656,7 @@
         await restoreMyScore();
         await loadRoundScores();
         await refreshClaimable();
-        await Promise.all([refreshWalletBalances(), refreshPool(), refreshBoosterEntitlement()]);
+        await Promise.all([refreshWalletBalances(), refreshPool(), refreshInventoryAndActivations()]);
         if(hasPlayed) ensurePlayer();
       }
     }catch(e){
@@ -641,7 +733,6 @@
   async function refreshWalletBalances(){
     if(!account || !window.ethereum){
       walletHplBalanceEl.textContent='—';
-      boostHplBalanceEl.textContent='—';
       walletEthBalanceEl.textContent='—';
       return;
     }
@@ -651,7 +742,6 @@
       const [hpl,eth]=await Promise.all([token.balanceOf(account),provider.getBalance(account)]);
       const hplFormatted=Number(ethers.formatUnits(hpl,HPL_DECIMALS)).toLocaleString(undefined,{maximumFractionDigits:2});
       walletHplBalanceEl.textContent=hplFormatted;
-      boostHplBalanceEl.textContent=hplFormatted+' HPL';
       walletEthBalanceEl.textContent=Number(ethers.formatEther(eth)).toFixed(5);
     }catch(e){
       console.error('Balance refresh failed:',e);
@@ -740,7 +830,7 @@
       await tx.wait();
       tradeStatusEl.textContent='BUY complete! TEST-HPL received and tokenomics applied. 🎉';
       buyEthInput.value='';
-      await Promise.all([refreshWalletBalances(),refreshPool(),refreshClaimable(true),refreshBoosterBalance()]);
+      await Promise.all([refreshWalletBalances(),refreshPool(),refreshClaimable(true),refreshInventoryAndActivations()]);
       await updateTradeEstimates();
     }catch(e){
       console.error('Buy failed:',e);
@@ -790,7 +880,7 @@
       await tx.wait();
       tradeStatusEl.textContent='SELL complete! Base Sepolia ETH returned to your wallet. 🎉';
       sellHplInput.value='';
-      await Promise.all([refreshWalletBalances(),refreshPool(),refreshClaimable(true),refreshBoosterBalance()]);
+      await Promise.all([refreshWalletBalances(),refreshPool(),refreshClaimable(true),refreshInventoryAndActivations()]);
       await updateTradeEstimates();
     }catch(e){
       console.error('Sell failed:',e);
@@ -851,7 +941,7 @@
       await restoreMyScore();
       await loadRoundScores();
       await refreshClaimable();
-      await Promise.all([refreshWalletBalances(), refreshPool(), refreshBoosterEntitlement()]);
+      await Promise.all([refreshWalletBalances(), refreshPool(), refreshInventoryAndActivations()]);
       if(hasPlayed) ensurePlayer();
 
     }catch(e){
@@ -885,7 +975,6 @@
       sellOpenBtn.disabled=true;
       tradePanel.classList.remove('show');
       walletHplBalanceEl.textContent='—';
-      boostHplBalanceEl.textContent='—';
       walletEthBalanceEl.textContent='—';
     }
   }
@@ -902,7 +991,7 @@
       await restoreMyScore();
       await loadRoundScores();
       await refreshClaimable();
-      await Promise.all([refreshWalletBalances(), refreshPool(), refreshBoosterEntitlement()]);
+      await Promise.all([refreshWalletBalances(), refreshPool(), refreshInventoryAndActivations()]);
     });
     window.ethereum.on?.('chainChanged',()=>location.reload());
   }
@@ -981,7 +1070,7 @@
         <td class="rank">${i+1}</td>
         <td><strong>${walletLabel(p.address)}</strong>${mine?'<div class="you">YOU</div>':''}</td>
         <td class="scoreNum">${Math.round(p.score)}</td>
-        <td><span class="status">${roundActive?'PLAYING':'FINAL'}</span></td>
+        <td><span class="status">${currentPhase==='prep'?'PREP':(roundActive?'PLAYING':'FINAL')}</span></td>
       </tr>`;
     }).join('');
   }
@@ -1028,6 +1117,10 @@
     const rect=canvas.getBoundingClientRect();
     const x=Math.max(W*.08,Math.min(W*.92,clientX-rect.left));
     balls.push({id:nextBallId++,x,y:55,vx:(Math.random()-.5)*40,vy:0,r:WORLD.ballR,value:10,lastHit:0,trail:[],dead:false,touchedPaddles:new Set()});
+    if(activePowerUps[2]){
+      const x2=Math.max(W*.08,Math.min(W*.92,x+((Math.random()>.5)?18:-18)));
+      balls.push({id:nextBallId++,x:x2,y:55,vx:(Math.random()-.5)*55,vy:-15,r:WORLD.ballR,value:10,lastHit:0,trail:[],dead:false,touchedPaddles:new Set()});
+    }
     hasPlayed=true; ensurePlayer();
   }
 
@@ -1126,12 +1219,13 @@
       }
 
       if(b.y>H*.92 && Math.abs(b.x-W*.5)<W*.10){
-        const scoredValue = Math.round(b.value * (boosterActive ? BOOST_MULTIPLIER : 1));
+        const scoreBoost=(activePowerUps[1] ? 1.5 : 1) * (activePowerUps[3] ? 2 : 1);
+        const scoredValue = Math.round(b.value * scoreBoost);
         score += scoredValue;
         topScoreEl.textContent=score;
         pointsEl.textContent=score;
         ensurePlayer();
-        spawnBurst(W*.5,H*.92,boosterActive ? '#ffd82e' : '#22c7ff',scoredValue);
+        spawnBurst(W*.5,H*.92,scoreBoost>1 ? '#ffd82e' : '#22c7ff',scoredValue);
         b.dead=true;
       }else if(b.y>H+60) b.dead=true;
     }
@@ -1219,7 +1313,7 @@
   function endRound(){
     if(!roundActive) return;
     roundActive=false;
-    updateBoosterUI();
+    renderInventory();
     renderScoreboard();
     const arr=[...players.values()].sort((a,b)=>b.score-a.score);
     let text='';
@@ -1236,53 +1330,73 @@
     round=newRound;
     lastRoundSeen=newRound;
     score=0;
-    timeLeft=90;
-    roundActive=true;
+    timeLeft=0;
+    roundActive=false;
     roundTransition=false;
     hasPlayed=false;
     balls=[];
     particles=[];
     players.clear();
-    boosterActive=false;
+    for(const id of [1,2,3]) activePowerUps[id]=false;
     topScoreEl.textContent='0';
     pointsEl.textContent='0';
     roundNoEl.textContent='#'+shortRound(round);
     playerCountEl.textContent='0';
     overlay.classList.remove('show');
     syncPaddleMultipliers();
-    updateBoosterUI();
-    refreshBoosterEntitlement();
-    refreshBoosterBalance();
     subscribeToRound();
     restoreMyScore();
+    refreshInventoryAndActivations();
   }
 
-  newRoundBtn.textContent='JOIN CURRENT ROUND';
-  newRoundBtn.addEventListener('click',()=>resetForSharedRound(getRoundId()));
+  function enterPrepPhase(newRound){
+    if(round!==newRound) resetForSharedRound(newRound);
+    currentPhase='prep';
+    roundActive=false;
+    balls=[];
+    phaseLabelEl.textContent='NEXT ROUND STARTS IN';
+    dropHintEl.innerHTML='<b>⚡</b> PREP PHASE • BUY / EQUIP POWER-UPS <b>⚡</b>';
+    renderInventory();
+  }
+
+  function enterPlayPhase(){
+    currentPhase='play';
+    roundActive=true;
+    overlay.classList.remove('show');
+    phaseLabelEl.textContent='ROUND TIME LEFT';
+    dropHintEl.innerHTML='<b>▼ ▼</b> CLICK NEAR THE TOP TO DROP A BALL <b>▼ ▼</b>';
+    refreshInventoryAndActivations();
+    renderInventory();
+  }
+
+  newRoundBtn.textContent='CLOSE RESULTS';
+  newRoundBtn.addEventListener('click',()=>overlay.classList.remove('show'));
 
   function updateSharedClock(){
     const now=Date.now();
     const current=getRoundId();
-    const elapsed=Math.floor((now%ROUND_MS)/1000);
-    timeLeft=90-elapsed;
+    const pos=now%CYCLE_MS;
+    const phase=pos<PREP_MS?'prep':'play';
 
-    const mins=Math.floor(timeLeft/60);
-    const secs=timeLeft%60;
-    timerEl.textContent=String(mins).padStart(2,'0')+':'+String(secs).padStart(2,'0');
-
-    if(current!==lastRoundSeen && !roundTransition){
-      roundTransition=true;
-      endRound();
-
-      // Cron can stay OFF during gameplay/power-up testing.
-      // These claimable checks are harmless and will simply find nothing new
-      // until automatic finalization is enabled again.
+    if(current!==lastRoundSeen){
+      if(currentPhase==='play') endRound();
+      resetForSharedRound(current);
+      enterPrepPhase(current);
       setTimeout(()=>refreshClaimable(true),5000);
       setTimeout(()=>refreshClaimable(true),12000);
       setTimeout(()=>refreshClaimable(true),25000);
+    }
 
-      // Brief results overlay, then everybody joins the next shared round.
-      setTimeout(()=>resetForSharedRound(getRoundId()),2500);
+    if(phase==='prep'){
+      if(currentPhase!=='prep') enterPrepPhase(current);
+      timeLeft=Math.max(0,Math.ceil((PREP_MS-pos)/1000));
+      timerEl.textContent='00:'+String(timeLeft).padStart(2,'0');
+    }else{
+      if(currentPhase!=='play') enterPlayPhase();
+      const elapsedPlay=pos-PREP_MS;
+      timeLeft=Math.max(0,Math.ceil((GAME_MS-elapsedPlay)/1000));
+      const mins=Math.floor(timeLeft/60),secs=timeLeft%60;
+      timerEl.textContent=String(mins).padStart(2,'0')+':'+String(secs).padStart(2,'0');
     }
   }
 
@@ -1295,10 +1409,12 @@
   }
 
   resize();
+  if(currentPhase==='prep') enterPrepPhase(round); else enterPlayPhase();
   syncPaddleMultipliers();
   roundNoEl.textContent='#'+shortRound(round);
   renderScoreboard();
-  updateBoosterUI();
+  renderCart();
+  renderInventory();
   subscribeToRound();
   // Phase 4: no stale admin-finalizer startup call; gameplay loop reaches requestAnimationFrame normally.
   startClaimableAutoRefresh();
@@ -1306,7 +1422,7 @@
     refreshPool();
     if(account){
       refreshWalletBalances();
-      refreshBoosterEntitlement();
+      refreshInventoryAndActivations();
     }
   } },10000);
   restoreConnectedWallet();
