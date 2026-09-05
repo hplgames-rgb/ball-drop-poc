@@ -210,8 +210,8 @@
         <div>
           <div class="boosterTitle">⚡ 1.5× BALL BOOSTER</div>
           <div class="boosterMeta">Applies 1.5× to every ball you score for the rest of this round.</div>
-          <div class="fakeBalance">POC Booster Credits: <strong id="fakeHplBalance">1,000</strong> HPL</div>
-          <div id="boostStatus" class="boosterMeta">POC-only booster • Cost: 100 credits</div>
+          <div class="fakeBalance">Wallet TEST-HPL: <strong id="boostHplBalance">—</strong></div>
+          <div id="boostStatus" class="boosterMeta">On-chain • Tax-free in-game spend • 100 HPL → Rewards V2</div>
         </div>
         <button id="boostBtn" class="boostBtn">BUY • 100 HPL</button>
       </div>
@@ -234,7 +234,7 @@
       <div class="cardTitle">POC REWARD RULES</div>
       <div>Winner gets <strong>50%</strong> of the round reward pool.</div>
       <div>The other <strong>50%</strong> is split equally among the other participating wallets.</div>
-      <div class="footer">Live rounds + shared scoreboard + automatic finalizer + on-chain claims + POC DEX trading.</div>
+      <div class="footer">Live rounds + shared scoreboard + on-chain power-ups + claims + POC DEX trading. Auto-finalizer cron may remain off during testing.</div>
     </div>
   </aside>
 </div>
@@ -255,7 +255,7 @@
   const networkEl = document.getElementById('network');
   const playerCountEl = document.getElementById('playerCount');
   const roundNoEl = document.getElementById('roundNo');
-  const fakeHplBalanceEl = document.getElementById('fakeHplBalance');
+  const boostHplBalanceEl = document.getElementById('boostHplBalance');
   const boostStatusEl = document.getElementById('boostStatus');
   const boostBtn = document.getElementById('boostBtn');
   const overlay = document.getElementById('roundOverlay');
@@ -291,13 +291,16 @@
   const ROUND_MS = 90000; // Shared 90-second wall-clock rounds.
   const getRoundId = () => Math.floor(Date.now()/ROUND_MS);
   const shortRound = id => String(id).slice(-6);
+  const onChainRoundId = () => BigInt(shortRound(round)); // Matches the ROUND INFO number shown to players.
 
   let score=0, round=getRoundId(), timeLeft=90, roundActive=true, hasPlayed=false;
   let account=null;
-  let fakeHplBalance=1000;
   let boosterActive=false;
+  let boosterBusy=false;
   const BOOST_COST=100;
+  const BOOST_COST_RAW=ethers.parseUnits('100',18);
   const BOOST_MULTIPLIER=1.5;
+  const POWERUP_ID=1;
   let lastTime=performance.now();
   let players = new Map();
   let nextBallId=1;
@@ -320,6 +323,7 @@
   const TEST_HPL = '0xD8d06926930D7d2280ba7F58068110118226B5cE';
   const WETH = '0x4200000000000000000000000000000000000006';
   const ROUTER = '0x837e965e801b64429cf4aa070a1834a578688497';
+  const POWERUPS_CONTRACT = '0xed70006a0143a0f1ffecf74dd9232f6125a01f40';
   const HPL_DECIMALS = 18;
   const REWARDS_ABI = ['function availableRewards() view returns (uint256)'];
   const TOKEN_ABI = [
@@ -331,6 +335,11 @@
     'function getAmountsOut(uint256,address[]) view returns (uint256[])',
     'function swapExactETHForTokensSupportingFeeOnTransferTokens(uint256,address[],address,uint256) payable',
     'function swapExactTokensForETHSupportingFeeOnTransferTokens(uint256,uint256,address[],address,uint256)'
+  ];
+  const POWERUPS_ABI = [
+    'function purchases(uint256,address,uint256) view returns (uint256)',
+    'function hasPowerUp(uint256,address,uint256) view returns (bool)',
+    'function purchasePowerUp(uint256,uint256)'
   ];
   const WORLD = { gravity: 980, ballR: 9, pegR: 7, restitution:.72, friction:.995 };
 
@@ -362,23 +371,122 @@
   }
 
   function updateBoosterUI(){
-    fakeHplBalanceEl.textContent=fakeHplBalance.toLocaleString();
     if(boosterActive){
-      boostStatusEl.innerHTML='<span class="boostActive">ACTIVE • 1.5× ALL SCORED BALLS</span>';
+      boostStatusEl.innerHTML='<span class="boostActive">ACTIVE • 1.5× ALL SCORED BALLS • ON-CHAIN</span>';
       boostBtn.textContent='ACTIVE';
       boostBtn.disabled=true;
+    }else if(boosterBusy){
+      boostBtn.disabled=true;
     }else{
-      boostStatusEl.textContent='Cost: '+BOOST_COST+' Fake HPL';
+      boostStatusEl.textContent='On-chain • Tax-free in-game spend • 100 HPL → Rewards V2';
       boostBtn.textContent='BUY • '+BOOST_COST+' HPL';
-      boostBtn.disabled=!roundActive || fakeHplBalance<BOOST_COST;
+      boostBtn.disabled=!roundActive || !account;
     }
   }
 
-  function buyBooster(){
-    if(!roundActive || boosterActive || fakeHplBalance<BOOST_COST) return;
-    fakeHplBalance-=BOOST_COST;
-    boosterActive=true;
+  async function refreshBoosterBalance(){
+    if(!account || !window.ethereum){
+      boostHplBalanceEl.textContent='—';
+      return;
+    }
+    try{
+      const provider=new ethers.BrowserProvider(window.ethereum);
+      const token=new ethers.Contract(TEST_HPL,TOKEN_ABI,provider);
+      const raw=await token.balanceOf(account);
+      boostHplBalanceEl.textContent=Number(ethers.formatUnits(raw,HPL_DECIMALS)).toLocaleString(undefined,{maximumFractionDigits:2})+' HPL';
+    }catch(e){
+      console.error('Booster balance read failed:',e);
+      boostHplBalanceEl.textContent='—';
+    }
+  }
+
+  async function refreshBoosterEntitlement(){
+    boosterActive=false;
+    if(!account || !window.ethereum){
+      updateBoosterUI();
+      return;
+    }
+    try{
+      const provider=new ethers.BrowserProvider(window.ethereum);
+      const powerups=new ethers.Contract(POWERUPS_CONTRACT,POWERUPS_ABI,provider);
+      boosterActive=await powerups.hasPowerUp(onChainRoundId(),account,POWERUP_ID);
+    }catch(e){
+      console.error('Power-up entitlement read failed:',e);
+    }
     updateBoosterUI();
+  }
+
+  async function buyBooster(){
+    if(!roundActive || boosterActive || boosterBusy || !account) return;
+
+    try{
+      boosterBusy=true;
+      boostBtn.disabled=true;
+      boostBtn.textContent='CHECKING…';
+      boostStatusEl.textContent='Checking TEST-HPL balance and approval…';
+
+      await ensureBaseSepolia();
+
+      const provider=new ethers.BrowserProvider(window.ethereum);
+      const signer=await provider.getSigner();
+      const token=new ethers.Contract(TEST_HPL,TOKEN_ABI,signer);
+      const powerups=new ethers.Contract(POWERUPS_CONTRACT,POWERUPS_ABI,signer);
+
+      const balance=await token.balanceOf(account);
+      if(balance<BOOST_COST_RAW){
+        throw new Error('You need at least 100 TEST-HPL to buy this booster.');
+      }
+
+      // If the round rolled over while the wallet prompt was open, purchase for
+      // the round currently visible at the instant the transaction is prepared.
+      const purchaseRound=onChainRoundId();
+
+      const alreadyOwned=await powerups.hasPowerUp(purchaseRound,account,POWERUP_ID);
+      if(alreadyOwned){
+        boosterActive=true;
+        boostStatusEl.innerHTML='<span class="boostActive">ACTIVE • entitlement already exists on-chain</span>';
+        return;
+      }
+
+      const allowance=await token.allowance(account,POWERUPS_CONTRACT);
+      if(allowance<BOOST_COST_RAW){
+        boostBtn.textContent='APPROVE…';
+        boostStatusEl.textContent='Step 1 of 2 • Approve 100 TEST-HPL in MetaMask.';
+        const approveTx=await token.approve(POWERUPS_CONTRACT,BOOST_COST_RAW);
+        boostStatusEl.textContent='Approval submitted • waiting for Base Sepolia…';
+        await approveTx.wait();
+      }
+
+      // Prevent buying for a round that expired while approval was confirming.
+      if(purchaseRound!==onChainRoundId()){
+        throw new Error('The round changed during approval. Click BUY again for the new round.');
+      }
+
+      boostBtn.textContent='BUYING…';
+      boostStatusEl.textContent='Step 2 of 2 • Confirm the tax-free power-up purchase in MetaMask.';
+      const tx=await powerups.purchasePowerUp(purchaseRound,POWERUP_ID);
+      boostStatusEl.textContent='Purchase submitted • waiting for Base Sepolia…';
+      await tx.wait();
+
+      boosterActive=true;
+      boostStatusEl.innerHTML='<span class="boostActive">ACTIVE • 100 HPL sent tax-free to Rewards V2 🎉</span>';
+
+      await Promise.all([
+        refreshBoosterBalance(),
+        refreshWalletBalances(),
+        refreshPool()
+      ]);
+    }catch(e){
+      console.error('Power-up purchase failed:',e);
+      if(e?.code===4001 || e?.code==='ACTION_REJECTED'){
+        boostStatusEl.textContent='Power-up purchase cancelled in MetaMask.';
+      }else{
+        boostStatusEl.textContent='Power-up failed: '+(e?.shortMessage||e?.message||'unknown error');
+      }
+    }finally{
+      boosterBusy=false;
+      updateBoosterUI();
+    }
   }
   boostBtn.addEventListener('click',buyBooster);
 
@@ -456,7 +564,7 @@
         await restoreMyScore();
         await loadRoundScores();
         await refreshClaimable();
-        await Promise.all([refreshWalletBalances(), refreshPool()]);
+        await Promise.all([refreshWalletBalances(), refreshPool(), refreshBoosterEntitlement()]);
         if(hasPlayed) ensurePlayer();
       }
     }catch(e){
@@ -533,6 +641,7 @@
   async function refreshWalletBalances(){
     if(!account || !window.ethereum){
       walletHplBalanceEl.textContent='—';
+      boostHplBalanceEl.textContent='—';
       walletEthBalanceEl.textContent='—';
       return;
     }
@@ -540,7 +649,9 @@
       const provider=new ethers.BrowserProvider(window.ethereum);
       const token=new ethers.Contract(TEST_HPL,TOKEN_ABI,provider);
       const [hpl,eth]=await Promise.all([token.balanceOf(account),provider.getBalance(account)]);
-      walletHplBalanceEl.textContent=Number(ethers.formatUnits(hpl,HPL_DECIMALS)).toLocaleString(undefined,{maximumFractionDigits:2});
+      const hplFormatted=Number(ethers.formatUnits(hpl,HPL_DECIMALS)).toLocaleString(undefined,{maximumFractionDigits:2});
+      walletHplBalanceEl.textContent=hplFormatted;
+      boostHplBalanceEl.textContent=hplFormatted+' HPL';
       walletEthBalanceEl.textContent=Number(ethers.formatEther(eth)).toFixed(5);
     }catch(e){
       console.error('Balance refresh failed:',e);
@@ -629,7 +740,7 @@
       await tx.wait();
       tradeStatusEl.textContent='BUY complete! TEST-HPL received and tokenomics applied. 🎉';
       buyEthInput.value='';
-      await Promise.all([refreshWalletBalances(),refreshPool(),refreshClaimable(true)]);
+      await Promise.all([refreshWalletBalances(),refreshPool(),refreshClaimable(true),refreshBoosterBalance()]);
       await updateTradeEstimates();
     }catch(e){
       console.error('Buy failed:',e);
@@ -679,7 +790,7 @@
       await tx.wait();
       tradeStatusEl.textContent='SELL complete! Base Sepolia ETH returned to your wallet. 🎉';
       sellHplInput.value='';
-      await Promise.all([refreshWalletBalances(),refreshPool(),refreshClaimable(true)]);
+      await Promise.all([refreshWalletBalances(),refreshPool(),refreshClaimable(true),refreshBoosterBalance()]);
       await updateTradeEstimates();
     }catch(e){
       console.error('Sell failed:',e);
@@ -740,7 +851,7 @@
       await restoreMyScore();
       await loadRoundScores();
       await refreshClaimable();
-      await Promise.all([refreshWalletBalances(), refreshPool()]);
+      await Promise.all([refreshWalletBalances(), refreshPool(), refreshBoosterEntitlement()]);
       if(hasPlayed) ensurePlayer();
 
     }catch(e){
@@ -774,6 +885,7 @@
       sellOpenBtn.disabled=true;
       tradePanel.classList.remove('show');
       walletHplBalanceEl.textContent='—';
+      boostHplBalanceEl.textContent='—';
       walletEthBalanceEl.textContent='—';
     }
   }
@@ -790,7 +902,7 @@
       await restoreMyScore();
       await loadRoundScores();
       await refreshClaimable();
-      await Promise.all([refreshWalletBalances(), refreshPool()]);
+      await Promise.all([refreshWalletBalances(), refreshPool(), refreshBoosterEntitlement()]);
     });
     window.ethereum.on?.('chainChanged',()=>location.reload());
   }
@@ -1139,6 +1251,8 @@
     overlay.classList.remove('show');
     syncPaddleMultipliers();
     updateBoosterUI();
+    refreshBoosterEntitlement();
+    refreshBoosterBalance();
     subscribeToRound();
     restoreMyScore();
   }
@@ -1188,7 +1302,13 @@
   subscribeToRound();
   // Phase 4: no stale admin-finalizer startup call; gameplay loop reaches requestAnimationFrame normally.
   startClaimableAutoRefresh();
-  setInterval(()=>{ if(window.ethereum && document.visibilityState==='visible'){ refreshPool(); if(account) refreshWalletBalances(); } },10000);
+  setInterval(()=>{ if(window.ethereum && document.visibilityState==='visible'){
+    refreshPool();
+    if(account){
+      refreshWalletBalances();
+      refreshBoosterEntitlement();
+    }
+  } },10000);
   restoreConnectedWallet();
   if(window.ethereum) refreshPool();
   updateSharedClock();
