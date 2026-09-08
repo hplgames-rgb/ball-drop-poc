@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>HPL Ball Drop Alpha — Build 9.4 Tablet Landscape Detection</title>
+<title>HPL Ball Drop Alpha — Build 9.5 Tablet Fit + Fullscreen</title>
 <style>
   :root{
     --bg:#05080d; --panel:#0a1019; --panel2:#0d1623; --line:#1b2a3d;
@@ -724,7 +724,7 @@ body.hplSplashLocked{
 
 
   /* =========================================================
-     BUILD 9.4 — ANDROID TABLET TASKBAR SAFE ZONE
+     BUILD 9.5 — ANDROID TABLET TASKBAR SAFE ZONE
      Some Android tablet taskbars overlay the webpage without
      reducing visualViewport.height. Reserve real bottom space
      so the scoring chute always stays above system UI.
@@ -770,7 +770,7 @@ body.hplSplashLocked{
 
 
   /* =========================================================
-     BUILD 9.4 — ROBUST TABLET LANDSCAPE DETECTION
+     BUILD 9.5 — ROBUST TABLET LANDSCAPE DETECTION
      JS adds .hplTabletLandscape to <html> based on touch/coarse
      pointer + landscape geometry, regardless of CSS viewport width.
      ========================================================= */
@@ -841,6 +841,64 @@ body.hplSplashLocked{
     bottom:calc(100vh - var(--hpl-tablet-safe-height) + 6px) !important;
   }
 
+
+  /* =========================================================
+     BUILD 9.5 — OPTIONAL APP-LIKE FULLSCREEN
+     ========================================================= */
+  .hplFullscreenBtn{
+    position:fixed;
+    left:10px;
+    bottom:10px;
+    z-index:80;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    padding:8px 11px;
+    border:1px solid rgba(76,213,255,.45);
+    border-radius:999px;
+    background:rgba(3,12,28,.82);
+    color:#dff8ff;
+    box-shadow:0 6px 22px rgba(0,0,0,.28),0 0 18px rgba(36,187,255,.08);
+    font:800 10px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    letter-spacing:.55px;
+    cursor:pointer;
+    backdrop-filter:blur(8px);
+    -webkit-backdrop-filter:blur(8px);
+    touch-action:manipulation;
+  }
+  .hplFullscreenBtn:hover{
+    border-color:rgba(225,67,255,.62);
+    filter:brightness(1.1);
+  }
+  .hplFullscreenBtn .fsIcon{
+    font-size:14px;
+    line-height:1;
+  }
+
+  /* Keep control above Android/tablet UI in landscape. */
+  html.hplTabletLandscape .hplFullscreenBtn{
+    bottom:10px;
+  }
+
+  @media (max-width:679px){
+    .hplFullscreenBtn{
+      left:8px;
+      bottom:8px;
+      padding:7px 9px;
+      font-size:9px;
+    }
+  }
+
+  /* In actual fullscreen, use every available pixel. */
+  :fullscreen body,
+  :-webkit-full-screen body{
+    background:#03060b;
+  }
+  :fullscreen .app,
+  :-webkit-full-screen .app{
+    max-width:none !important;
+  }
+
 </style>
 </head>
 <body>
@@ -866,8 +924,8 @@ body.hplSplashLocked{
     const reported = vv ? vv.height : window.innerHeight;
 
     // Android tablet taskbars can overlay content without reducing viewport metrics.
-    // 84px reserve + a tiny gutter ensures the chute remains visibly above it.
-    const safeHeight = Math.max(420, Math.floor(reported - 84));
+    // 46px reserve keeps a modest Android-system-bar buffer without wasting screen space.
+    const safeHeight = Math.max(420, Math.floor(reported - 46));
 
     root.style.setProperty('--hpl-tablet-safe-height', safeHeight + 'px');
   }
@@ -2647,6 +2705,76 @@ body.hplSplashLocked{
 })();
 </script>
 
-<div class="hplBuildTag">BUILD 9.4</div>
+<div class="hplBuildTag">BUILD 9.5</div>
+
+<button id="hplFullscreenBtn" class="hplFullscreenBtn" type="button" aria-label="Enter fullscreen">
+  <span class="fsIcon">⛶</span>
+  <span id="hplFullscreenLabel">FULLSCREEN</span>
+</button>
+
+
+<script>
+(() => {
+  const btn = document.getElementById('hplFullscreenBtn');
+  const label = document.getElementById('hplFullscreenLabel');
+  if (!btn) return;
+
+  const isFullscreen = () =>
+    !!(document.fullscreenElement || document.webkitFullscreenElement);
+
+  const updateButton = () => {
+    const full = isFullscreen();
+    if (label) label.textContent = full ? 'EXIT FULLSCREEN' : 'FULLSCREEN';
+    btn.setAttribute('aria-label', full ? 'Exit fullscreen' : 'Enter fullscreen');
+  };
+
+  async function enterFullscreen(){
+    const el = document.documentElement;
+    try{
+      if (el.requestFullscreen) {
+        await el.requestFullscreen({ navigationUI: 'hide' });
+      } else if (el.webkitRequestFullscreen) {
+        el.webkitRequestFullscreen();
+      }
+    }catch(err){
+      console.warn('Fullscreen request was not accepted:', err);
+    }
+  }
+
+  async function exitFullscreen(){
+    try{
+      if (document.exitFullscreen) {
+        await document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+    }catch(err){
+      console.warn('Fullscreen exit failed:', err);
+    }
+  }
+
+  btn.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    if (isFullscreen()) await exitFullscreen();
+    else await enterFullscreen();
+  });
+
+  document.addEventListener('fullscreenchange', updateButton);
+  document.addEventListener('webkitfullscreenchange', updateButton);
+
+  updateButton();
+})();
+</script>
+
+
+<script>
+document.addEventListener('fullscreenchange', () => {
+  setTimeout(() => window.dispatchEvent(new Event('resize')), 80);
+});
+document.addEventListener('webkitfullscreenchange', () => {
+  setTimeout(() => window.dispatchEvent(new Event('resize')), 80);
+});
+</script>
+
 </body>
 </html>
