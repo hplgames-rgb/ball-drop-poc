@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>HPL Ball Drop Alpha — Mobile/Tablet Optimized</title>
+<title>HPL Ball Drop Alpha — Build 9.1 Tablet Landscape Fit</title>
 <style>
   :root{
     --bg:#05080d; --panel:#0a1019; --panel2:#0d1623; --line:#1b2a3d;
@@ -588,6 +588,108 @@ body.hplSplashLocked{
     font-size:13px;
   }
 }
+
+
+  /* =========================================================
+     TABLET LANDSCAPE FIT FIX
+     Keep game fixed left + scrollable control rail right,
+     but guarantee the full playfield fits vertically.
+     ========================================================= */
+  @media (min-width:680px) and (max-width:1180px) and (orientation:landscape){
+    html,body{
+      width:100%;
+      height:100%;
+      overflow:hidden;
+    }
+
+    .app{
+      width:100vw;
+      height:100dvh;
+      max-width:none;
+      padding:6px;
+      gap:8px;
+      grid-template-columns:minmax(0,62fr) minmax(300px,38fr);
+      align-items:stretch;
+    }
+
+    .left{
+      height:calc(100dvh - 12px);
+      min-height:0;
+      grid-template-rows:58px minmax(0,1fr);
+      gap:6px;
+      overflow:hidden;
+    }
+
+    .topbar{
+      min-height:0;
+      height:58px;
+    }
+
+    .boardShell{
+      position:relative;
+      width:100%;
+      height:100%;
+      min-height:0;
+      overflow:hidden;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:0;
+    }
+
+    /* The canvas is fit by HEIGHT first in landscape.
+       This guarantees the scoring chute never falls below the viewport. */
+    #game{
+      width:auto !important;
+      height:100% !important;
+      max-width:100% !important;
+      max-height:100% !important;
+      aspect-ratio:800 / 940;
+      object-fit:contain;
+      display:block;
+      margin:auto;
+    }
+
+    .side{
+      height:calc(100dvh - 12px);
+      max-height:calc(100dvh - 12px);
+      overflow-y:auto;
+      overflow-x:hidden;
+      overscroll-behavior:contain;
+      -webkit-overflow-scrolling:touch;
+      padding-right:4px;
+      padding-bottom:14px;
+    }
+
+    /* Slightly compact the HUD so more height is available for the board. */
+    .brand{font-size:20px}
+    .big{font-size:22px}
+    .small{font-size:8px}
+    .dropHint{top:6px}
+    .pointsBox{bottom:6px}
+
+    /* Samsung/Android browser chrome can reduce the usable visual viewport.
+       dvh handles most of that; this trims a few extra pixels safely. */
+    @supports (height:100svh){
+      .app{height:100svh}
+      .left,.side{
+        height:calc(100svh - 12px);
+        max-height:calc(100svh - 12px);
+      }
+    }
+  }
+
+
+  .hplBuildTag{
+    position:fixed;
+    right:8px;
+    bottom:6px;
+    z-index:30;
+    font:800 9px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    letter-spacing:.6px;
+    color:rgba(190,215,235,.45);
+    pointer-events:none;
+  }
 
 </style>
 </head>
@@ -2315,5 +2417,6 @@ body.hplSplashLocked{
 })();
 </script>
 
+<div class="hplBuildTag">BUILD 9.1</div>
 </body>
 </html>
