@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>HPL Ball Drop Alpha — Build 9.8 Vite + Reown AppKit</title>
+<title>HPL Ball Drop Alpha — Build 9.5 Tablet Fit + Fullscreen</title>
 <style>
   :root{
     --bg:#05080d; --panel:#0a1019; --panel2:#0d1623; --line:#1b2a3d;
@@ -724,7 +724,7 @@ body.hplSplashLocked{
 
 
   /* =========================================================
-     BUILD 9.8 — ANDROID TABLET TASKBAR SAFE ZONE
+     BUILD 9.5 — ANDROID TABLET TASKBAR SAFE ZONE
      Some Android tablet taskbars overlay the webpage without
      reducing visualViewport.height. Reserve real bottom space
      so the scoring chute always stays above system UI.
@@ -770,7 +770,7 @@ body.hplSplashLocked{
 
 
   /* =========================================================
-     BUILD 9.8 — ROBUST TABLET LANDSCAPE DETECTION
+     BUILD 9.5 — ROBUST TABLET LANDSCAPE DETECTION
      JS adds .hplTabletLandscape to <html> based on touch/coarse
      pointer + landscape geometry, regardless of CSS viewport width.
      ========================================================= */
@@ -843,7 +843,7 @@ body.hplSplashLocked{
 
 
   /* =========================================================
-     BUILD 9.8 — OPTIONAL APP-LIKE FULLSCREEN
+     BUILD 9.5 — OPTIONAL APP-LIKE FULLSCREEN
      ========================================================= */
   .hplFullscreenBtn{
     position:fixed;
@@ -900,37 +900,6 @@ body.hplSplashLocked{
   }
 
 </style>
-
-<script>
-  // Build 9.8 wallet-provider bridge.
-  // Reown AppKit owns window.hplWalletProvider once connected.
-  // Desktop injected wallets remain a fallback.
-  window.hplWalletProvider = null;
-  window.getHplWalletProvider = function () {
-    return window.hplWalletProvider || window.ethereum || null;
-  };
-</script>
-
-
-<style>
-#hplWalletDiag{
-  position:fixed;
-  right:10px;
-  bottom:10px;
-  z-index:90;
-  max-width:min(410px,calc(100vw - 20px));
-  padding:7px 10px;
-  border:1px solid rgba(90,215,255,.24);
-  border-radius:10px;
-  background:rgba(4,11,24,.84);
-  color:#91a9bd;
-  font:700 9px/1.35 system-ui,-apple-system,Segoe UI,sans-serif;
-  pointer-events:none;
-}
-#hplWalletDiag b{color:#dff7ff}
-@media(max-width:680px){#hplWalletDiag{font-size:8px;bottom:48px}}
-</style>
-
 </head>
 <body>
 
@@ -1087,7 +1056,7 @@ body.hplSplashLocked{
         <div class="walletInfo">
           <div class="small">CONNECTED WALLET</div>
           <div id="walletAddr" class="walletAddr"><span id="walletDot" class="dot"></span>Not connected</div>
-          <div id="network" class="network">Connect wallet to Base Sepolia</div>
+          <div id="network" class="network">Connect MetaMask to Base Sepolia</div>
           <div class="tokenBalance">TEST-HPL: <strong id="walletHplBalance">—</strong> &nbsp;•&nbsp; ETH: <strong id="walletEthBalance">—</strong></div>
         </div>
         <div class="walletActions">
@@ -1234,7 +1203,7 @@ body.hplSplashLocked{
         <div>
           <div class="small">CLAIMABLE TEST-HPL</div>
           <div id="claimAmount" class="claimAmount">0</div>
-          <div id="claimStatus" class="claimStatus">Connect wallet to check rewards.</div>
+          <div id="claimStatus" class="claimStatus">Connect MetaMask to check rewards.</div>
           <div class="claimMeta">Rewards can come from a completed round you played earlier. Claiming does not affect the current round.</div>
         </div>
         <button id="claimBtn" class="claimBtn" disabled>CLAIM</button>
@@ -1456,10 +1425,10 @@ body.hplSplashLocked{
 
   async function refreshInventoryAndActivations(){
     for(const id of [1,2,3]){ inventoryQty[id]=0n; activePowerUps[id]=false; }
-    if(!account || !window.getHplWalletProvider()){ renderInventory(); return; }
+    if(!account || !window.ethereum){ renderInventory(); return; }
 
     try{
-      const provider=new ethers.BrowserProvider(window.getHplWalletProvider());
+      const provider=new ethers.BrowserProvider(window.ethereum);
       const p=new ethers.Contract(POWERUPS_CONTRACT,POWERUPS_ABI,provider);
       const rid=onChainRoundId();
       const vals=await Promise.all([
@@ -1510,7 +1479,7 @@ body.hplSplashLocked{
       marketStatusEl.textContent='Checking wallet balance and marketplace allowance…';
       await ensureBaseSepolia();
 
-      const provider=new ethers.BrowserProvider(window.getHplWalletProvider());
+      const provider=new ethers.BrowserProvider(window.ethereum);
       const signer=await provider.getSigner();
       const token=new ethers.Contract(TEST_HPL,TOKEN_ABI,signer);
       const p=new ethers.Contract(POWERUPS_CONTRACT,POWERUPS_ABI,signer);
@@ -1527,12 +1496,12 @@ body.hplSplashLocked{
       const allowance=await token.allowance(account,POWERUPS_CONTRACT);
       if(allowance<total){
         const approvalAmount=total>MARKET_ALLOWANCE?total:MARKET_ALLOWANCE;
-        marketStatusEl.textContent='First marketplace use • approve up to '+Number(ethers.formatUnits(approvalAmount,18)).toLocaleString()+' HPL in your wallet.';
+        marketStatusEl.textContent='First marketplace use • approve up to '+Number(ethers.formatUnits(approvalAmount,18)).toLocaleString()+' HPL in MetaMask.';
         const approveTx=await token.approve(POWERUPS_CONTRACT,approvalAmount);
         await approveTx.wait();
       }
 
-      marketStatusEl.textContent='Confirm the '+Number(ethers.formatUnits(total,18)).toLocaleString()+' HPL cart purchase in your wallet.';
+      marketStatusEl.textContent='Confirm the '+Number(ethers.formatUnits(total,18)).toLocaleString()+' HPL cart purchase in MetaMask.';
       const tx=await p.purchaseCart(ids,qtys);
       marketStatusEl.textContent='Cart submitted • waiting for Base Sepolia…';
       await tx.wait();
@@ -1542,7 +1511,7 @@ body.hplSplashLocked{
       await Promise.all([refreshInventoryAndActivations(),refreshWalletBalances(),refreshPool()]);
     }catch(e){
       console.error('Cart purchase failed:',e);
-      marketStatusEl.textContent=(e?.code===4001||e?.code==='ACTION_REJECTED')?'Marketplace transaction cancelled in your wallet.':'Marketplace failed: '+(e?.shortMessage||e?.message||'unknown error');
+      marketStatusEl.textContent=(e?.code===4001||e?.code==='ACTION_REJECTED')?'Marketplace transaction cancelled in MetaMask.':'Marketplace failed: '+(e?.shortMessage||e?.message||'unknown error');
     }finally{
       marketplaceBusy=false; renderCart();
     }
@@ -1554,11 +1523,11 @@ body.hplSplashLocked{
 
     try{
       activationBusy=true; renderInventory();
-      inventoryStatusEl.textContent='Confirm activation for Round #'+shortRound(round)+' in your wallet.';
+      inventoryStatusEl.textContent='Confirm activation for Round #'+shortRound(round)+' in MetaMask.';
       await ensureBaseSepolia();
 
       const rid=onChainRoundId();
-      const provider=new ethers.BrowserProvider(window.getHplWalletProvider());
+      const provider=new ethers.BrowserProvider(window.ethereum);
       const signer=await provider.getSigner();
       const p=new ethers.Contract(POWERUPS_CONTRACT,POWERUPS_ABI,signer);
 
@@ -1571,7 +1540,7 @@ body.hplSplashLocked{
       await refreshInventoryAndActivations();
     }catch(e){
       console.error('Activation failed:',e);
-      inventoryStatusEl.textContent=(e?.code===4001||e?.code==='ACTION_REJECTED')?'Activation cancelled in your wallet.':'Activation failed: '+(e?.shortMessage||e?.message||'unknown error');
+      inventoryStatusEl.textContent=(e?.code===4001||e?.code==='ACTION_REJECTED')?'Activation cancelled in MetaMask.':'Activation failed: '+(e?.shortMessage||e?.message||'unknown error');
     }finally{
       activationBusy=false; renderInventory();
     }
@@ -1587,7 +1556,7 @@ body.hplSplashLocked{
   }
 
   async function refreshReflections(){
-    if(!account || !window.getHplWalletProvider()){
+    if(!account || !window.ethereum){
       reflWalletBalanceEl.textContent='—';
       reflClaimableEl.textContent='—';
       reflEligibleEl.textContent='—';
@@ -1597,7 +1566,7 @@ body.hplSplashLocked{
     }
 
     try{
-      const provider=new ethers.BrowserProvider(window.getHplWalletProvider());
+      const provider=new ethers.BrowserProvider(window.ethereum);
       const token=new ethers.Contract(TEST_HPL,TOKEN_ABI,provider);
       const refl=new ethers.Contract(REFLECTIONS_CONTRACT,REFLECTIONS_ABI,provider);
 
@@ -1636,11 +1605,11 @@ body.hplSplashLocked{
       reflectionBusy=true;
       claimReflectionsBtn.disabled=true;
       claimReflectionsBtn.textContent='CLAIMING…';
-      reflectionStatusEl.textContent='Confirm your reflection claim in your wallet.';
+      reflectionStatusEl.textContent='Confirm your reflection claim in MetaMask.';
 
       await ensureBaseSepolia();
 
-      const provider=new ethers.BrowserProvider(window.getHplWalletProvider());
+      const provider=new ethers.BrowserProvider(window.ethereum);
       const signer=await provider.getSigner();
       const refl=new ethers.Contract(REFLECTIONS_CONTRACT,REFLECTIONS_ABI,signer);
 
@@ -1659,7 +1628,7 @@ body.hplSplashLocked{
     }catch(e){
       console.error('Reflection claim failed:',e);
       reflectionStatusEl.textContent=(e?.code===4001||e?.code==='ACTION_REJECTED')
-        ? 'Reflection claim cancelled in your wallet.'
+        ? 'Reflection claim cancelled in MetaMask.'
         : 'Claim failed: '+(e?.shortMessage||e?.message||'unknown error');
     }finally{
       reflectionBusy=false;
@@ -1687,11 +1656,11 @@ body.hplSplashLocked{
   }
 
   async function refreshClaimable(silent=false){
-    if(!account || !window.getHplWalletProvider()){
+    if(!account || !window.ethereum){
       claimableRaw=0n;
       lastClaimableRaw=0n;
       claimAmountEl.textContent='0';
-      claimStatusEl.textContent='Connect wallet to check rewards.';
+      claimStatusEl.textContent='Connect MetaMask to check rewards.';
       claimBtn.disabled=true;
       return;
     }
@@ -1699,7 +1668,7 @@ body.hplSplashLocked{
     try{
       if(!silent) claimStatusEl.textContent='Checking Base Sepolia…';
       const data = encodeAddressCall(CLAIMABLE_SELECTOR, account);
-      const result = await window.getHplWalletProvider().request({
+      const result = await window.ethereum.request({
         method:'eth_call',
         params:[{to:REWARDS_CONTRACT,data}, 'latest']
       });
@@ -1734,9 +1703,9 @@ body.hplSplashLocked{
   }
 
   async function restoreConnectedWallet(){
-    if(!window.getHplWalletProvider()) return;
+    if(!window.ethereum) return;
     try{
-      const accts=await window.getHplWalletProvider().request({method:'eth_accounts'});
+      const accts=await window.ethereum.request({method:'eth_accounts'});
       account=accts && accts[0] ? accts[0] : null;
       updateWalletUI();
       if(account){
@@ -1757,9 +1726,9 @@ body.hplSplashLocked{
     try{
       claimBtn.disabled=true;
       claimBtn.textContent='CHECK WALLET…';
-      claimStatusEl.textContent='Confirm the claim in your wallet.';
+      claimStatusEl.textContent='Confirm the claim in MetaMask.';
 
-      const txHash = await window.getHplWalletProvider().request({
+      const txHash = await window.ethereum.request({
         method:'eth_sendTransaction',
         params:[{
           from:account,
@@ -1776,7 +1745,7 @@ body.hplSplashLocked{
       let receipt=null;
       for(let i=0;i<60;i++){
         await new Promise(r=>setTimeout(r,2000));
-        receipt=await window.getHplWalletProvider().request({
+        receipt=await window.ethereum.request({
           method:'eth_getTransactionReceipt',
           params:[txHash]
         });
@@ -1794,7 +1763,7 @@ body.hplSplashLocked{
       await refreshClaimable();
     }catch(e){
       console.error('Claim failed:',e);
-      if(e && e.code===4001) claimStatusEl.textContent='Claim cancelled in your wallet.';
+      if(e && e.code===4001) claimStatusEl.textContent='Claim cancelled in MetaMask.';
       else claimStatusEl.textContent='Claim failed: '+(e?.message || 'unknown wallet error');
     }finally{
       claimBtn.textContent='CLAIM';
@@ -1806,7 +1775,7 @@ body.hplSplashLocked{
 
   async function readAvailableRewards(){
     try{
-      const provider=new ethers.BrowserProvider(window.getHplWalletProvider());
+      const provider=new ethers.BrowserProvider(window.ethereum);
       const c=new ethers.Contract(REWARDS_CONTRACT,REWARDS_ABI,provider);
       return await c.availableRewards();
     }catch(e){ console.error('Available rewards read failed:',e); return null; }
@@ -1829,7 +1798,7 @@ body.hplSplashLocked{
   }
 
   async function refreshDexStats(){
-    if(!window.getHplWalletProvider()){
+    if(!window.ethereum){
       tokenPriceEthEl.textContent='— ETH';
       hplPerEthEl.textContent='— HPL';
       poolLiquidityEl.textContent='—';
@@ -1838,7 +1807,7 @@ body.hplSplashLocked{
     }
 
     try{
-      const provider=new ethers.BrowserProvider(window.getHplWalletProvider());
+      const provider=new ethers.BrowserProvider(window.ethereum);
       const pair=new ethers.Contract(PAIR,PAIR_ABI,provider);
 
       const [token0,token1,reserves]=await Promise.all([
@@ -1897,13 +1866,13 @@ body.hplSplashLocked{
   }
 
   async function refreshWalletBalances(){
-    if(!account || !window.getHplWalletProvider()){
+    if(!account || !window.ethereum){
       walletHplBalanceEl.textContent='—';
       walletEthBalanceEl.textContent='—';
       return;
     }
     try{
-      const provider=new ethers.BrowserProvider(window.getHplWalletProvider());
+      const provider=new ethers.BrowserProvider(window.ethereum);
       const token=new ethers.Contract(TEST_HPL,TOKEN_ABI,provider);
       const [hpl,eth]=await Promise.all([token.balanceOf(account),provider.getBalance(account)]);
       const hplFormatted=Number(ethers.formatUnits(hpl,HPL_DECIMALS)).toLocaleString(undefined,{maximumFractionDigits:2});
@@ -1915,9 +1884,9 @@ body.hplSplashLocked{
   }
 
   async function ensureBaseSepolia(){
-    const chainId=await window.getHplWalletProvider().request({method:'eth_chainId'});
+    const chainId=await window.ethereum.request({method:'eth_chainId'});
     if(chainId!==BASE_SEPOLIA_CHAIN_ID){
-      await window.getHplWalletProvider().request({method:'wallet_switchEthereumChain',params:[{chainId:BASE_SEPOLIA_CHAIN_ID}]});
+      await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:BASE_SEPOLIA_CHAIN_ID}]});
     }
   }
 
@@ -1938,8 +1907,8 @@ body.hplSplashLocked{
   sellTab.addEventListener('click',()=>setTradeMode('sell'));
 
   async function updateTradeEstimates(){
-    if(!window.getHplWalletProvider()) return;
-    const provider=new ethers.BrowserProvider(window.getHplWalletProvider());
+    if(!window.ethereum) return;
+    const provider=new ethers.BrowserProvider(window.ethereum);
     const router=new ethers.Contract(ROUTER,ROUTER_ABI,provider);
 
     const buyVal=buyEthInput.value.trim();
@@ -1978,7 +1947,7 @@ body.hplSplashLocked{
       buyHplBtn.disabled=true;
       buyHplBtn.textContent='CHECK WALLET…';
       await ensureBaseSepolia();
-      const provider=new ethers.BrowserProvider(window.getHplWalletProvider());
+      const provider=new ethers.BrowserProvider(window.ethereum);
       const signer=await provider.getSigner();
       const router=new ethers.Contract(ROUTER,ROUTER_ABI,signer);
       const amountIn=ethers.parseEther(val);
@@ -1987,7 +1956,7 @@ body.hplSplashLocked{
       const minOut=expectedNet*95n/100n; // 5% POC slippage tolerance after tokenomics
       const deadline=Math.floor(Date.now()/1000)+1200;
 
-      tradeStatusEl.textContent='Confirm the BUY in your wallet.';
+      tradeStatusEl.textContent='Confirm the BUY in MetaMask.';
       const tx=await router.swapExactETHForTokensSupportingFeeOnTransferTokens(
         minOut,[WETH,TEST_HPL],account,deadline,{value:amountIn}
       );
@@ -2000,7 +1969,7 @@ body.hplSplashLocked{
       await updateTradeEstimates();
     }catch(e){
       console.error('Buy failed:',e);
-      tradeStatusEl.textContent=(e?.code===4001||e?.code==='ACTION_REJECTED')?'Buy cancelled in your wallet.':'Buy failed: '+(e?.shortMessage||e?.message||'unknown error');
+      tradeStatusEl.textContent=(e?.code===4001||e?.code==='ACTION_REJECTED')?'Buy cancelled in MetaMask.':'Buy failed: '+(e?.shortMessage||e?.message||'unknown error');
     }finally{
       buyHplBtn.disabled=false;
       buyHplBtn.textContent='BUY TEST-HPL2';
@@ -2015,7 +1984,7 @@ body.hplSplashLocked{
       sellHplBtn.disabled=true;
       sellHplBtn.textContent='CHECKING…';
       await ensureBaseSepolia();
-      const provider=new ethers.BrowserProvider(window.getHplWalletProvider());
+      const provider=new ethers.BrowserProvider(window.ethereum);
       const signer=await provider.getSigner();
       const token=new ethers.Contract(TEST_HPL,TOKEN_ABI,signer);
       const router=new ethers.Contract(ROUTER,ROUTER_ABI,signer);
@@ -2026,7 +1995,7 @@ body.hplSplashLocked{
       const allowance=await token.allowance(account,ROUTER);
       if(allowance<amountIn){
         sellHplBtn.textContent='APPROVE…';
-        tradeStatusEl.textContent='First-time sell: approve the Router in your wallet.';
+        tradeStatusEl.textContent='First-time sell: approve the Router in MetaMask.';
         const approveTx=await token.approve(ROUTER,amountIn);
         await approveTx.wait();
       }
@@ -2037,7 +2006,7 @@ body.hplSplashLocked{
       const deadline=Math.floor(Date.now()/1000)+1200;
 
       sellHplBtn.textContent='CHECK WALLET…';
-      tradeStatusEl.textContent='Confirm the SELL in your wallet.';
+      tradeStatusEl.textContent='Confirm the SELL in MetaMask.';
       const tx=await router.swapExactTokensForETHSupportingFeeOnTransferTokens(
         amountIn,minEth,[TEST_HPL,WETH],account,deadline
       );
@@ -2050,7 +2019,7 @@ body.hplSplashLocked{
       await updateTradeEstimates();
     }catch(e){
       console.error('Sell failed:',e);
-      tradeStatusEl.textContent=(e?.code===4001||e?.code==='ACTION_REJECTED')?'Sell/approval cancelled in your wallet.':'Sell failed: '+(e?.shortMessage||e?.message||'unknown error');
+      tradeStatusEl.textContent=(e?.code===4001||e?.code==='ACTION_REJECTED')?'Sell/approval cancelled in MetaMask.':'Sell failed: '+(e?.shortMessage||e?.message||'unknown error');
     }finally{
       sellHplBtn.disabled=false;
       sellHplBtn.textContent='SELL TEST-HPL2';
@@ -2061,49 +2030,31 @@ body.hplSplashLocked{
   sellHplBtn.addEventListener('click',sellHpl);
 
   async function connectWallet(){
-    let provider = window.getHplWalletProvider();
+    const provider = window.ethereum;
 
-    // Reown/AppKit is now the primary chooser. If there is no active
-    // provider yet, open AppKit and wait for its state subscriptions
-    // to hand the provider/address back to Ball Drop.
-    if(!window.hplWalletProvider && window.hplAppKit){
-      networkEl.textContent='Choose a wallet…';
-      window.hplAppKit.open();
-      return;
-    }
-
-    // During initial Vite/AppKit startup the module may need a moment.
-    // Preserve injected desktop-wallet fallback if one already exists.
     if(!provider){
-      if(window.hplAppKit){
-        networkEl.textContent='Choose a wallet…';
-        window.hplAppKit.open();
-      }else{
-        networkEl.textContent='Wallet chooser is loading…';
-      }
+      networkEl.textContent='MetaMask was not detected by this page.';
+      alert('MetaMask was not detected. Make sure the extension is enabled for this site, then refresh the page.');
       return;
     }
 
     connectBtn.disabled=true;
     connectBtn.textContent='CONNECTING…';
-    networkEl.textContent='Connecting wallet…';
+    networkEl.textContent='Waiting for MetaMask…';
 
     try{
-      let accts = await provider.request({method:'eth_accounts'});
-      if(!accts || !accts[0]){
-        accts = await provider.request({method:'eth_requestAccounts'});
-      }
+      // Request account access first so MetaMask actually opens its approval prompt.
+      const accts = await provider.request({method:'eth_requestAccounts'});
       account = accts && accts[0] ? accts[0] : null;
-      if(!account) throw new Error('No wallet account was returned.');
 
+      if(!account) throw new Error('No wallet account was returned by MetaMask.');
+
+      // After wallet approval, switch to Base Sepolia.
       try{
-        const currentChain = await provider.request({method:'eth_chainId'});
-        if(String(currentChain).toLowerCase() !== BASE_SEPOLIA_CHAIN_ID.toLowerCase()){
-          await provider.request({
-            method:'wallet_switchEthereumChain',
-            params:[{chainId:BASE_SEPOLIA_CHAIN_ID}]
-          });
-        }
+        await provider.request({
+          method:'wallet_switchEthereumChain',
+          params:[{chainId:BASE_SEPOLIA_CHAIN_ID}]
+        });
       }catch(e){
         if(e && e.code===4902){
           await provider.request({
@@ -2125,13 +2076,7 @@ body.hplSplashLocked{
       await restoreMyScore();
       await loadRoundScores();
       await refreshClaimable();
-      await Promise.all([
-        refreshWalletBalances(),
-        refreshPool(),
-        refreshInventoryAndActivations(),
-        refreshReflections(),
-        refreshDexStats()
-      ]);
+      await Promise.all([refreshWalletBalances(), refreshPool(), refreshInventoryAndActivations(), refreshReflections(), refreshDexStats()]);
       if(hasPlayed) ensurePlayer();
 
     }catch(e){
@@ -2140,8 +2085,8 @@ body.hplSplashLocked{
       updateWalletUI();
 
       let msg='Wallet connection failed.';
-      if(e && (e.code===4001 || e.code==='ACTION_REJECTED')) msg='Wallet connection was cancelled.';
-      else if(e && e.code===-32002) msg='A wallet request is already open.';
+      if(e && e.code===4001) msg='MetaMask connection was cancelled.';
+      else if(e && e.code===-32002) msg='A MetaMask request is already open. Check the MetaMask extension.';
       else if(e && e.message) msg='Wallet error: '+e.message;
 
       networkEl.textContent=msg;
@@ -2149,96 +2094,6 @@ body.hplSplashLocked{
       connectBtn.textContent='CONNECT';
     }
   }
-
-
-  let hplReownSyncBusy = false;
-
-  window.hplAdoptReownSession = async function(address, walletProvider){
-    if(!address || !walletProvider || hplReownSyncBusy) return;
-
-    hplReownSyncBusy = true;
-    const diag = document.getElementById('hplWalletDiag');
-    const say = (text) => {
-      if(diag) diag.innerHTML='<b>Wallet:</b> '+text;
-      console.log('[HPL 9.8 wallet]', text);
-    };
-
-    try{
-      window.hplWalletProvider = walletProvider;
-      account = address;
-
-      say('Reown connected • checking Base Sepolia…');
-
-      let chainId = null;
-      try{
-        chainId = await walletProvider.request({method:'eth_chainId'});
-      }catch(e){
-        console.warn('Could not read wallet chain:',e);
-      }
-
-      if(chainId && String(chainId).toLowerCase() !== BASE_SEPOLIA_CHAIN_ID.toLowerCase()){
-        say('Switching to Base Sepolia…');
-        try{
-          await walletProvider.request({
-            method:'wallet_switchEthereumChain',
-            params:[{chainId:BASE_SEPOLIA_CHAIN_ID}]
-          });
-        }catch(e){
-          if(e && e.code===4902){
-            await walletProvider.request({
-              method:'wallet_addEthereumChain',
-              params:[{
-                chainId:BASE_SEPOLIA_CHAIN_ID,
-                chainName:'Base Sepolia',
-                nativeCurrency:{name:'ETH',symbol:'ETH',decimals:18},
-                rpcUrls:['https://sepolia.base.org'],
-                blockExplorerUrls:['https://sepolia.basescan.org']
-              }]
-            });
-          }else{
-            throw e;
-          }
-        }
-      }
-
-      say('Initializing Ball Drop…');
-      updateWalletUI();
-      await restoreMyScore();
-      await loadRoundScores();
-      await refreshClaimable();
-
-      await Promise.allSettled([
-        refreshWalletBalances(),
-        refreshPool(),
-        refreshInventoryAndActivations(),
-        refreshReflections(),
-        refreshDexStats()
-      ]);
-
-      if(hasPlayed) ensurePlayer();
-
-      say('CONNECTED • '+address.slice(0,6)+'…'+address.slice(-4));
-    }catch(e){
-      console.error('Reown → Ball Drop bridge failed:',e);
-      say('Bridge error • '+(e?.message || 'unknown error'));
-      networkEl.textContent='Wallet connected, but HPL initialization failed.';
-    }finally{
-      hplReownSyncBusy=false;
-    }
-  };
-
-  window.hplHandleReownDisconnect = function(){
-    window.hplWalletProvider = null;
-    account = null;
-    score = 0;
-    hasPlayed = false;
-    topScoreEl.textContent='0';
-    pointsEl.textContent='0';
-    updateWalletUI();
-    const diag = document.getElementById('hplWalletDiag');
-    if(diag) diag.innerHTML='<b>Wallet:</b> Disconnected';
-  };
-
 
   function updateWalletUI(){
     if(account){
@@ -2250,7 +2105,7 @@ body.hplSplashLocked{
       sellOpenBtn.disabled=false;
     }else{
       walletAddrEl.innerHTML='<span class="dot"></span>Not connected';
-      networkEl.textContent='Connect wallet to Base Sepolia';
+      networkEl.textContent='Connect MetaMask to Base Sepolia';
       buyOpenBtn.disabled=true;
       sellOpenBtn.disabled=true;
       tradePanel.classList.remove('show');
@@ -2260,8 +2115,8 @@ body.hplSplashLocked{
   }
   connectBtn.addEventListener('click',connectWallet);
 
-  if(window.getHplWalletProvider()){
-    window.getHplWalletProvider().on?.('accountsChanged',async a=>{
+  if(window.ethereum){
+    window.ethereum.on?.('accountsChanged',async a=>{
       account=a[0]||null;
       score=0;
       hasPlayed=false;
@@ -2273,7 +2128,7 @@ body.hplSplashLocked{
       await refreshClaimable();
       await Promise.all([refreshWalletBalances(), refreshPool(), refreshInventoryAndActivations(), refreshReflections(), refreshDexStats()]);
     });
-    window.getHplWalletProvider().on?.('chainChanged',()=>location.reload());
+    window.ethereum.on?.('chainChanged',()=>location.reload());
   }
 
   window.addEventListener('focus',()=>{ if(account) refreshClaimable(true); });
@@ -2734,13 +2589,13 @@ body.hplSplashLocked{
 
   // Live holder-reflection refresh: read-only calls, no MetaMask popup.
   setInterval(()=>{
-    if(window.getHplWalletProvider() && document.visibilityState==='visible'){
+    if(window.ethereum && document.visibilityState==='visible'){
       refreshDexStats();
       if(account) refreshReflections();
     }
   },MOBILE_PERF?10000:5000);
 
-  setInterval(()=>{ if(window.getHplWalletProvider() && document.visibilityState==='visible'){
+  setInterval(()=>{ if(window.ethereum && document.visibilityState==='visible'){
     refreshPool();
     refreshDexStats();
     if(account){
@@ -2750,7 +2605,7 @@ body.hplSplashLocked{
     }
   } },10000);
   restoreConnectedWallet();
-  if(window.getHplWalletProvider()) refreshPool();
+  if(window.ethereum) refreshPool();
   updateSharedClock();
   requestAnimationFrame(loop);
 })();
@@ -2850,7 +2705,7 @@ body.hplSplashLocked{
 })();
 </script>
 
-<div class="hplBuildTag">BUILD 9.8</div>
+<div class="hplBuildTag">BUILD 9.5</div>
 
 <button id="hplFullscreenBtn" class="hplFullscreenBtn" type="button" aria-label="Enter fullscreen">
   <span class="fsIcon">⛶</span>
@@ -2921,7 +2776,5 @@ document.addEventListener('webkitfullscreenchange', () => {
 });
 </script>
 
-<div id="hplWalletDiag"><b>Wallet:</b> Reown starting…</div>
-<script type="module" src="/src/appkit.js"></script>
 </body>
 </html>
