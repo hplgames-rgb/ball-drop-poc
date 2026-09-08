@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>HPL Ball Drop Alpha — Build 9.2 Android Tablet Fit</title>
+<title>HPL Ball Drop Alpha — Build 9.3 Android Taskbar Safe</title>
 <style>
   :root{
     --bg:#05080d; --panel:#0a1019; --panel2:#0d1623; --line:#1b2a3d;
@@ -719,6 +719,52 @@ body.hplSplashLocked{
        arrive a couple pixels late. */
     .boardShell{
       margin-bottom:6px;
+    }
+  }
+
+
+  /* =========================================================
+     BUILD 9.3 — ANDROID TABLET TASKBAR SAFE ZONE
+     Some Android tablet taskbars overlay the webpage without
+     reducing visualViewport.height. Reserve real bottom space
+     so the scoring chute always stays above system UI.
+     ========================================================= */
+  @media (min-width:680px) and (max-width:1180px) and (orientation:landscape) and (pointer:coarse){
+    :root{
+      --hpl-android-bottom-reserve:72px;
+    }
+
+    .app{
+      height:calc(var(--hpl-visible-height) - var(--hpl-android-bottom-reserve)) !important;
+      max-height:calc(var(--hpl-visible-height) - var(--hpl-android-bottom-reserve)) !important;
+      padding-bottom:4px !important;
+    }
+
+    .left{
+      height:calc(var(--hpl-visible-height) - var(--hpl-android-bottom-reserve) - 8px) !important;
+      max-height:calc(var(--hpl-visible-height) - var(--hpl-android-bottom-reserve) - 8px) !important;
+    }
+
+    .side{
+      height:calc(var(--hpl-visible-height) - var(--hpl-android-bottom-reserve) - 8px) !important;
+      max-height:calc(var(--hpl-visible-height) - var(--hpl-android-bottom-reserve) - 8px) !important;
+    }
+
+    .boardShell{
+      margin-bottom:0 !important;
+    }
+
+    /* Keep the whole game proportional inside the reduced safe area. */
+    #game{
+      height:100% !important;
+      width:auto !important;
+      max-height:100% !important;
+      max-width:100% !important;
+      aspect-ratio:800 / 940 !important;
+    }
+
+    .hplBuildTag{
+      bottom:calc(var(--hpl-android-bottom-reserve) + 5px) !important;
     }
   }
 
@@ -2482,6 +2528,6 @@ body.hplSplashLocked{
 })();
 </script>
 
-<div class="hplBuildTag">BUILD 9.2</div>
+<div class="hplBuildTag">BUILD 9.3</div>
 </body>
 </html>
