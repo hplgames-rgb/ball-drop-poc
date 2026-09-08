@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>HPL Ball Drop Alpha — Build 9.6 Reown AppKit</title>
+<title>HPL Ball Drop Alpha — Build 9.7 Reown State Bridge</title>
 <style>
   :root{
     --bg:#05080d; --panel:#0a1019; --panel2:#0d1623; --line:#1b2a3d;
@@ -724,7 +724,7 @@ body.hplSplashLocked{
 
 
   /* =========================================================
-     BUILD 9.6 — ANDROID TABLET TASKBAR SAFE ZONE
+     BUILD 9.7 — ANDROID TABLET TASKBAR SAFE ZONE
      Some Android tablet taskbars overlay the webpage without
      reducing visualViewport.height. Reserve real bottom space
      so the scoring chute always stays above system UI.
@@ -770,7 +770,7 @@ body.hplSplashLocked{
 
 
   /* =========================================================
-     BUILD 9.6 — ROBUST TABLET LANDSCAPE DETECTION
+     BUILD 9.7 — ROBUST TABLET LANDSCAPE DETECTION
      JS adds .hplTabletLandscape to <html> based on touch/coarse
      pointer + landscape geometry, regardless of CSS viewport width.
      ========================================================= */
@@ -843,7 +843,7 @@ body.hplSplashLocked{
 
 
   /* =========================================================
-     BUILD 9.6 — OPTIONAL APP-LIKE FULLSCREEN
+     BUILD 9.7 — OPTIONAL APP-LIKE FULLSCREEN
      ========================================================= */
   .hplFullscreenBtn{
     position:fixed;
@@ -902,12 +902,27 @@ body.hplSplashLocked{
 </style>
 
 <script>
-  // BUILD 9.6 — wallet provider abstraction.
+  // BUILD 9.7 — wallet provider abstraction.
   // AppKit sets window.hplWalletProvider after a wallet connects.
   window.getHplWalletProvider = function(){
     return window.hplWalletProvider || window.ethereum || null;
   };
 </script>
+
+
+<style>
+#hplWalletDiag{
+  position:fixed; right:10px; bottom:10px; z-index:90;
+  max-width:min(390px,calc(100vw - 20px));
+  padding:7px 10px; border:1px solid rgba(90,215,255,.24);
+  border-radius:10px; background:rgba(4,11,24,.82); color:#91a9bd;
+  font:700 9px/1.35 system-ui,-apple-system,Segoe UI,sans-serif;
+  backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+  pointer-events:none;
+}
+#hplWalletDiag b{color:#dff7ff}
+@media(max-width:680px){#hplWalletDiag{font-size:8px;bottom:48px}}
+</style>
 
 </head>
 <body>
@@ -2127,6 +2142,81 @@ body.hplSplashLocked{
     }
   }
 
+  let hplWalletSyncBusy = false;
+  async function hplAdoptReownSession(address, walletProvider, source='Reown'){
+    if(hplWalletSyncBusy || !address || !walletProvider) return;
+    hplWalletSyncBusy = true;
+
+    const diag = document.getElementById('hplWalletDiag');
+    const say = (s) => {
+      if(diag) diag.innerHTML = '<b>Wallet:</b> ' + s;
+      console.log('[HPL 9.7 wallet]', s);
+    };
+
+    try{
+      say(source + ' connected • provider received');
+      window.hplWalletProvider = walletProvider;
+      account = address;
+
+      let chainHex = null;
+      try{
+        chainHex = await walletProvider.request({method:'eth_chainId'});
+      }catch(e){ console.warn('Unable to read chain',e); }
+
+      if(chainHex && String(chainHex).toLowerCase() !== BASE_SEPOLIA_CHAIN_ID.toLowerCase()){
+        say('Switching to Base Sepolia…');
+        try{
+          await walletProvider.request({
+            method:'wallet_switchEthereumChain',
+            params:[{chainId:BASE_SEPOLIA_CHAIN_ID}]
+          });
+        }catch(e){
+          if(e && e.code===4902){
+            await walletProvider.request({
+              method:'wallet_addEthereumChain',
+              params:[{
+                chainId:BASE_SEPOLIA_CHAIN_ID,
+                chainName:'Base Sepolia',
+                nativeCurrency:{name:'ETH',symbol:'ETH',decimals:18},
+                rpcUrls:['https://sepolia.base.org'],
+                blockExplorerUrls:['https://sepolia.basescan.org']
+              }]
+            });
+          }else{
+            throw e;
+          }
+        }
+      }
+
+      say('Base Sepolia • initializing game…');
+      updateWalletUI();
+
+      // Run the same state hydration that the original connection path uses.
+      await restoreMyScore();
+      await loadRoundScores();
+      await refreshClaimable();
+      await Promise.allSettled([
+        refreshWalletBalances(),
+        refreshPool(),
+        refreshInventoryAndActivations(),
+        refreshReflections(),
+        refreshDexStats()
+      ]);
+      if(hasPlayed) ensurePlayer();
+
+      say('CONNECTED • ' + address.slice(0,6) + '…' + address.slice(-4));
+    }catch(e){
+      console.error('HPL Reown session adoption failed:',e);
+      say('Bridge error • ' + (e?.message || 'unknown error'));
+      networkEl.textContent='Wallet connected, but HPL initialization failed.';
+    }finally{
+      hplWalletSyncBusy=false;
+    }
+  }
+
+
+  window.hplAdoptReownSession = hplAdoptReownSession;
+
   function updateWalletUI(){
     if(account){
       walletAddrEl.innerHTML='<span id="walletDot" class="dot on"></span>'+walletLabel(account);
@@ -2737,7 +2827,7 @@ body.hplSplashLocked{
 })();
 </script>
 
-<div class="hplBuildTag">BUILD 9.6</div>
+<div class="hplBuildTag">BUILD 9.7</div>
 
 <button id="hplFullscreenBtn" class="hplFullscreenBtn" type="button" aria-label="Enter fullscreen">
   <span class="fsIcon">⛶</span>
@@ -2809,6 +2899,7 @@ document.addEventListener('webkitfullscreenchange', () => {
 </script>
 
 
+
 <script type="module">
   import { createAppKit } from 'https://esm.sh/@reown/appkit@latest';
   import { EthersAdapter } from 'https://esm.sh/@reown/appkit-adapter-ethers@latest';
@@ -2822,52 +2913,82 @@ document.addEventListener('webkitfullscreenchange', () => {
     icons: []
   };
 
+  const diag = document.getElementById('hplWalletDiag');
+  const say = (s) => {
+    if(diag) diag.innerHTML='<b>Wallet:</b> '+s;
+    console.log('[HPL 9.7 AppKit]',s);
+  };
+
   try {
     const appKit = createAppKit({
-      adapters: [new EthersAdapter()],
-      networks: [baseSepolia],
-      defaultNetwork: baseSepolia,
+      adapters:[new EthersAdapter()],
+      networks:[baseSepolia],
+      defaultNetwork:baseSepolia,
       metadata,
       projectId,
-      features: {
-        analytics: false,
-        email: false,
-        socials: []
-      },
-      themeMode: 'dark'
+      features:{ analytics:false, email:false, socials:[] },
+      themeMode:'dark'
+    });
+    window.hplAppKit=appKit;
+    say('AppKit ready');
+
+    let lastAddress='';
+    let latestProvider=null;
+
+    // Provider and account subscriptions are intentionally separate.
+    // Mobile WalletConnect can report them at different moments.
+    const tryAdopt = async () => {
+      const accountState = appKit.getAccount?.() || {};
+      const address = accountState.address || lastAddress;
+      const provider = latestProvider || appKit.getWalletProvider?.();
+
+      if(accountState.isConnected && address && provider){
+        lastAddress=address;
+        await window.hplAdoptReownSession?.(address,provider,'Reown');
+      }
+    };
+
+    appKit.subscribeProvider((state) => {
+      console.log('[HPL 9.7 provider state]',state);
+      if(state?.provider){
+        latestProvider=state.provider;
+        window.hplWalletProvider=state.provider;
+        say('Provider received • waiting for account…');
+      }
+      if(state?.isConnected===false){
+        latestProvider=null;
+        window.hplWalletProvider=null;
+      }
+      setTimeout(tryAdopt,0);
     });
 
-    window.hplAppKit = appKit;
+    appKit.subscribeAccount((state) => {
+      console.log('[HPL 9.7 account state]',state);
+      if(state?.address) lastAddress=state.address;
 
-    // Reown exposes the active EIP-1193 provider here. The rest of the
-    // existing Ball Drop code continues to use ethers BrowserProvider.
-    appKit.subscribeProvider(async (state) => {
-      if(state?.isConnected && state?.provider){
-        const changed = window.hplWalletProvider !== state.provider;
-        window.hplWalletProvider = state.provider;
-
-        if(changed){
-          // Give the original game script a moment to finish booting, then
-          // run its normal connect/refresh path.
-          setTimeout(() => {
-            const btn = document.getElementById('connectBtn');
-            if(btn && !btn.disabled) btn.click();
-          }, 80);
-        }
-      } else if(state && state.isConnected === false) {
-        window.hplWalletProvider = null;
+      if(state?.isConnected){
+        say('Account received • '+String(state.address||'').slice(0,6)+'…');
+        setTimeout(tryAdopt,0);
+      } else if(state?.isConnected===false){
+        lastAddress='';
+        window.hplWalletProvider=null;
+        say('Disconnected');
       }
     });
 
-    // Restore an existing AppKit session on refresh.
-    const existing = appKit.getWalletProvider?.();
-    if(existing) window.hplWalletProvider = existing;
+    // Restore a persisted WalletConnect/AppKit session after refresh.
+    setTimeout(tryAdopt,350);
+    setTimeout(tryAdopt,1200);
 
   } catch(err) {
-    console.error('Reown AppKit initialization failed:', err);
-    // Desktop injected wallets remain available as a fallback.
+    console.error('Reown AppKit initialization failed:',err);
+    say('AppKit failed to load');
   }
 </script>
+
+
+
+<div id="hplWalletDiag"><b>Wallet:</b> AppKit loading…</div>
 
 </body>
 </html>
