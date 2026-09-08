@@ -14,7 +14,7 @@ const metadata = {
 const diag = document.getElementById('hplWalletDiag')
 const say = (text) => {
   if (diag) diag.innerHTML = `<b>Wallet:</b> ${text}`
-  console.log('[HPL 9.8 AppKit]', text)
+  console.log('[HPL 9.9 AppKit]', text)
 }
 
 try {
@@ -34,6 +34,24 @@ try {
 
   window.hplAppKit = appKit
   say('AppKit ready')
+
+
+  let modalClosedForSession = false
+
+  window.addEventListener('hpl:wallet-ready', async () => {
+    if (modalClosedForSession) return
+    modalClosedForSession = true
+
+    try {
+      // AppKit open() is user-driven; after a successful mobile connection
+      // explicitly dismiss the chooser/deep-link UI so Android does not keep
+      // asking the browser to reopen MetaMask.
+      await appKit.close()
+      say('Connected • wallet chooser closed')
+    } catch (error) {
+      console.warn('[HPL 9.9 AppKit] modal close was not needed/available:', error)
+    }
+  })
 
   let evmProvider = null
   let accountState = null
@@ -77,6 +95,7 @@ try {
     } else if (state?.isConnected === false) {
       evmProvider = null
       lastAdopted = ''
+      modalClosedForSession = false
       window.hplWalletProvider = null
       window.hplHandleReownDisconnect?.()
       say('Disconnected')

@@ -1,4 +1,4 @@
-# HPL Ball Drop Alpha — Build 9.8
+# HPL Ball Drop Alpha — Build 9.9
 
 This project converts the known-good single-file **Build 9.5** into a small Vite app so
 Reown AppKit / WalletConnect can be installed and bundled normally.
@@ -25,7 +25,7 @@ Reown AppKit / WalletConnect can be installed and bundled normally.
 6. Load:
    `https://hplgames-rgb.github.io/ball-drop-poc/?v=98`
 
-The visible build marker should say **BUILD 9.8**.
+The visible build marker should say **BUILD 9.9**.
 
 ## Local testing (optional)
 
@@ -49,5 +49,12 @@ The AppKit metadata URL uses that same origin.
 ## Rollback
 
 Your previous single-file Build 9.5 remains your known-good rollback point.
-If 9.8 has a problem, restore the old `index.html` and switch GitHub Pages back to
+If 9.9 has a problem, restore the old `index.html` and switch GitHub Pages back to
 the previous deployment method if necessary.
+
+
+## Build 9.9 changes
+
+- Mobile Reown/AppKit chooser is explicitly closed after Ball Drop has adopted the connected wallet.
+- Bottom scoring no longer requires the ball to be almost exactly centered; any ball that reaches the funnel exit scores exactly once.
+- Round timing and shared paddle multiplier timing are calibrated against Base Sepolia's latest block timestamp to reduce multi-device local-clock drift.
