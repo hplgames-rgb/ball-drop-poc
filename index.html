@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Ball Drop — Base Sepolia POC</title>
+<title>HPL Ball Drop Alpha — Mobile/Tablet Optimized</title>
 <style>
   :root{
     --bg:#05080d; --panel:#0a1019; --panel2:#0d1623; --line:#1b2a3d;
@@ -147,12 +147,167 @@
   .modal button{margin-top:14px;border:1px solid var(--cyan);background:#071c2a;color:#bcebff;border-radius:10px;padding:10px 18px;font-weight:900;cursor:pointer}
   .flash{animation:flash .25s ease-out}
   @keyframes flash{50%{filter:brightness(1.8)}}
-  @media(max-width:900px){
-    html,body{overflow:auto}
-    .app{height:auto;min-height:100vh;grid-template-columns:1fr}
-    .left{height:720px}
-    .side{grid-template-rows:auto auto auto auto auto auto;overflow:visible}
+
+  /* =========================================================
+     RESPONSIVE GAME LAYOUT
+     Tablet: game stays fully visible left, controls scroll right.
+     Phone: game-first stacked layout.
+     ========================================================= */
+
+  /* Tablet / small laptop */
+  @media (min-width:680px) and (max-width:1180px){
+    html,body{
+      width:100%;
+      height:100%;
+      overflow:hidden;
+    }
+    .app{
+      width:100vw;
+      height:100dvh;
+      max-width:none;
+      padding:8px;
+      gap:8px;
+      grid-template-columns:minmax(0,58fr) minmax(300px,42fr);
+      justify-content:stretch;
+    }
+    .left{
+      min-width:0;
+      min-height:0;
+      height:calc(100dvh - 16px);
+      grid-template-rows:64px minmax(0,1fr);
+      gap:8px;
+    }
+    .topbar{
+      border-radius:13px;
+    }
+    .brand{font-size:22px}
+    .big{font-size:24px}
+    .small{font-size:9px}
+    .boardShell{
+      min-height:0;
+      height:100%;
+      border-radius:13px;
+    }
+    .side{
+      min-width:0;
+      height:calc(100dvh - 16px);
+      max-height:calc(100dvh - 16px);
+      overflow-y:auto;
+      overflow-x:hidden;
+      overscroll-behavior:contain;
+      -webkit-overflow-scrolling:touch;
+      padding-right:4px;
+      padding-bottom:12px;
+      scrollbar-width:thin;
+    }
+    .side .card{
+      border-radius:13px;
+    }
+    .walletCard{padding:10px}
+    .dropHint{font-size:11px}
+    .pointsBox{padding:5px 20px}
+    .pointsBox .value{font-size:24px}
   }
+
+  /* Phone portrait / narrow browser */
+  @media (max-width:679px){
+    html,body{
+      width:100%;
+      min-height:100%;
+      height:auto;
+      overflow-x:hidden;
+      overflow-y:auto;
+    }
+    .app{
+      width:100%;
+      height:auto;
+      min-height:100dvh;
+      display:block;
+      padding:6px;
+    }
+    .left{
+      width:100%;
+      height:min(78dvh,680px);
+      min-height:510px;
+      display:grid;
+      grid-template-rows:58px minmax(0,1fr);
+      gap:6px;
+      margin-bottom:8px;
+    }
+    .topbar{
+      border-radius:12px;
+      grid-template-columns:1.05fr .85fr .65fr;
+    }
+    .brand{font-size:17px;letter-spacing:1px}
+    .brand span:last-child{margin-left:5px}
+    .big{font-size:20px}
+    .small{font-size:8px;letter-spacing:.5px}
+    .boardShell{
+      border-radius:12px;
+      min-height:0;
+    }
+    .dropHint{
+      top:8px;
+      font-size:10px;
+      width:90%;
+    }
+    .pointsBox{
+      bottom:8px;
+      padding:4px 16px;
+    }
+    .pointsBox .label{font-size:9px}
+    .pointsBox .value{font-size:22px}
+    .side{
+      display:grid;
+      grid-template-rows:none;
+      gap:7px;
+      overflow:visible;
+      padding:0;
+    }
+    .side .card{
+      border-radius:12px;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.02),0 8px 22px rgba(0,0,0,.22);
+    }
+    .walletCard{padding:10px}
+    .cardTitle{font-size:11px}
+    button,a{touch-action:manipulation}
+  }
+
+  /* Landscape phones: preserve usable game height. */
+  @media (max-height:520px) and (orientation:landscape) and (max-width:900px){
+    .app{
+      display:grid;
+      height:100dvh;
+      grid-template-columns:minmax(0,60fr) minmax(280px,40fr);
+      gap:6px;
+      padding:5px;
+      overflow:hidden;
+    }
+    .left{
+      height:calc(100dvh - 10px);
+      min-height:0;
+      grid-template-rows:50px minmax(0,1fr);
+      margin:0;
+    }
+    .side{
+      height:calc(100dvh - 10px);
+      overflow-y:auto;
+      overscroll-behavior:contain;
+    }
+  }
+
+  /* Mobile/tablet: remove expensive backdrop blur where it matters. */
+  @media (max-width:1180px), (pointer:coarse){
+    #hplAlphaSplash .hplSplashSkip,
+    #hplAlphaNotice{
+      backdrop-filter:none !important;
+      -webkit-backdrop-filter:none !important;
+    }
+    .topbar,.boardShell,.card{
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.02),0 7px 20px rgba(0,0,0,.24);
+    }
+  }
+
 
 /* =========================================================
    HPL BALL DROP ALPHA — STARTUP SPLASH
@@ -822,8 +977,21 @@ body.hplSplashLocked{
     { id:'lower', side:'right', y:.68, x:.60, width:.28, height:34, dir:-1, speed:.13, multiplier:4, color:'#ff3047', phase:0 }
   ];
 
+
+  // ---------------------------------------------------------
+  // MOBILE / TABLET PERFORMANCE MODE
+  // Rendering quality changes only — gameplay math is unchanged.
+  // ---------------------------------------------------------
+  const coarsePointer = window.matchMedia?.('(pointer: coarse)').matches ?? false;
+  const constrainedViewport = Math.min(window.innerWidth, window.innerHeight) < 900;
+  const MOBILE_PERF = coarsePointer || constrainedViewport;
+  const MOBILE_DPR_CAP = 1.25;
+  const DESKTOP_DPR_CAP = 2;
+  const TRAIL_LIMIT = MOBILE_PERF ? 4 : 8;
+  const BURST_PARTICLES = MOBILE_PERF ? 5 : 12;
+
   function resize(){
-    const r=canvas.getBoundingClientRect(); dpr=Math.max(1,Math.min(2,devicePixelRatio||1));
+    const r=canvas.getBoundingClientRect(); dpr=Math.max(1,Math.min(MOBILE_PERF?MOBILE_DPR_CAP:DESKTOP_DPR_CAP,devicePixelRatio||1));
     canvas.width=Math.floor(r.width*dpr); canvas.height=Math.floor(r.height*dpr);
     W=r.width; H=r.height; ctx.setTransform(dpr,0,0,dpr,0,0);
     makePegs();
@@ -1141,7 +1309,7 @@ body.hplSplashLocked{
     if(claimRefreshTimer) clearInterval(claimRefreshTimer);
     claimRefreshTimer=setInterval(()=>{
       if(account && document.visibilityState==='visible') refreshClaimable(true);
-    },5000);
+    },MOBILE_PERF?10000:5000);
   }
 
   async function restoreConnectedWallet(){
@@ -1742,7 +1910,7 @@ body.hplSplashLocked{
   }
 
   function spawnBurst(x,y,color,m){
-    for(let i=0;i<12;i++) particles.push({x,y,vx:(Math.random()-.5)*180,vy:(Math.random()-.5)*180,life:1,color});
+    for(let i=0;i<BURST_PARTICLES;i++) particles.push({x,y,vx:(Math.random()-.5)*180,vy:(Math.random()-.5)*180,life:1,color});
     particles.push({x,y,life:1,text:'×'+m,color});
   }
 
@@ -1777,7 +1945,7 @@ body.hplSplashLocked{
       b.vy += WORLD.gravity*dt;
       b.vx *= Math.pow(WORLD.friction,dt*60);
       b.x += b.vx*dt; b.y += b.vy*dt;
-      b.trail.push({x:b.x,y:b.y}); if(b.trail.length>8)b.trail.shift();
+      b.trail.push({x:b.x,y:b.y}); if(b.trail.length>TRAIL_LIMIT)b.trail.shift();
 
       if(b.x-b.r<W*.035){b.x=W*.035+b.r;b.vx=Math.abs(b.vx)*.75}
       if(b.x+b.r>W*.965){b.x=W*.965-b.r;b.vx=-Math.abs(b.vx)*.75}
@@ -1831,9 +1999,15 @@ body.hplSplashLocked{
 
     // pegs
     for(const p of pegs){
-      const g=ctx.createRadialGradient(p.x-2,p.y-3,1,p.x,p.y,WORLD.pegR+2);
-      g.addColorStop(0,'#44566f');g.addColorStop(.55,'#182332');g.addColorStop(1,'#05080d');
-      ctx.fillStyle=g;ctx.strokeStyle='#53647a';ctx.lineWidth=1;
+      if(MOBILE_PERF){
+        ctx.fillStyle='#172434';
+        ctx.strokeStyle='#465b72';
+      }else{
+        const g=ctx.createRadialGradient(p.x-2,p.y-3,1,p.x,p.y,WORLD.pegR+2);
+        g.addColorStop(0,'#44566f');g.addColorStop(.55,'#182332');g.addColorStop(1,'#05080d');
+        ctx.fillStyle=g;ctx.strokeStyle='#53647a';
+      }
+      ctx.lineWidth=1;
       ctx.beginPath();ctx.arc(p.x,p.y,WORLD.pegR,0,Math.PI*2);ctx.fill();ctx.stroke();
     }
 
@@ -1841,7 +2015,7 @@ body.hplSplashLocked{
     paddles.forEach(p=>{
       const r=paddleRect(p);
       ctx.save();
-      ctx.shadowBlur=20;ctx.shadowColor=p.color;
+      ctx.shadowBlur=MOBILE_PERF?0:20;ctx.shadowColor=p.color;
       ctx.fillStyle=p.color;ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=2;
       drawRoundedRect(r.x,r.y,r.w,r.h,9);
       ctx.restore();
@@ -1866,9 +2040,14 @@ body.hplSplashLocked{
         ctx.fillStyle=`rgba(160,205,255,${(i/b.trail.length)*.15})`;
         ctx.beginPath();ctx.arc(t.x,t.y,b.r*(i/b.trail.length),0,Math.PI*2);ctx.fill();
       });
-      const g=ctx.createRadialGradient(b.x-3,b.y-4,1,b.x,b.y,b.r);
-      g.addColorStop(0,'#fff');g.addColorStop(.45,'#d7dde8');g.addColorStop(1,'#657180');
-      ctx.fillStyle=g;ctx.shadowBlur=10;ctx.shadowColor='#bfe5ff';
+      if(MOBILE_PERF){
+        ctx.fillStyle='#dce6f1';
+        ctx.shadowBlur=0;
+      }else{
+        const g=ctx.createRadialGradient(b.x-3,b.y-4,1,b.x,b.y,b.r);
+        g.addColorStop(0,'#fff');g.addColorStop(.45,'#d7dde8');g.addColorStop(1,'#657180');
+        ctx.fillStyle=g;ctx.shadowBlur=10;ctx.shadowColor='#bfe5ff';
+      }
       ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
       ctx.fillStyle='#0b1622';ctx.font='800 8px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
       ctx.fillText(String(Math.round(b.value)),b.x,b.y);
@@ -1977,8 +2156,19 @@ body.hplSplashLocked{
     }
   }
 
+  let lastRenderedFrame=0;
+  const MOBILE_FRAME_MS=1000/45;
+
   function loop(now){
-    const dt=Math.min(.033,(now-lastTime)/1000); lastTime=now;
+    if(MOBILE_PERF && now-lastRenderedFrame<MOBILE_FRAME_MS){
+      requestAnimationFrame(loop);
+      return;
+    }
+
+    const dt=Math.min(.033,(now-lastTime)/1000);
+    lastTime=now;
+    lastRenderedFrame=now;
+
     updateSharedClock();
     update(dt,now);
     draw();
@@ -1986,6 +2176,13 @@ body.hplSplashLocked{
   }
 
 
+
+
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible'){
+      lastTime=performance.now();
+    }
+  });
 
   resize();
   if(currentPhase==='prep') enterPrepPhase(round); else enterPlayPhase();
@@ -2006,7 +2203,7 @@ body.hplSplashLocked{
       refreshDexStats();
       if(account) refreshReflections();
     }
-  },5000);
+  },MOBILE_PERF?10000:5000);
 
   setInterval(()=>{ if(window.ethereum && document.visibilityState==='visible'){
     refreshPool();
