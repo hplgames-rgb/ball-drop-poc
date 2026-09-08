@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>HPL Ball Drop Alpha — Build 9.3 Android Taskbar Safe</title>
+<title>HPL Ball Drop Alpha — Build 9.4 Tablet Landscape Detection</title>
 <style>
   :root{
     --bg:#05080d; --panel:#0a1019; --panel2:#0d1623; --line:#1b2a3d;
@@ -724,7 +724,7 @@ body.hplSplashLocked{
 
 
   /* =========================================================
-     BUILD 9.3 — ANDROID TABLET TASKBAR SAFE ZONE
+     BUILD 9.4 — ANDROID TABLET TASKBAR SAFE ZONE
      Some Android tablet taskbars overlay the webpage without
      reducing visualViewport.height. Reserve real bottom space
      so the scoring chute always stays above system UI.
@@ -768,9 +768,128 @@ body.hplSplashLocked{
     }
   }
 
+
+  /* =========================================================
+     BUILD 9.4 — ROBUST TABLET LANDSCAPE DETECTION
+     JS adds .hplTabletLandscape to <html> based on touch/coarse
+     pointer + landscape geometry, regardless of CSS viewport width.
+     ========================================================= */
+  html.hplTabletLandscape,
+  html.hplTabletLandscape body{
+    overflow:hidden !important;
+    height:100% !important;
+  }
+
+  html.hplTabletLandscape .app{
+    width:100vw !important;
+    height:var(--hpl-tablet-safe-height) !important;
+    max-height:var(--hpl-tablet-safe-height) !important;
+    padding:6px !important;
+    gap:8px !important;
+    grid-template-columns:minmax(0,62fr) minmax(300px,38fr) !important;
+    align-items:stretch !important;
+    overflow:hidden !important;
+  }
+
+  html.hplTabletLandscape .left{
+    height:calc(var(--hpl-tablet-safe-height) - 12px) !important;
+    max-height:calc(var(--hpl-tablet-safe-height) - 12px) !important;
+    min-height:0 !important;
+    grid-template-rows:56px minmax(0,1fr) !important;
+    gap:6px !important;
+    overflow:hidden !important;
+  }
+
+  html.hplTabletLandscape .topbar{
+    height:56px !important;
+    min-height:56px !important;
+  }
+
+  html.hplTabletLandscape .boardShell{
+    width:100% !important;
+    height:auto !important;
+    min-height:0 !important;
+    overflow:hidden !important;
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    margin:0 !important;
+  }
+
+  html.hplTabletLandscape #game{
+    display:block !important;
+    height:100% !important;
+    width:auto !important;
+    max-height:100% !important;
+    max-width:100% !important;
+    aspect-ratio:800 / 940 !important;
+    margin:auto !important;
+  }
+
+  html.hplTabletLandscape .side{
+    height:calc(var(--hpl-tablet-safe-height) - 12px) !important;
+    max-height:calc(var(--hpl-tablet-safe-height) - 12px) !important;
+    overflow-y:auto !important;
+    overflow-x:hidden !important;
+    overscroll-behavior:contain !important;
+    -webkit-overflow-scrolling:touch !important;
+    padding-right:4px !important;
+    padding-bottom:14px !important;
+  }
+
+  html.hplTabletLandscape .hplBuildTag{
+    bottom:calc(100vh - var(--hpl-tablet-safe-height) + 6px) !important;
+  }
+
 </style>
 </head>
 <body>
+
+<script>
+(() => {
+  const root = document.documentElement;
+
+  function updateTabletLandscapeFit(){
+    const coarse = window.matchMedia?.('(pointer: coarse)').matches ?? false;
+    const touch = navigator.maxTouchPoints > 0;
+    const landscape = window.innerWidth > window.innerHeight;
+    const shortSide = Math.min(window.innerWidth, window.innerHeight);
+
+    // Treat a touch/coarse device with a reasonably large short side as tablet.
+    const tabletLandscape = landscape && (coarse || touch) && shortSide >= 500;
+
+    root.classList.toggle('hplTabletLandscape', tabletLandscape);
+
+    if (!tabletLandscape) return;
+
+    const vv = window.visualViewport;
+    const reported = vv ? vv.height : window.innerHeight;
+
+    // Android tablet taskbars can overlay content without reducing viewport metrics.
+    // 84px reserve + a tiny gutter ensures the chute remains visibly above it.
+    const safeHeight = Math.max(420, Math.floor(reported - 84));
+
+    root.style.setProperty('--hpl-tablet-safe-height', safeHeight + 'px');
+  }
+
+  updateTabletLandscapeFit();
+
+  window.addEventListener('resize', updateTabletLandscapeFit, {passive:true});
+  window.addEventListener('orientationchange', () => {
+    setTimeout(updateTabletLandscapeFit, 80);
+    setTimeout(updateTabletLandscapeFit, 350);
+    setTimeout(updateTabletLandscapeFit, 900);
+  }, {passive:true});
+
+  if(window.visualViewport){
+    window.visualViewport.addEventListener('resize', updateTabletLandscapeFit, {passive:true});
+  }
+
+  setTimeout(updateTabletLandscapeFit, 250);
+  setTimeout(updateTabletLandscapeFit, 900);
+})();
+</script>
+
 
 <script>
 (() => {
@@ -2528,6 +2647,6 @@ body.hplSplashLocked{
 })();
 </script>
 
-<div class="hplBuildTag">BUILD 9.3</div>
+<div class="hplBuildTag">BUILD 9.4</div>
 </body>
 </html>
