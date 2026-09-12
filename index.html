@@ -1036,8 +1036,8 @@ body.hplSplashLocked{
 <div class="app">
 <section class="left">
 <div class="topbar">
-<div class="brand"><div><span>BALL</span><span>DROP</span></div><div class="small">BASE SEPOLIA POC</div></div>
-<div class="time"><div class="small" id="phaseLabel">NEXT ROUND STARTS IN</div><div class="big" id="timer">00:30</div></div>
+<div class="brand"><div><span>BALL</span><span>DROP</span></div><div class="small">PUBLIC ALPHA PREVIEW</div></div>
+<div class="time"><div class="small" id="phaseLabel">DEMO ROUND ENDS IN</div><div class="big" id="timer">00:30</div></div>
 <div class="scoreTop"><div class="small">SCORE</div><div class="big" id="topScore">0</div></div>
 </div>
 <div class="boardShell">
@@ -1048,7 +1048,7 @@ body.hplSplashLocked{
 <div class="modal">
 <h2>ROUND COMPLETE</h2>
 <div id="roundSummary"></div>
-<button id="newRoundBtn">START NEXT ROUND</button>
+<button id="newRoundBtn">PLAY AGAIN</button>
 </div>
 </div>
 </div>
@@ -1268,8 +1268,8 @@ body.hplSplashLocked{
   };
 
   const paddles=[
-    {y:.39, x:.12, width:.30, h:30, dir:1, speed:.115, multiplier:2, color:'#1680ff'},
-    {y:.68, x:.58, width:.30, h:30, dir:-1, speed:.10, multiplier:4, color:'#ff3047'}
+    {y:.39, x:.12, width:.30, h:30, dir:1, speed:.115, mult:2, color:'#1680ff'},
+    {y:.68, x:.58, width:.30, h:30, dir:-1, speed:.10, mult:4, color:'#ff3047'}
   ];
 
   function makeBots(){
@@ -1366,7 +1366,7 @@ body.hplSplashLocked{
       const key=index+'';
       if(!b.touched.has(key)){
         b.touched.add(key);
-        b.mult*=p.mult;
+        b.mult*=Number.isFinite(p.mult)?p.mult:1;
         burst(b.x,b.y,p.color);
       }
       // intentionally let the ball pass through, matching the HPL concept.
@@ -1386,8 +1386,10 @@ body.hplSplashLocked{
     const booster=(active[1]?1.5:1)*(active[3]?2:1);
     const edge=Math.abs((b.x/W)-.5);
     const base=Math.round(100 + edge*180);
-    const gained=Math.round(base*b.mult*booster);
-    score+=gained;
+    const ballMult=Number.isFinite(b.mult) ? b.mult : 1;
+    const gained=Math.round(base*ballMult*booster);
+    if(Number.isFinite(gained)) score+=gained;
+    if(!Number.isFinite(score)) score=0;
     topScoreEl.textContent=Math.round(score).toLocaleString();
     pointsEl.textContent=Math.round(score).toLocaleString();
     burst(b.x,H-26,'#63f3a6');
@@ -1460,7 +1462,7 @@ body.hplSplashLocked{
       ctx.font='900 18px system-ui';
       ctx.textAlign='center';
       ctx.textBaseline='middle';
-      ctx.fillText('×'+p.mult,x+w/2,y+p.h/2);
+      ctx.fillText('×'+(Number.isFinite(p.mult)?p.mult:1),x+w/2,y+p.h/2);
     });
 
     // balls
