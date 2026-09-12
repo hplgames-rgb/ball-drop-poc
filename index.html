@@ -1100,6 +1100,51 @@ body.hplSplashLocked{
 }
 #scoreRows tr.youRow td{color:#69f0ae!important;font-weight:1000!important}
 </style>
+
+<style id="hplScoreboardUsabilityFix">
+  @media (min-width:680px){
+    .side{
+      grid-template-rows:auto minmax(300px,1.5fr) auto auto auto auto !important;
+    }
+    #tourScoreboard{
+      min-height:300px;
+      max-height:390px;
+    }
+  }
+  @media (max-width:679px){
+    #tourScoreboard{
+      min-height:285px;
+      max-height:380px;
+      overflow:auto;
+    }
+  }
+  #yourPositionBanner{
+    position:sticky;
+    top:-1px;
+    z-index:8;
+    backdrop-filter:blur(8px);
+    -webkit-backdrop-filter:blur(8px);
+  }
+</style>
+
+
+<style id="hplTourPointsVisibilityFix">
+  .hplTourCard.hplTourCardTop{
+    top:18px !important;
+    bottom:auto !important;
+  }
+  @media (max-width:800px){
+    .hplTourCard.hplTourCardTop{
+      top:max(10px, env(safe-area-inset-top, 0px)) !important;
+      bottom:auto !important;
+    }
+  }
+  #tourPoints.hplTourHighlight{
+    z-index:2147483650 !important;
+    box-shadow:0 0 0 4px #ffd84d,0 0 34px rgba(255,216,77,.75) !important;
+  }
+</style>
+
 </head>
 <body>
 <div id="publicDemoRibbon" style="position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:2147483000;
@@ -2239,7 +2284,7 @@ body.hplSplashLocked{
     {
       target:'#hplFullscreenBtn',
       title:'Go Fullscreen',
-      text:'For the best HPL Ball Drop experience, click FULLSCREEN first. This gives the game more room and makes the guided demo easier to follow.',
+      text:'For the best HPL Ball Drop experience, click FULLSCREEN first. On phones where browser fullscreen is unavailable, just tap NEXT to continue.',
       requirement:'fullscreen'
     },
     {
@@ -2393,15 +2438,26 @@ body.hplSplashLocked{
 
   function positionTourTarget(el){
     if(!el) return;
-    el.scrollIntoView({behavior:'smooth',block:'center'});
+
+    if(el.id==='tourPoints'){
+      const board=el.closest('.boardShell');
+      (board || el).scrollIntoView({behavior:'smooth',block:'center'});
+    } else {
+      el.scrollIntoView({behavior:'smooth',block:'center'});
+    }
+
     setTimeout(()=>{
       el.classList.add('hplTourHighlight');
     },220);
   }
 
+  function fullscreenIsOptional(){
+    return window.matchMedia('(max-width:800px)').matches || !document.fullscreenEnabled;
+  }
+
   function tourRequirementMet(step){
     if(!step.requirement) return true;
-    if(step.requirement==='fullscreen') return tourFullscreenSatisfied;
+    if(step.requirement==='fullscreen') return tourFullscreenSatisfied || fullscreenIsOptional();
     if(step.requirement==='basicplay') return tourBasicPlaySatisfied;
     if(step.requirement==='purchase') return tourPurchaseSatisfied;
     if(step.requirement==='activate') return tourActivateSatisfied;
@@ -2416,10 +2472,17 @@ body.hplSplashLocked{
     const step=tourSteps[tourIndex];
 
     if(step.requirement==='fullscreen'){
-      tourNext.disabled=true;
-      tourNext.textContent='CLICK FULLSCREEN TO CONTINUE';
-      tourNext.style.opacity='.55';
-      tourNext.style.cursor='not-allowed';
+      if(fullscreenIsOptional()){
+        tourNext.disabled=false;
+        tourNext.textContent='NEXT • FULLSCREEN OPTIONAL';
+        tourNext.style.opacity='1';
+        tourNext.style.cursor='pointer';
+      } else {
+        tourNext.disabled=true;
+        tourNext.textContent='CLICK FULLSCREEN TO CONTINUE';
+        tourNext.style.opacity='.55';
+        tourNext.style.cursor='not-allowed';
+      }
     } else if(step.requirement==='basicplay'){
       tourNext.disabled=true;
       tourNext.textContent='DROP ONE BALL TO CONTINUE';
@@ -2466,6 +2529,8 @@ body.hplSplashLocked{
 
     const step=tourSteps[tourIndex];
     tourTarget=document.querySelector(step.target);
+
+    tourCard.classList.toggle('hplTourCardTop', step.target==='#tourPoints');
 
     dropArrowEl?.classList.toggle(
       'show',
@@ -2534,6 +2599,7 @@ body.hplSplashLocked{
   }
 
   function closeTour(markSeen=true){
+    tourCard?.classList.remove('hplTourCardTop');
     dropArrowEl?.classList.remove('show');
     rewardReveal?.classList.remove('show');
     tutorialGate='';
