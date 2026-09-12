@@ -1043,6 +1043,20 @@ body.hplSplashLocked{
   }
 </style>
 
+
+<style id="hplTourVisibilityFix">
+  #hplTourCard.show{
+    opacity:1 !important;
+    visibility:visible !important;
+    pointer-events:auto !important;
+  }
+  #hplTourBackdrop.show{
+    opacity:1 !important;
+    visibility:visible !important;
+    pointer-events:auto !important;
+  }
+</style>
+
 </head>
 <body>
 <div id="publicDemoRibbon" style="position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:2147483000;
@@ -1762,15 +1776,22 @@ body.hplSplashLocked{
       invEls[id].textContent=inventory[id];
       activeEls[id].textContent=active[id]?'EQUIPPED':'Not equipped';
 
-      // During the guided purchase lesson, ONLY Extra Ball Drop (id 2)
-      // can be changed in the Marketplace.
+      // Guided walkthrough is deliberately linear:
+      // Marketplace stays locked until the purchase lesson, and during
+      // that lesson ONLY Extra Ball Drop (id 2) is selectable.
       document.querySelectorAll(`.qtyBtn[data-id="${id}"]`).forEach(btn=>{
-        btn.disabled=(gameMode==='guided' && tutorialGate==='purchase' && id!==2);
+        if(gameMode==='guided'){
+          btn.disabled=(tutorialGate!=='purchase' || id!==2);
+        } else {
+          btn.disabled=false;
+        }
       });
 
-      // During the guided activation lesson, ONLY Extra Ball Drop can activate.
+      // Inventory activation is also locked until its lesson. During that
+      // lesson ONLY Extra Ball Drop can be activated.
       const tutorialActivationLock=
-        gameMode==='guided' && tutorialGate==='activate' && id!==2;
+        gameMode==='guided' &&
+        (tutorialGate!=='activate' || id!==2);
 
       activateBtns[id].disabled=
         inventory[id]<=0 || active[id] || tutorialActivationLock;
@@ -1783,8 +1804,12 @@ body.hplSplashLocked{
 
     const tutorialPurchaseInvalid=
       gameMode==='guided' &&
-      tutorialGate==='purchase' &&
-      (cart[2]<=0 || cart[1]>0 || cart[3]>0);
+      (
+        tutorialGate!=='purchase' ||
+        cart[2]<=0 ||
+        cart[1]>0 ||
+        cart[3]>0
+      );
 
     buyCartBtn.disabled=total<=0 || total>demoHpl || tutorialPurchaseInvalid;
     buyCartBtn.textContent=total>0?'BUY DEMO CART • '+total.toLocaleString()+' HPL':'BUY DEMO CART';
@@ -1794,9 +1819,15 @@ body.hplSplashLocked{
     btn.addEventListener('click',()=>{
       const id=Number(btn.dataset.id),delta=Number(btn.dataset.delta);
 
-      if(gameMode==='guided' && tutorialGate==='purchase' && id!==2){
-        marketStatusEl.textContent='🎯 Tutorial step: choose Extra Ball Drop only.';
-        return;
+      if(gameMode==='guided'){
+        if(tutorialGate!=='purchase'){
+          marketStatusEl.textContent='🔒 Follow the guided walkthrough first — the Marketplace unlocks when we reach the power-up lesson.';
+          return;
+        }
+        if(id!==2){
+          marketStatusEl.textContent='🎯 Tutorial step: choose Extra Ball Drop only.';
+          return;
+        }
       }
 
       cart[id]=Math.max(0,Math.min(20,cart[id]+delta));
@@ -1805,7 +1836,11 @@ body.hplSplashLocked{
   });
 
   buyCartBtn?.addEventListener('click',()=>{
-    if(gameMode==='guided' && tutorialGate==='purchase'){
+    if(gameMode==='guided'){
+      if(tutorialGate!=='purchase'){
+        marketStatusEl.textContent='🔒 The Marketplace unlocks later in the guided walkthrough.';
+        return;
+      }
       if(cart[2]<=0 || cart[1]>0 || cart[3]>0){
         marketStatusEl.textContent='🎯 Add Extra Ball Drop only, then click BUY DEMO CART.';
         return;
@@ -1829,9 +1864,15 @@ body.hplSplashLocked{
 
   [1,2,3].forEach(id=>{
     activateBtns[id]?.addEventListener('click',()=>{
-      if(gameMode==='guided' && tutorialGate==='activate' && id!==2){
-        inventoryStatusEl.textContent='🎯 Tutorial step: activate Extra Ball Drop only.';
-        return;
+      if(gameMode==='guided'){
+        if(tutorialGate!=='activate'){
+          inventoryStatusEl.textContent='🔒 Follow the walkthrough — activation unlocks after the Extra Ball purchase.';
+          return;
+        }
+        if(id!==2){
+          inventoryStatusEl.textContent='🎯 Tutorial step: activate Extra Ball Drop only.';
+          return;
+        }
       }
 
       if(inventory[id]<=0 || active[id])return;
@@ -1851,23 +1892,7 @@ body.hplSplashLocked{
   });
 
 
-  rewardRevealOk?.addEventListener('click',()=>{
-    if(!tourRunning || tourSteps[tourIndex]?.requirement!=='rewardclaim') return;
 
-    tutorialRewardRevealAcknowledged=true;
-    rewardReveal?.classList.remove('show');
-
-    claimStatusEl.innerHTML=
-      `<strong style="color:#ffd45c">🏆 YOU PLACED 2ND!</strong><br>`+
-      `Your 20% second-place share is ready. Click COLLECT DEMO HPL below.`;
-
-    renderWallet();
-    claimBtn.disabled=false;
-
-    // The walkthrough still waits for the actual claim.
-    tourNext.disabled=true;
-    tourNext.textContent=tutorialRewardRevealAcknowledged?'CLAIM YOUR 2ND PLACE REWARD':'VIEW YOUR 2ND PLACE RESULT';
-  });
 
   claimBtn?.addEventListener('click',()=>{
     if(tourRunning && tourSteps[tourIndex]?.requirement==='rewardclaim' && !tutorialRewardRevealAcknowledged){
@@ -2230,6 +2255,25 @@ body.hplSplashLocked{
   const TUTORIAL_PLAY_SECONDS=10;
   const modeBadge=$('hplModeBadge');
 
+  rewardRevealOk?.addEventListener('click',()=>{
+    if(!tourRunning || tourSteps[tourIndex]?.requirement!=='rewardclaim') return;
+
+    tutorialRewardRevealAcknowledged=true;
+    rewardReveal?.classList.remove('show');
+
+    claimStatusEl.innerHTML=
+      `<strong style="color:#ffd45c">🏆 YOU PLACED 2ND!</strong><br>`+
+      `Your 20% second-place share is ready. Click COLLECT DEMO HPL below.`;
+
+    renderWallet();
+    claimBtn.disabled=false;
+
+    // The walkthrough still waits for the actual claim.
+    tourNext.disabled=true;
+    tourNext.textContent=tutorialRewardRevealAcknowledged?'CLAIM YOUR 2ND PLACE REWARD':'VIEW YOUR 2ND PLACE RESULT';
+  });
+
+
 
   function clearTutorialActionPulse(){
     document.querySelectorAll('.hplTutorialPulse').forEach(el=>el.classList.remove('hplTutorialPulse'));
@@ -2544,6 +2588,8 @@ body.hplSplashLocked{
     showTourStep(0);
   }
 
+  window.HPLStartGuidedTour=startTour;
+
   tourNext?.addEventListener('click',()=>{
     const step=tourSteps[tourIndex];
     if(!tourRequirementMet(step)) return;
@@ -2562,6 +2608,15 @@ body.hplSplashLocked{
     e.stopPropagation();
     startTour();
   });
+
+  // Automatically launch the guided walkthrough on every fresh page load.
+  // Delay it until the opening alpha notice/splash has had time to clear.
+  let guidedTourAutoStarted=false;
+  setTimeout(()=>{
+    if(guidedTourAutoStarted) return;
+    guidedTourAutoStarted=true;
+    startTour();
+  },3000);
 
   // Hook into the existing demo purchase flow.
   buyCartBtn?.addEventListener('click',()=>{
@@ -2597,11 +2652,22 @@ body.hplSplashLocked{
     });
   });
 
-  // Always auto-start the guided walkthrough when the page is freshly loaded.
-  // The player can skip it, finish it, or replay it later.
-  setTimeout(()=>{
+  // Always auto-start the walkthrough after the startup UI has had
+  // time to clear. A second retry makes startup resilient on slower browsers.
+  function autoStartGuidedTour(){
+    if(tourRunning) return;
     startTour();
-  },1800);
+  }
+
+  if(document.readyState==='complete'){
+    setTimeout(autoStartGuidedTour,700);
+  } else {
+    window.addEventListener('load',()=>setTimeout(autoStartGuidedTour,700),{once:true});
+  }
+
+  setTimeout(()=>{
+    if(!tourRunning) autoStartGuidedTour();
+  },2600);
 
 })();
 </script>
