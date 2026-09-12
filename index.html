@@ -1057,6 +1057,24 @@ body.hplSplashLocked{
   }
 </style>
 
+
+<style id="hplFullscreenTourEmphasis">
+  #hplFullscreenBtn.hplTutorialPulse{
+    transform:scale(1.10);
+    box-shadow:
+      0 0 0 4px rgba(255,216,77,.28),
+      0 0 30px rgba(255,216,77,.75),
+      0 12px 30px rgba(0,0,0,.4) !important;
+    border-color:#ffd84d !important;
+    color:#ffd84d !important;
+    animation:hplFullscreenNudge 1s ease-in-out infinite;
+  }
+  @keyframes hplFullscreenNudge{
+    0%,100%{transform:scale(1.08)}
+    50%{transform:scale(1.14)}
+  }
+</style>
+
 </head>
 <body>
 <div id="publicDemoRibbon" style="position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:2147483000;
@@ -1331,7 +1349,7 @@ body.hplSplashLocked{
   }
 </style>
 <button class="hplTourReplay" id="hplTourReplay" type="button">🎓 GUIDED TOUR</button><button class="hplFullscreenBtn" id="hplFullscreenBtn" type="button">⛶ FULLSCREEN</button><div aria-live="polite" aria-modal="true" class="hplTourCard" id="hplTourCard" role="dialog">
-<div class="hplTourStep" id="hplTourStep">STEP 1 OF 9</div>
+<div class="hplTourStep" id="hplTourStep">STEP 1 OF 10</div>
 <div class="hplTourTitle" id="hplTourTitle">Welcome to HPL Ball Drop</div>
 <div class="hplTourText" id="hplTourText"></div>
 <div class="hplTourActions">
@@ -2170,6 +2188,12 @@ body.hplSplashLocked{
 
   const tourSteps=[
     {
+      target:'#hplFullscreenBtn',
+      title:'Go Fullscreen',
+      text:'For the best HPL Ball Drop experience, click FULLSCREEN first. This gives the game more room and makes the guided demo easier to follow.',
+      requirement:'fullscreen'
+    },
+    {
       target:'#game',
       title:'Try Ball Drop',
       text:'Start naturally: click the board once to drop a normal ball. Watch it bounce through the pegs and score at the bottom.',
@@ -2238,6 +2262,7 @@ body.hplSplashLocked{
   const rewardRevealOk=$('hplRewardRevealOk');
   let tourIndex=0;
   let tourTarget=null;
+  let tourFullscreenSatisfied=false;
   let tourPurchaseSatisfied=false;
   let tourActivateSatisfied=false;
   let tourGameplaySatisfied=false;
@@ -2285,6 +2310,10 @@ body.hplSplashLocked{
     const step=tourSteps[tourIndex];
     if(!step) return;
 
+    if(step.requirement==='fullscreen'){
+      fullscreenBtn?.classList.add('hplTutorialPulse');
+    }
+
     if(step.target==='#tourPoints'){
       document.querySelector('#tourPoints')?.classList.add('hplTutorialPulse');
     }
@@ -2323,6 +2352,7 @@ body.hplSplashLocked{
 
   function tourRequirementMet(step){
     if(!step.requirement) return true;
+    if(step.requirement==='fullscreen') return tourFullscreenSatisfied;
     if(step.requirement==='basicplay') return tourBasicPlaySatisfied;
     if(step.requirement==='purchase') return tourPurchaseSatisfied;
     if(step.requirement==='activate') return tourActivateSatisfied;
@@ -2336,7 +2366,12 @@ body.hplSplashLocked{
     if(!tourRunning) return;
     const step=tourSteps[tourIndex];
 
-    if(step.requirement==='basicplay'){
+    if(step.requirement==='fullscreen'){
+      tourNext.disabled=true;
+      tourNext.textContent='CLICK FULLSCREEN TO CONTINUE';
+      tourNext.style.opacity='.55';
+      tourNext.style.cursor='not-allowed';
+    } else if(step.requirement==='basicplay'){
       tourNext.disabled=true;
       tourNext.textContent='DROP ONE BALL TO CONTINUE';
       tourNext.style.opacity='.55';
@@ -2539,6 +2574,7 @@ body.hplSplashLocked{
   function startTour(){
     setGameMode('guided');
 
+    tourFullscreenSatisfied=!!document.fullscreenElement;
     tourPurchaseSatisfied=false;
     tourActivateSatisfied=false;
     tourGameplaySatisfied=false;
@@ -2553,7 +2589,7 @@ body.hplSplashLocked{
 
     // Clean guided-practice state.
     // We begin with normal one-ball gameplay; the Marketplace is introduced later.
-    tutorialGate='basicplay';
+    tutorialGate='fullscreen';
     cart[1]=cart[2]=cart[3]=0;
 
     [1,2,3].forEach(id=>{
@@ -2585,7 +2621,13 @@ body.hplSplashLocked{
     renderMarket();
     renderLeaderboard();
 
-    showTourStep(0);
+    if(document.fullscreenElement){
+      tourFullscreenSatisfied=true;
+      const basicIndex=tourSteps.findIndex(s=>s.requirement==='basicplay');
+      showTourStep(basicIndex>=0?basicIndex:0);
+    } else {
+      showTourStep(0);
+    }
   }
 
   window.HPLStartGuidedTour=startTour;
@@ -2607,6 +2649,38 @@ body.hplSplashLocked{
     e.preventDefault();
     e.stopPropagation();
     startTour();
+  });
+
+  // First guided-tour action: enter fullscreen.
+  // Fullscreen must be triggered by a real user click, so the tutorial
+  // highlights the button rather than attempting to force it automatically.
+  fullscreenBtn?.addEventListener('click',()=>{
+    if(!tourRunning || tourSteps[tourIndex]?.requirement!=='fullscreen') return;
+
+    // requestFullscreen() is handled by the main fullscreen button listener.
+    // Give the browser a moment to enter fullscreen, then advance.
+    setTimeout(()=>{
+      if(document.fullscreenElement){
+        tourFullscreenSatisfied=true;
+        tourNext.disabled=false;
+        tourNext.style.opacity='1';
+        tourNext.style.cursor='pointer';
+        tourNext.textContent='CONTINUE';
+        setTimeout(()=>advanceTour(),250);
+      }
+    },180);
+  });
+
+  document.addEventListener('fullscreenchange',()=>{
+    if(!tourRunning || tourSteps[tourIndex]?.requirement!=='fullscreen') return;
+    if(document.fullscreenElement){
+      tourFullscreenSatisfied=true;
+      tourNext.disabled=false;
+      tourNext.style.opacity='1';
+      tourNext.style.cursor='pointer';
+      tourNext.textContent='CONTINUE';
+      setTimeout(()=>advanceTour(),250);
+    }
   });
 
   // Automatically launch the guided walkthrough on every fresh page load.
