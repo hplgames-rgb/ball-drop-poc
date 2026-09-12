@@ -1201,6 +1201,22 @@ body.hplSplashLocked{
   }
 </style>
 
+
+<style id="hplStep5BuyFocusStyle">
+  #buyCartBtn.hplStep5BuyFocus{
+    position:relative !important;
+    z-index:2147483655 !important;
+    box-shadow:
+      0 0 0 4px #ffd84d,
+      0 0 34px rgba(255,216,77,.8) !important;
+    animation:hplStep5BuyPulse .8s ease-in-out infinite alternate;
+  }
+  @keyframes hplStep5BuyPulse{
+    from{transform:scale(1)}
+    to{transform:scale(1.025)}
+  }
+</style>
+
 </head>
 <body>
 <div id="publicDemoRibbon" style="position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:2147483000;
@@ -1999,10 +2015,33 @@ body.hplSplashLocked{
 
       cart[id]=Math.max(0,Math.min(20,cart[id]+delta));
       renderMarket();
+
+      // Step 5: after the player adds Extra Ball Drop, guide their eyes
+      // down to the next required action: BUY DEMO CART.
+      if(
+        gameMode==='guided' &&
+        tutorialGate==='purchase' &&
+        id===2 &&
+        delta>0 &&
+        cart[2]>0
+      ){
+        marketStatusEl.textContent='✓ Extra Ball Drop added — now click BUY DEMO CART.';
+        buyCartBtn?.classList.add('hplStep5BuyFocus');
+
+        setTimeout(()=>{
+          buyCartBtn?.scrollIntoView({
+            behavior:'smooth',
+            block:'center',
+            inline:'nearest'
+          });
+        },120);
+      }
     });
   });
 
   buyCartBtn?.addEventListener('click',()=>{
+    buyCartBtn?.classList.remove('hplStep5BuyFocus');
+
     if(gameMode==='guided'){
       if(tutorialGate!=='purchase'){
         marketStatusEl.textContent='🔒 The Marketplace unlocks later in the guided walkthrough.';
@@ -2587,6 +2626,10 @@ body.hplSplashLocked{
     const step=tourSteps[tourIndex];
     tourTarget=document.querySelector(step.target);
 
+    if(step.requirement!=='purchase'){
+      buyCartBtn?.classList.remove('hplStep5BuyFocus');
+    }
+
     const pointsTarget=document.querySelector('#tourPoints');
     const onPointsStep=step.target==='#tourPoints';
     const onPoweredPlayStep=step.requirement==='poweredplay';
@@ -2674,6 +2717,7 @@ body.hplSplashLocked{
   }
 
   function closeTour(markSeen=true){
+    buyCartBtn?.classList.remove('hplStep5BuyFocus');
     tourCard?.classList.remove('hplTourCardLiftForPoints');
     tourCard?.classList.remove('hplTourCardLiftForPoweredPlay');
     const closingPoints=document.querySelector('#tourPoints');
@@ -2796,6 +2840,7 @@ body.hplSplashLocked{
   }
 
   function startTour(){
+    fullscreenTourAdvancePending=false;
     setGameMode('guided');
 
     tourFullscreenSatisfied=!!document.fullscreenElement;
@@ -2876,35 +2921,37 @@ body.hplSplashLocked{
   });
 
   // First guided-tour action: enter fullscreen.
-  // Fullscreen must be triggered by a real user click, so the tutorial
-  // highlights the button rather than attempting to force it automatically.
-  fullscreenBtn?.addEventListener('click',()=>{
-    if(!tourRunning || tourSteps[tourIndex]?.requirement!=='fullscreen') return;
-
-    // requestFullscreen() is handled by the main fullscreen button listener.
-    // Give the browser a moment to enter fullscreen, then advance.
-    setTimeout(()=>{
-      if(document.fullscreenElement){
-        tourFullscreenSatisfied=true;
-        tourNext.disabled=false;
-        tourNext.style.opacity='1';
-        tourNext.style.cursor='pointer';
-        tourNext.textContent='CONTINUE';
-        setTimeout(()=>advanceTour(),250);
-      }
-    },180);
-  });
+  // IMPORTANT: only ONE event is allowed to advance Step 1.
+  // Previously both the button click and fullscreenchange scheduled an
+  // advance, so the second timer could fire after Step 2 appeared and
+  // incorrectly jump straight to Step 3.
+  let fullscreenTourAdvancePending=false;
 
   document.addEventListener('fullscreenchange',()=>{
-    if(!tourRunning || tourSteps[tourIndex]?.requirement!=='fullscreen') return;
-    if(document.fullscreenElement){
-      tourFullscreenSatisfied=true;
-      tourNext.disabled=false;
-      tourNext.style.opacity='1';
-      tourNext.style.cursor='pointer';
-      tourNext.textContent='CONTINUE';
-      setTimeout(()=>advanceTour(),250);
-    }
+    if(!tourRunning) return;
+    if(tourSteps[tourIndex]?.requirement!=='fullscreen') return;
+    if(!document.fullscreenElement) return;
+    if(fullscreenTourAdvancePending || tourFullscreenSatisfied) return;
+
+    fullscreenTourAdvancePending=true;
+    tourFullscreenSatisfied=true;
+    tourNext.disabled=false;
+    tourNext.style.opacity='1';
+    tourNext.style.cursor='pointer';
+    tourNext.textContent='CONTINUE';
+
+    const fullscreenStepIndex=tourIndex;
+    setTimeout(()=>{
+      // Guard against stale timers: only advance if we're STILL on Step 1.
+      if(
+        tourRunning &&
+        tourIndex===fullscreenStepIndex &&
+        tourSteps[tourIndex]?.requirement==='fullscreen'
+      ){
+        advanceTour();
+      }
+      fullscreenTourAdvancePending=false;
+    },250);
   });
 
   // Automatically launch the guided walkthrough on every fresh page load.
