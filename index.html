@@ -984,6 +984,19 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
   }
 </style>
 
+
+<style id="hplTutorialExtraBallStyles">
+  .hplTutorialPulse{
+    outline:3px solid #ffd84d !important;
+    box-shadow:0 0 0 6px rgba(255,216,77,.18), 0 0 26px rgba(255,216,77,.55) !important;
+    animation:hplTutorialPulse 1.05s ease-in-out infinite;
+  }
+  @keyframes hplTutorialPulse{
+    0%,100%{filter:brightness(1)}
+    50%{filter:brightness(1.18)}
+  }
+</style>
+
 </head>
 <body>
 <div id="publicDemoRibbon" style="position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:2147483000;
@@ -1328,6 +1341,9 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
   // Must exist before the very first startRound() call.
   // The page begins in guided mode and switches to live mode after the tutorial.
   let gameMode='guided';
+  // Which tutorial action is currently locked/required.
+  // Declared early because Marketplace rendering uses it.
+  let tutorialGate='';
   let score=0;
   let round=1;
   let secondsLeft=ROUND_SECONDS;
@@ -1639,24 +1655,57 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
       qtyEls[id].textContent=cart[id];
       invEls[id].textContent=inventory[id];
       activeEls[id].textContent=active[id]?'EQUIPPED':'Not equipped';
-      activateBtns[id].disabled=inventory[id]<=0 || active[id];
+
+      // During the guided purchase lesson, ONLY Extra Ball Drop (id 2)
+      // can be changed in the Marketplace.
+      document.querySelectorAll(`.qtyBtn[data-id="${id}"]`).forEach(btn=>{
+        btn.disabled=(gameMode==='guided' && tutorialGate==='purchase' && id!==2);
+      });
+
+      // During the guided activation lesson, ONLY Extra Ball Drop can activate.
+      const tutorialActivationLock=
+        gameMode==='guided' && tutorialGate==='activate' && id!==2;
+
+      activateBtns[id].disabled=
+        inventory[id]<=0 || active[id] || tutorialActivationLock;
+
       activateBtns[id].textContent=active[id]?'EQUIPPED':'ACTIVATE';
     });
+
     const total=cartTotal();
     cartTotalEl.textContent=total.toLocaleString()+' HPL';
-    buyCartBtn.disabled=total<=0 || total>demoHpl;
+
+    const tutorialPurchaseInvalid=
+      gameMode==='guided' &&
+      tutorialGate==='purchase' &&
+      (cart[2]<=0 || cart[1]>0 || cart[3]>0);
+
+    buyCartBtn.disabled=total<=0 || total>demoHpl || tutorialPurchaseInvalid;
     buyCartBtn.textContent=total>0?'BUY DEMO CART • '+total.toLocaleString()+' HPL':'BUY DEMO CART';
   }
 
   document.querySelectorAll('.qtyBtn').forEach(btn=>{
     btn.addEventListener('click',()=>{
       const id=Number(btn.dataset.id),delta=Number(btn.dataset.delta);
+
+      if(gameMode==='guided' && tutorialGate==='purchase' && id!==2){
+        marketStatusEl.textContent='🎯 Tutorial step: choose Extra Ball Drop only.';
+        return;
+      }
+
       cart[id]=Math.max(0,Math.min(20,cart[id]+delta));
       renderMarket();
     });
   });
 
   buyCartBtn?.addEventListener('click',()=>{
+    if(gameMode==='guided' && tutorialGate==='purchase'){
+      if(cart[2]<=0 || cart[1]>0 || cart[3]>0){
+        marketStatusEl.textContent='🎯 Add Extra Ball Drop only, then click BUY DEMO CART.';
+        return;
+      }
+    }
+
     const total=cartTotal();
     if(total<=0)return;
     if(total>demoHpl){
@@ -1674,6 +1723,11 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
 
   [1,2,3].forEach(id=>{
     activateBtns[id]?.addEventListener('click',()=>{
+      if(gameMode==='guided' && tutorialGate==='activate' && id!==2){
+        inventoryStatusEl.textContent='🎯 Tutorial step: activate Extra Ball Drop only.';
+        return;
+      }
+
       if(inventory[id]<=0 || active[id])return;
       inventory[id]--;
       active[id]=true;
@@ -1697,6 +1751,19 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     pendingReward=0;
     claimStatusEl.textContent=`Collected ${fmt(x,2)} DEMO HPL locally. No blockchain transaction occurred.`;
     renderWallet();
+  });
+
+  // Guided reward lesson completion.
+  claimBtn?.addEventListener('click',()=>{
+    if(!tourRunning || tourSteps[tourIndex]?.requirement!=='rewardclaim') return;
+    setTimeout(()=>{
+      if(pendingReward<=0){
+        tourRewardClaimSatisfied=true;
+        claimStatusEl.innerHTML=
+          '<strong style="color:#69f0ae">✓ 2ND PLACE REWARD CLAIMED!</strong><br>This was a guided-practice reward only.';
+        setTimeout(()=>advanceTour(),650);
+      }
+    },0);
   });
 
   function rewardForPlace(place,totalPlayers){
@@ -1944,14 +2011,14 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
   const tourSteps=[
     {
       target:'#tourMarketplace',
-      title:'Buy a Booster',
-      text:'Start by purchasing any demo power-up from the HPL Marketplace. Add one to your cart, then click BUY DEMO CART. The tour will continue only after a purchase is completed.',
+      title:'Buy Extra Ball Drop',
+      text:'Let’s learn the purchase flow with one specific item. Only Extra Ball Drop is enabled for this lesson. Click its + button, then click BUY DEMO CART. The tour will continue only after Extra Ball Drop is purchased.',
       requirement:'purchase'
     },
     {
       target:'#tourInventory',
-      title:'Activate Your Booster',
-      text:'Now activate one of the boosters you just purchased. The tour will continue only after a booster is equipped for this guided round.',
+      title:'Activate Extra Ball Drop',
+      text:'Only Extra Ball Drop can be activated for this lesson. Find it in your inventory and click ACTIVATE. This shows how a purchased item moves from Marketplace → Inventory → Active Power-Up.',
       requirement:'activate'
     },
     {
@@ -1974,9 +2041,9 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     },
     {
       target:'#tourRewards',
-      title:'Claim Game Rewards',
-      text:'The reward pool grows during the round from simulated outside HPL trading. Your finishing position determines your share of the final pool.',
-      requirement:null
+      title:'Your Demo Rewards',
+      text:'Practice result: you placed 2nd this round. That earns 20% of the current simulated reward pool. Claim it below to see how game rewards would work.',
+      requirement:'rewardclaim'
     },
     {
       target:'#tourRoundInfo',
@@ -1999,6 +2066,7 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
   let tourPurchaseSatisfied=false;
   let tourActivateSatisfied=false;
   let tourGameplaySatisfied=false;
+  let tourRewardClaimSatisfied=false;
   let tourRunning=false;
 
   // Two clearly separated game states:
@@ -2007,6 +2075,36 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
   let tutorialRankPromptShown=false;
   const TUTORIAL_PLAY_SECONDS=10;
   const modeBadge=$('hplModeBadge');
+
+
+  function clearTutorialActionPulse(){
+    document.querySelectorAll('.hplTutorialPulse').forEach(el=>el.classList.remove('hplTutorialPulse'));
+  }
+
+  function pulseRequiredTutorialAction(){
+    clearTutorialActionPulse();
+
+    const step=tourSteps[tourIndex];
+    if(!step) return;
+
+    if(step.requirement==='purchase'){
+      // Exact Extra Ball Drop selector: Marketplace item id 2.
+      const plusBtn=document.querySelector('.qtyBtn[data-id="2"][data-delta="1"]');
+      const marketItem=plusBtn?.closest('.marketItem');
+
+      marketItem?.classList.add('hplTutorialPulse');
+      plusBtn?.classList.add('hplTutorialPulse');
+    }
+
+    if(step.requirement==='activate'){
+      // Exact Extra Ball Drop selector: Inventory activation id 2.
+      const activateBtn=activateBtns[2];
+      const inventoryItem=activateBtn?.closest('.inventoryItem');
+
+      inventoryItem?.classList.add('hplTutorialPulse');
+      activateBtn?.classList.add('hplTutorialPulse');
+    }
+  }
 
   function clearTourTarget(){
     if(tourTarget) tourTarget.classList.remove('hplTourHighlight');
@@ -2026,6 +2124,7 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     if(step.requirement==='purchase') return tourPurchaseSatisfied;
     if(step.requirement==='activate') return tourActivateSatisfied;
     if(step.requirement==='gameplay') return tourGameplaySatisfied;
+    if(step.requirement==='rewardclaim') return tourRewardClaimSatisfied;
     return true;
   }
 
@@ -2035,17 +2134,22 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
 
     if(step.requirement==='purchase'){
       tourNext.disabled=true;
-      tourNext.textContent='BUY A BOOSTER TO CONTINUE';
+      tourNext.textContent='BUY EXTRA BALL DROP TO CONTINUE';
       tourNext.style.opacity='.55';
       tourNext.style.cursor='not-allowed';
     } else if(step.requirement==='activate'){
       tourNext.disabled=true;
-      tourNext.textContent='ACTIVATE A BOOSTER TO CONTINUE';
+      tourNext.textContent='ACTIVATE EXTRA BALL DROP TO CONTINUE';
       tourNext.style.opacity='.55';
       tourNext.style.cursor='not-allowed';
     } else if(step.requirement==='gameplay'){
       tourNext.disabled=true;
       tourNext.textContent='DROP A BALL TO START';
+      tourNext.style.opacity='.55';
+      tourNext.style.cursor='not-allowed';
+    } else if(step.requirement==='rewardclaim'){
+      tourNext.disabled=true;
+      tourNext.textContent='CLAIM YOUR 2ND PLACE REWARD';
       tourNext.style.opacity='.55';
       tourNext.style.cursor='not-allowed';
     } else {
@@ -2065,6 +2169,9 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     const step=tourSteps[tourIndex];
     tourTarget=document.querySelector(step.target);
 
+    tutorialGate=step.requirement || '';
+    renderMarket();
+
     tourStepEl.textContent=`STEP ${tourIndex+1} OF ${tourSteps.length}`;
     tourTitleEl.textContent=step.title;
     tourTextEl.textContent=step.text;
@@ -2073,6 +2180,18 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     tourCard.classList.add('show');
 
     updateTourControls();
+    setTimeout(pulseRequiredTutorialAction,260);
+
+    // Tutorial reward lesson: simulate a completed round where YOU placed 2nd.
+    if(step.requirement==='rewardclaim'){
+      const tutorialReward=currentRewardPool*.20;
+      pendingReward=tutorialReward;
+      claimStatusEl.innerHTML=
+        `<strong style="color:#ffd45c">🏆 YOU PLACED 2ND!</strong><br>`+
+        `2nd place earns <strong>20%</strong> of the current ${Math.round(currentRewardPool).toLocaleString()} HPL pool.<br>`+
+        `<strong style="color:#69f0ae">${tutorialReward.toLocaleString(undefined,{maximumFractionDigits:2})} HPL READY TO CLAIM</strong>`;
+      renderWallet();
+    }
 
     if(tourTarget) positionTourTarget(tourTarget);
   }
@@ -2087,6 +2206,8 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
   }
 
   function closeTour(markSeen=true){
+    tutorialGate='';
+    clearTutorialActionPulse();
     clearTourTarget();
     tourBackdrop?.classList.remove('show');
     tourCard?.classList.remove('show');
@@ -2121,6 +2242,7 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
   }
 
   function startFreshLiveDemoRound(){
+    tutorialGate='';
     setGameMode('live');
     tourRunning=false;
     tutorialFirstDropAt=null;
@@ -2131,6 +2253,7 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     round=1;
     demoReflections=0;
     pendingReward=0;
+    tourRewardClaimSatisfied=false;
     score=0;
     secondsLeft=ROUND_SECONDS;
     currentRewardPool=STARTING_REWARD_POOL;
@@ -2171,10 +2294,14 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     tourPurchaseSatisfied=false;
     tourActivateSatisfied=false;
     tourGameplaySatisfied=false;
+    tourRewardClaimSatisfied=false;
     tutorialFirstDropAt=null;
     tutorialRankPromptShown=false;
 
     // Clean guided-practice state.
+    // The purchase lesson begins with an empty cart and Extra Ball Drop
+    // is the only Marketplace item the tutorial will allow.
+    tutorialGate='purchase';
     cart[1]=cart[2]=cart[3]=0;
 
     [1,2,3].forEach(id=>{
@@ -2197,8 +2324,8 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     roundNoEl.textContent='PRACTICE';
     poolEl.textContent=Math.round(currentRewardPool).toLocaleString();
 
-    marketStatusEl.textContent='Tutorial ready • buy any demo booster to continue.';
-    inventoryStatusEl.textContent='Guided demo • activate a purchased booster next.';
+    marketStatusEl.textContent='Tutorial: purchase Extra Ball Drop to continue.';
+    inventoryStatusEl.textContent='Guided demo • activate Extra Ball Drop next.';
     claimStatusEl.textContent='Guided demo rewards are practice only.';
     reflectionStatusEl.textContent='Guided demo reflections are practice only.';
 
@@ -2234,11 +2361,12 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
 
     // The existing marketplace handler has already moved purchased items into inventory.
     setTimeout(()=>{
-      const totalOwned=inventory[1]+inventory[2]+inventory[3];
-      if(totalOwned>0){
+      if(inventory[2]>0){
         tourPurchaseSatisfied=true;
-        marketStatusEl.textContent='✓ Booster purchased! Tutorial moving to activation...';
+        marketStatusEl.textContent='✓ Extra Ball Drop purchased! Moving to activation...';
         setTimeout(()=>advanceTour(),550);
+      } else {
+        marketStatusEl.textContent='Tutorial requires Extra Ball Drop • click its + button, then BUY DEMO CART.';
       }
     },0);
   });
@@ -2248,12 +2376,14 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     activateBtns[id]?.addEventListener('click',()=>{
       if(!tourRunning || tourSteps[tourIndex]?.requirement!=='activate') return;
 
-      // Existing activation handler has already marked active[id] true.
+      // Tutorial specifically teaches the Extra Ball Drop power-up.
       setTimeout(()=>{
-        if(active[id]){
+        if(id===2 && active[2]){
           tourActivateSatisfied=true;
-          inventoryStatusEl.textContent='✓ Booster activated! Tutorial unlocked.';
+          inventoryStatusEl.textContent='✓ Extra Ball Drop activated! Tutorial unlocked.';
           setTimeout(()=>advanceTour(),550);
+        } else if(id!==2){
+          inventoryStatusEl.textContent='Tutorial requires Extra Ball Drop • activate that item to continue.';
         }
       },0);
     });
