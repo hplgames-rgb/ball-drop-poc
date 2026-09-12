@@ -947,6 +947,43 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
   }
 </style>
 
+
+<style id="hplModeBadgeStyles">
+  .hplModeBadge{
+    position:fixed;
+    top:34px;
+    left:50%;
+    transform:translateX(-50%);
+    z-index:2147482999;
+    padding:7px 12px;
+    border-radius:999px;
+    font:900 10px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    letter-spacing:.7px;
+    box-shadow:0 8px 25px rgba(0,0,0,.28);
+    pointer-events:none;
+    white-space:nowrap;
+  }
+  .hplModeBadge.guided{
+    background:rgba(102,69,0,.92);
+    border:1px solid rgba(255,214,92,.55);
+    color:#ffe99a;
+  }
+  .hplModeBadge.live{
+    background:rgba(0,83,70,.92);
+    border:1px solid rgba(77,255,204,.5);
+    color:#a9ffe5;
+  }
+  @media (max-width:700px){
+    .hplModeBadge{
+      top:32px;
+      font-size:9px;
+      max-width:calc(100vw - 18px);
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+  }
+</style>
+
 </head>
 <body>
 <div id="publicDemoRibbon" style="position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:2147483000;
@@ -955,6 +992,10 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
       box-shadow:0 5px 20px rgba(0,0,0,.35);pointer-events:none">
       PUBLIC DEMO • SIMULATED HPL • NO WALLET CONNECTION
     </div>
+<div id="hplModeBadge" class="hplModeBadge guided">
+  🎓 GUIDED DEMO — WALKTHROUGH ACTIVE
+</div>
+
 <script>
 (() => {
   const root = document.documentElement;
@@ -1216,7 +1257,7 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     pointer-events:none;
   }
 </style>
-<button class="hplTourReplay" id="hplTourReplay" type="button">? TAKE THE TOUR</button><div aria-live="polite" aria-modal="true" class="hplTourCard" id="hplTourCard" role="dialog">
+<button class="hplTourReplay" id="hplTourReplay" type="button">🎓 GUIDED TOUR</button><div aria-live="polite" aria-modal="true" class="hplTourCard" id="hplTourCard" role="dialog">
 <div class="hplTourStep" id="hplTourStep">STEP 1 OF 6</div>
 <div class="hplTourTitle" id="hplTourTitle">Welcome to HPL Ball Drop</div>
 <div class="hplTourText" id="hplTourText"></div>
@@ -1719,8 +1760,8 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
 
     topScoreEl.textContent='0';
     pointsEl.textContent='0';
-    timerEl.textContent='01:00';
-    roundNoEl.textContent='#'+round;
+    timerEl.textContent=gameMode==='guided'?'GUIDED':'01:00';
+    roundNoEl.textContent=gameMode==='guided'?'PRACTICE':'#'+round;
     poolEl.textContent=Math.round(currentRewardPool).toLocaleString();
     overlay?.classList.remove('show');
     dropHintEl.innerHTML='<b>●</b> CLICK / TAP THE BOARD TO DROP BALLS <b>●</b>';
@@ -1756,6 +1797,14 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
   canvas.addEventListener('pointerdown',e=>{
     const r=canvas.getBoundingClientRect();
     dropBall(e.clientX-r.left);
+
+    // In guided mode, first real drop starts the 10-second gameplay lesson.
+    if(gameMode==='guided' && tourRunning && tourSteps[tourIndex]?.requirement==='gameplay'){
+      if(tutorialFirstDropAt===null){
+        tutorialFirstDropAt=performance.now();
+        tourNext.textContent='KEEP PLAYING... 10s';
+      }
+    }
   });
 
 
@@ -1817,11 +1866,32 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
       physics(dt);
       simulateTradeActivity(now);
       simulatePlayerJoins(now);
+
+      if(gameMode==='guided' && tourRunning){
+        timerEl.textContent='GUIDED';
+
+        if(tutorialFirstDropAt!==null && !tutorialRankPromptShown){
+          const elapsedTutorial=(now-tutorialFirstDropAt)/1000;
+          const remain=Math.max(0,Math.ceil(TUTORIAL_PLAY_SECONDS-elapsedTutorial));
+
+          if(tourSteps[tourIndex]?.requirement==='gameplay'){
+            tourNext.textContent=remain>0 ? `KEEP PLAYING... ${remain}s` : 'CHECKING POSITION...';
+          }
+
+          if(elapsedTutorial>=TUTORIAL_PLAY_SECONDS){
+            showTutorialRankStep();
+          }
+        }
+      }
       if(now-lastSecondStamp>=1000){
         const elapsed=Math.floor((now-lastSecondStamp)/1000);
         lastSecondStamp+=elapsed*1000;
-        secondsLeft=Math.max(0,secondsLeft-elapsed);
-        timerEl.textContent='00:'+String(secondsLeft).padStart(2,'0');
+
+        if(gameMode==='live'){
+          secondsLeft=Math.max(0,secondsLeft-elapsed);
+          timerEl.textContent='00:'+String(secondsLeft).padStart(2,'0');
+        }
+
         renderLeaderboard();
 
         // Reflections arrive every 5 seconds and are deliberately exaggerated for the public demo.
@@ -1835,7 +1905,7 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
           renderWallet();
         }
 
-        if(secondsLeft<=0)endRound();
+        if(gameMode==='live' && secondsLeft<=0)endRound();
       }
     }
 
@@ -1877,8 +1947,20 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     {
       target:'#tourInventory',
       title:'Activate Your Booster',
-      text:'Nice — now activate one of the boosters you just purchased. The tour will continue only after a booster is equipped for this round.',
+      text:'Now activate one of the boosters you just purchased. The tour will continue only after a booster is equipped for this guided round.',
       requirement:'activate'
+    },
+    {
+      target:'#game',
+      title:'Now Play for 10 Seconds',
+      text:'Drop balls and build your score. Your first ball starts a short 10-second guided play period so you can feel how scoring works before we show your position.',
+      requirement:'gameplay'
+    },
+    {
+      target:'#tourScoreboard',
+      title:'Check Your Position',
+      text:'Your current rank is highlighted here. Keep dropping balls during normal rounds to climb higher — your final position determines your share of the game reward pool.',
+      requirement:null
     },
     {
       target:'#tourReflections',
@@ -1889,19 +1971,13 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     {
       target:'#tourRewards',
       title:'Claim Game Rewards',
-      text:'The reward pool starts funded and grows during the round as simulated outside traders buy and sell HPL. Your final position determines your share of whatever the pool reaches.',
-      requirement:null
-    },
-    {
-      target:'#tourScoreboard',
-      title:'50-Player Demo Round',
-      text:'Players gradually join during the round until the field fills out. Your position changes as new simulated players arrive and scores move.',
+      text:'The reward pool grows during the round from simulated outside HPL trading. Your finishing position determines your share of the final pool.',
       requirement:null
     },
     {
       target:'#tourRoundInfo',
-      title:'Public Pre-Alpha Demo',
-      text:'Everything here is simulated locally in your browser. No wallet, blockchain, Supabase, cron job, or real HPL is used.',
+      title:'Ready for the Real Demo',
+      text:'That was the guided practice round. When you finish, everything resets and a fresh 60-second demo round begins with no tutorial interruptions.',
       requirement:null
     }
   ];
@@ -1918,7 +1994,16 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
   let tourTarget=null;
   let tourPurchaseSatisfied=false;
   let tourActivateSatisfied=false;
+  let tourGameplaySatisfied=false;
   let tourRunning=false;
+
+  // Two clearly separated game states:
+  // guided tutorial round vs normal public demo round.
+  let gameMode='guided';
+  let tutorialFirstDropAt=null;
+  let tutorialRankPromptShown=false;
+  const TUTORIAL_PLAY_SECONDS=10;
+  const modeBadge=$('hplModeBadge');
 
   function clearTourTarget(){
     if(tourTarget) tourTarget.classList.remove('hplTourHighlight');
@@ -1937,6 +2022,7 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     if(!step.requirement) return true;
     if(step.requirement==='purchase') return tourPurchaseSatisfied;
     if(step.requirement==='activate') return tourActivateSatisfied;
+    if(step.requirement==='gameplay') return tourGameplaySatisfied;
     return true;
   }
 
@@ -1954,11 +2040,16 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
       tourNext.textContent='ACTIVATE A BOOSTER TO CONTINUE';
       tourNext.style.opacity='.55';
       tourNext.style.cursor='not-allowed';
+    } else if(step.requirement==='gameplay'){
+      tourNext.disabled=true;
+      tourNext.textContent='DROP A BALL TO START';
+      tourNext.style.opacity='.55';
+      tourNext.style.cursor='not-allowed';
     } else {
       tourNext.disabled=false;
       tourNext.style.opacity='1';
       tourNext.style.cursor='pointer';
-      tourNext.textContent=tourIndex===tourSteps.length-1?'START PLAYING':'NEXT';
+      tourNext.textContent=tourIndex===tourSteps.length-1?'START LIVE DEMO':'NEXT';
     }
   }
 
@@ -1996,20 +2087,90 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     clearTourTarget();
     tourBackdrop?.classList.remove('show');
     tourCard?.classList.remove('show');
+
+    const wasGuided=(gameMode==='guided');
     tourRunning=false;
 
     if(markSeen){
-      try{localStorage.setItem('hpl-public-demo-tour-seen-v3','1');}catch(e){}
+      try{localStorage.setItem('hpl-public-demo-tour-seen-v4','1');}catch(e){}
+    }
+
+    if(wasGuided){
+      setTimeout(()=>startFreshLiveDemoRound(),250);
     }
   }
 
+
+  function setGameMode(mode){
+    gameMode=mode;
+    if(modeBadge){
+      if(mode==='guided'){
+        modeBadge.classList.remove('live');
+        modeBadge.classList.add('guided');
+        modeBadge.textContent='🎓 GUIDED DEMO — WALKTHROUGH ACTIVE';
+      } else {
+        modeBadge.classList.remove('guided');
+        modeBadge.classList.add('live');
+        modeBadge.textContent='● LIVE DEMO ROUND — NO TRAINING WHEELS';
+      }
+    }
+  }
+
+  function startFreshLiveDemoRound(){
+    setGameMode('live');
+    tourRunning=false;
+    tutorialFirstDropAt=null;
+    tutorialRankPromptShown=false;
+    tourGameplaySatisfied=false;
+
+    // Fresh state so tutorial activity never contaminates the live demo.
+    round=1;
+    demoReflections=0;
+    pendingReward=0;
+    score=0;
+    secondsLeft=ROUND_SECONDS;
+    currentRewardPool=STARTING_REWARD_POOL;
+    botScores=makeBots();
+
+    active[1]=active[2]=active[3]=false;
+    balls=[];
+    particles=[];
+
+    claimStatusEl.textContent='Finish a live demo round to generate simulated HPL rewards.';
+    reflectionStatusEl.textContent='Live demo • simulated trading activity adds reflections every 5 seconds.';
+    marketStatusEl.textContent='Live demo marketplace • simulated HPL only.';
+    inventoryStatusEl.textContent='Live demo inventory • activate purchased items anytime this round.';
+
+    renderWallet();
+    renderMarket();
+    startRound();
+  }
+
+  function showTutorialRankStep(){
+    if(!tourRunning || gameMode!=='guided' || tutorialRankPromptShown) return;
+    tutorialRankPromptShown=true;
+    tourGameplaySatisfied=true;
+
+    const result=renderLeaderboard();
+    const rank=result?.yourRank || 1;
+    const total=result?.rows?.length || (1+botScores.filter(b=>b.joined).length);
+
+    const rankStep=tourSteps[3];
+    rankStep.text=`You’re currently #${rank} of ${total}. Keep dropping balls in normal rounds to climb higher — your final position determines your share of the reward pool.`;
+
+    showTourStep(3);
+  }
+
   function startTour(){
+    setGameMode('guided');
+
     tourPurchaseSatisfied=false;
     tourActivateSatisfied=false;
+    tourGameplaySatisfied=false;
+    tutorialFirstDropAt=null;
+    tutorialRankPromptShown=false;
 
-    // Replay-safe tutorial reset:
-    // clear the cart and unequip active boosters, but return any equipped
-    // booster to inventory so the player never loses their demo purchase.
+    // Clean guided-practice state.
     cart[1]=cart[2]=cart[3]=0;
 
     [1,2,3].forEach(id=>{
@@ -2019,9 +2180,27 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
       }
     });
 
+    // Practice round state is disposable.
+    score=0;
+    secondsLeft=ROUND_SECONDS;
+    currentRewardPool=STARTING_REWARD_POOL;
+    botScores=makeBots();
+    balls=[];
+    particles=[];
+    topScoreEl.textContent='0';
+    pointsEl.textContent='0';
+    timerEl.textContent='GUIDED';
+    roundNoEl.textContent='PRACTICE';
+    poolEl.textContent=Math.round(currentRewardPool).toLocaleString();
+
     marketStatusEl.textContent='Tutorial ready • buy any demo booster to continue.';
-    inventoryStatusEl.textContent='Tutorial reset • purchased boosters can be activated again.';
+    inventoryStatusEl.textContent='Guided demo • activate a purchased booster next.';
+    claimStatusEl.textContent='Guided demo rewards are practice only.';
+    reflectionStatusEl.textContent='Guided demo reflections are practice only.';
+
+    renderWallet();
     renderMarket();
+    renderLeaderboard();
 
     showTourStep(0);
   }
@@ -2076,11 +2255,16 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     });
   });
 
-  // First visit only: launch after splash.
+  // First visit gets the guided walkthrough.
+  // Returning visitors go straight into a normal live demo round.
   setTimeout(()=>{
     let seen=false;
-    try{seen=localStorage.getItem('hpl-public-demo-tour-seen-v3')==='1';}catch(e){}
-    if(!seen) startTour();
+    try{seen=localStorage.getItem('hpl-public-demo-tour-seen-v4')==='1';}catch(e){}
+    if(!seen){
+      startTour();
+    } else {
+      startFreshLiveDemoRound();
+    }
   },3600);
 
 })();
