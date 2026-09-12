@@ -913,11 +913,6 @@ body.hplSplashLocked{
 }
 #hplWalletDiag b{color:#dff7ff}
 @media(max-width:680px){#hplWalletDiag{font-size:8px;bottom:48px}}
-</style>
-<style id="hplRemoveFullscreen">
-.hplFullscreenBtn,#hplFullscreenBtn,
-button[id*="fullscreen" i],a[id*="fullscreen" i],
-button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
 </style><style id="hplSimpleSplashOverride">
 #hplAlphaSplash{
   position:fixed!important; inset:0!important; z-index:2147483647!important;
@@ -994,6 +989,57 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
   @keyframes hplTutorialPulse{
     0%,100%{filter:brightness(1)}
     50%{filter:brightness(1.18)}
+  }
+</style>
+
+
+<style id="hplFullscreenStyles">
+  .hplFullscreenBtn{
+    position:fixed;
+    left:150px;
+    bottom:14px;
+    z-index:2147483300;
+    border:1px solid rgba(104,229,255,.55);
+    background:rgba(8,20,34,.94);
+    color:#9befff;
+    border-radius:10px;
+    padding:10px 14px;
+    font:900 11px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    letter-spacing:.5px;
+    cursor:pointer;
+    box-shadow:0 8px 24px rgba(0,0,0,.28);
+  }
+  .hplFullscreenBtn:hover{filter:brightness(1.12)}
+  @media (max-width:700px){
+    .hplFullscreenBtn{left:14px;bottom:58px}
+  }
+</style>
+
+
+<style id="hplRewardRevealStyles">
+  .hplRewardReveal{
+    position:fixed; inset:0; z-index:2147483900;
+    display:none; align-items:center; justify-content:center;
+    background:rgba(0,0,0,.78); padding:20px;
+  }
+  .hplRewardReveal.show{display:flex}
+  .hplRewardRevealInner{
+    width:min(430px,calc(100vw - 40px));
+    border:1px solid rgba(255,216,77,.7);
+    border-radius:18px;
+    background:linear-gradient(180deg,#111c29,#07101a);
+    text-align:center;
+    padding:26px 22px;
+    box-shadow:0 20px 70px rgba(0,0,0,.55),0 0 35px rgba(255,216,77,.12);
+  }
+  .hplRewardTrophy{font-size:44px;margin-bottom:8px}
+  .hplRewardRevealTitle{font:1000 28px/1.05 system-ui;color:#ffd84d}
+  .hplRewardRevealAmount{font:1000 24px/1.1 system-ui;color:#69f0ae;margin:14px 0 8px}
+  .hplRewardRevealCopy{color:#b9c8d7;font:700 13px/1.5 system-ui;margin-bottom:18px}
+  #hplRewardRevealOk{
+    border:0;border-radius:10px;padding:12px 18px;
+    background:#ffd84d;color:#15120a;font:1000 12px/1 system-ui;
+    cursor:pointer;
   }
 </style>
 
@@ -1128,7 +1174,7 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
 <div class="boardShell">
 <canvas id="game"></canvas>
 <div class="dropHint" id="dropHint"><b>⚡</b> PREP PHASE • EQUIP POWER-UPS <b>⚡</b></div>
-<div class="pointsBox"><div class="label">YOUR POINTS</div><div class="value" id="points">0</div></div>
+<div class="pointsBox" id="tourPoints"><div class="label">YOUR POINTS</div><div class="value" id="points">0</div></div>
 <div class="overlay" id="roundOverlay">
 <div class="modal">
 <h2>ROUND COMPLETE</h2>
@@ -1229,9 +1275,9 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
 <div class="reflValue" id="reflEligible">1,000,000.00</div>
 </div>
 </div>
-<div class="reflNote">Demo concept: your simulated 1,000,000 HPL holding earns visibly exaggerated reflections from fake trading activity. Up to roughly 5,000 HPL can accrue during each demo round.</div>
+<div class="reflNote">Demo concept: reflections are HPL rewards generated when other people BUY or SELL the HPL token. A portion of that trading activity is shared with eligible HPL holders. This demo exaggerates the amounts so you can visibly watch them accumulate.</div>
 <button class="claimReflBtn" id="claimReflectionsBtn">COLLECT DEMO REFLECTIONS</button>
-<div class="marketStatus" id="reflectionStatus">Illustrative only • simulated trading activity adds reflections every 5 seconds, up to about 5,000 HPL per round.</div>
+<div class="marketStatus" id="reflectionStatus">Illustrative only • fake HPL buys/sells generate simulated reflections every 5 seconds. The real concept is: more eligible HPL held = a larger share of the reflection pool.</div>
 </div>
 <div class="card" id="tourRewards">
 <div class="cardTitle">YOUR DEMO REWARDS</div>
@@ -1270,15 +1316,25 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     pointer-events:none;
   }
 </style>
-<button class="hplTourReplay" id="hplTourReplay" type="button">🎓 GUIDED TOUR</button><div aria-live="polite" aria-modal="true" class="hplTourCard" id="hplTourCard" role="dialog">
-<div class="hplTourStep" id="hplTourStep">STEP 1 OF 6</div>
+<button class="hplTourReplay" id="hplTourReplay" type="button">🎓 GUIDED TOUR</button><button class="hplFullscreenBtn" id="hplFullscreenBtn" type="button">⛶ FULLSCREEN</button><div aria-live="polite" aria-modal="true" class="hplTourCard" id="hplTourCard" role="dialog">
+<div class="hplTourStep" id="hplTourStep">STEP 1 OF 9</div>
 <div class="hplTourTitle" id="hplTourTitle">Welcome to HPL Ball Drop</div>
 <div class="hplTourText" id="hplTourText"></div>
 <div class="hplTourActions">
 <button class="hplTourBtn" id="hplTourSkip">SKIP TOUR</button>
 <button class="hplTourBtn primary" id="hplTourNext">NEXT</button>
 </div>
-</div><div class="hplTourBackdrop" id="hplTourBackdrop"></div><script>
+</div>
+<div id="hplRewardReveal" class="hplRewardReveal" role="dialog" aria-modal="true" aria-labelledby="hplRewardRevealTitle">
+  <div class="hplRewardRevealInner">
+    <div class="hplRewardTrophy">🏆</div>
+    <div class="hplRewardRevealTitle" id="hplRewardRevealTitle">YOU PLACED 2ND!</div>
+    <div class="hplRewardRevealAmount" id="hplRewardRevealAmount">0 HPL</div>
+    <div class="hplRewardRevealCopy">Second place earns 20% of the current simulated HPL reward pool.</div>
+    <button type="button" id="hplRewardRevealOk">SHOW MY CLAIM</button>
+  </div>
+</div>
+<div class="hplTourBackdrop" id="hplTourBackdrop"></div><script>
 (() => {
   'use strict';
 
@@ -1320,11 +1376,33 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
   const claimStatusEl = $('claimStatus');
   const claimBtn = $('claimBtn');
   const resetDemoBtn = $('resetDemoBtn');
+  const fullscreenBtn = $('hplFullscreenBtn');
 
   const qtyEls = {1:$('qty1'),2:$('qty2'),3:$('qty3')};
   const invEls = {1:$('inv1'),2:$('inv2'),3:$('inv3')};
   const activeEls = {1:$('active1'),2:$('active2'),3:$('active3')};
   const activateBtns = {1:$('activate1'),2:$('activate2'),3:$('activate3')};
+
+
+  fullscreenBtn?.addEventListener('click',async()=>{
+    try{
+      if(!document.fullscreenElement){
+        await document.documentElement.requestFullscreen();
+        fullscreenBtn.textContent='⛶ EXIT FULLSCREEN';
+      } else {
+        await document.exitFullscreen();
+      }
+    }catch(e){
+      fullscreenBtn.textContent='FULLSCREEN UNAVAILABLE';
+      setTimeout(()=>fullscreenBtn.textContent='⛶ FULLSCREEN',1800);
+    }
+  });
+
+  document.addEventListener('fullscreenchange',()=>{
+    if(fullscreenBtn){
+      fullscreenBtn.textContent=document.fullscreenElement?'⛶ EXIT FULLSCREEN':'⛶ FULLSCREEN';
+    }
+  });
 
   const PRICES = {1:100, 2:50, 3:250};
   const NAMES = {1:'1.5× Ball Booster',2:'Extra Ball Drop',3:'2× Score Booster'};
@@ -1443,6 +1521,7 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
       mult:1,
       touched:new Set(),
       hue:bonus?285:195,
+      bonus:!!bonus,
       trail:[]
     });
 
@@ -1511,6 +1590,33 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     topScoreEl.textContent=Math.round(score).toLocaleString();
     pointsEl.textContent=Math.round(score).toLocaleString();
     burst(b.x,H-26,'#63f3a6');
+
+    if(gameMode==='guided' && tourRunning){
+      const req=tourSteps[tourIndex]?.requirement;
+
+      // First lesson: a NORMAL single ball must actually finish and score.
+      if(req==='basicplay' && !b.bonus && !tourBasicPlaySatisfied){
+        tourBasicPlaySatisfied=true;
+        tourNext.disabled=false;
+        tourNext.style.opacity='1';
+        tourNext.style.cursor='pointer';
+        tourNext.textContent=`SEE YOUR ${Math.round(score).toLocaleString()} POINTS`;
+        setTimeout(()=>advanceTour(),650);
+      }
+
+      // Power-up lesson: only the BONUS second ball proves Extra Ball Drop worked.
+      if(req==='poweredplay' && b.bonus && active[2] && !tourPoweredPlaySatisfied){
+        tourPoweredPlaySatisfied=true;
+        const gainedSincePower=Math.max(0,Math.round(score-tutorialPoweredScoreStart));
+        tourTextEl.innerHTML=
+          `<strong style="color:#69f0ae;font-size:16px">EXTRA BALL DROP WORKED!</strong><br>`+
+          `One click released two balls. You’ve added <strong>${gainedSincePower.toLocaleString()} points</strong> since activating it, bringing your score to <strong>${Math.round(score).toLocaleString()}</strong>.`;
+        tourNext.disabled=false;
+        tourNext.style.opacity='1';
+        tourNext.style.cursor='pointer';
+        tourNext.textContent='CONTINUE';
+      }
+    }
   }
 
   function physics(dt){
@@ -1744,7 +1850,29 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     renderWallet();
   });
 
+
+  rewardRevealOk?.addEventListener('click',()=>{
+    if(!tourRunning || tourSteps[tourIndex]?.requirement!=='rewardclaim') return;
+
+    tutorialRewardRevealAcknowledged=true;
+    rewardReveal?.classList.remove('show');
+
+    claimStatusEl.innerHTML=
+      `<strong style="color:#ffd45c">🏆 YOU PLACED 2ND!</strong><br>`+
+      `Your 20% second-place share is ready. Click COLLECT DEMO HPL below.`;
+
+    renderWallet();
+    claimBtn.disabled=false;
+
+    // The walkthrough still waits for the actual claim.
+    tourNext.disabled=true;
+    tourNext.textContent=tutorialRewardRevealAcknowledged?'CLAIM YOUR 2ND PLACE REWARD':'VIEW YOUR 2ND PLACE RESULT';
+  });
+
   claimBtn?.addEventListener('click',()=>{
+    if(tourRunning && tourSteps[tourIndex]?.requirement==='rewardclaim' && !tutorialRewardRevealAcknowledged){
+      return;
+    }
     if(pendingReward<=0)return;
     const x=pendingReward;
     demoHpl+=x;
@@ -1761,7 +1889,10 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
         tourRewardClaimSatisfied=true;
         claimStatusEl.innerHTML=
           '<strong style="color:#69f0ae">✓ 2ND PLACE REWARD CLAIMED!</strong><br>This was a guided-practice reward only.';
-        setTimeout(()=>advanceTour(),650);
+        tourNext.disabled=false;
+        tourNext.style.opacity='1';
+        tourNext.style.cursor='pointer';
+        tourNext.textContent='CONTINUE';
       }
     },0);
   });
@@ -1860,22 +1991,38 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     inventory[1]=inventory[2]=inventory[3]=0;
     active[1]=active[2]=active[3]=false;
     marketStatusEl.textContent='Demo reset. Everything is local to this browser session.';
-    reflectionStatusEl.textContent='Illustrative only • simulated trading activity adds reflections every 5 seconds, up to about 5,000 HPL per round.';
+    reflectionStatusEl.textContent='Illustrative only • fake HPL buys/sells generate simulated reflections every 5 seconds. The real concept is: more eligible HPL held = a larger share of the reflection pool.';
     claimStatusEl.textContent='Finish a demo round to generate simulated HPL rewards.';
     renderWallet();renderMarket();startRound();
   });
 
   canvas.addEventListener('pointerdown',e=>{
     const r=canvas.getBoundingClientRect();
-    dropBall(e.clientX-r.left);
 
-    // In guided mode, first real drop starts the 10-second gameplay lesson.
-    if(gameMode==='guided' && tourRunning && tourSteps[tourIndex]?.requirement==='gameplay'){
-      if(tutorialFirstDropAt===null){
-        tutorialFirstDropAt=performance.now();
-        tourNext.textContent='KEEP PLAYING... 10s';
+    // During the initial lesson, Extra Ball is not active yet, so this is
+    // naturally a single-ball drop.
+    if(gameMode==='guided' && tourRunning){
+      const req=tourSteps[tourIndex]?.requirement;
+
+      if(req==='basicplay'){
+        dropBall(e.clientX-r.left);
+        tourNext.textContent='WAIT FOR YOUR BALL TO SCORE...';
+        return;
+      }
+
+      if(req==='poweredplay'){
+        if(!active[2]){
+          tourTextEl.textContent='Extra Ball Drop must be activated before this step can continue.';
+          return;
+        }
+        tutorialPoweredScoreStart=score;
+        dropBall(e.clientX-r.left);
+        tourNext.textContent='WATCH THE TWO BALLS SCORE...';
+        return;
       }
     }
+
+    dropBall(e.clientX-r.left);
   });
 
 
@@ -1940,19 +2087,6 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
 
       if(gameMode==='guided' && tourRunning){
         timerEl.textContent='GUIDED';
-
-        if(tutorialFirstDropAt!==null && !tutorialRankPromptShown){
-          const elapsedTutorial=(now-tutorialFirstDropAt)/1000;
-          const remain=Math.max(0,Math.ceil(TUTORIAL_PLAY_SECONDS-elapsedTutorial));
-
-          if(tourSteps[tourIndex]?.requirement==='gameplay'){
-            tourNext.textContent=remain>0 ? `KEEP PLAYING... ${remain}s` : 'CHECKING POSITION...';
-          }
-
-          if(elapsedTutorial>=TUTORIAL_PLAY_SECONDS){
-            showTutorialRankStep();
-          }
-        }
       }
       if(now-lastSecondStamp>=1000){
         const elapsed=Math.floor((now-lastSecondStamp)/1000);
@@ -1964,6 +2098,7 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
         }
 
         renderLeaderboard();
+        if(tourRunning && tourSteps[tourIndex]?.target==='#tourScoreboard') updateTutorialRankCopy();
 
         // Reflections arrive every 5 seconds and are deliberately exaggerated for the public demo.
         if(now-lastReflectionTick>=REFLECTION_TICK_MS && reflectionsThisRound<REFLECTION_CAP_PER_ROUND){
@@ -2010,39 +2145,51 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
 
   const tourSteps=[
     {
+      target:'#game',
+      title:'Try Ball Drop',
+      text:'Start naturally: click the board once to drop a normal ball. Watch it bounce through the pegs and score at the bottom.',
+      requirement:'basicplay'
+    },
+    {
+      target:'#tourPoints',
+      title:'Those Are Your Points',
+      text:'Your ball just added points to your round score. Every scored ball helps move you up the leaderboard.',
+      requirement:null
+    },
+    {
+      target:'#tourScoreboard',
+      title:'Check Your Position',
+      text:'Your current position is based on those points. Keep scoring to climb higher.',
+      requirement:null
+    },
+    {
       target:'#tourMarketplace',
-      title:'Buy Extra Ball Drop',
-      text:'Let’s learn the purchase flow with one specific item. Only Extra Ball Drop is enabled for this lesson. Click its + button, then click BUY DEMO CART. The tour will continue only after Extra Ball Drop is purchased.',
+      title:'Now Buy Extra Ball Drop',
+      text:'Now let’s change the gameplay with a power-up. Only Extra Ball Drop is enabled for this lesson. Click its + button, then click BUY DEMO CART.',
       requirement:'purchase'
     },
     {
       target:'#tourInventory',
       title:'Activate Extra Ball Drop',
-      text:'Only Extra Ball Drop can be activated for this lesson. Find it in your inventory and click ACTIVATE. This shows how a purchased item moves from Marketplace → Inventory → Active Power-Up.',
+      text:'Your purchase moved into Inventory. Only Extra Ball Drop can be activated for this lesson. Click ACTIVATE to equip it.',
       requirement:'activate'
     },
     {
       target:'#game',
-      title:'Now Play for 10 Seconds',
-      text:'Drop balls and build your score. Your first ball starts a short 10-second guided play period so you can feel how scoring works before we show your position.',
-      requirement:'gameplay'
-    },
-    {
-      target:'#tourScoreboard',
-      title:'Check Your Position',
-      text:'Your current rank is highlighted here. Keep dropping balls during normal rounds to climb higher — your final position determines your share of the game reward pool.',
-      requirement:null
+      title:'Try Your Activated Power-Up',
+      text:'Click the board once more. Extra Ball Drop makes one click release TWO balls, giving you another chance to score points.',
+      requirement:'poweredplay'
     },
     {
       target:'#tourReflections',
       title:'Claim Reflections',
-      text:'Your demo starts with 1,000,000 HPL. Simulated reflections arrive every 5 seconds and can build to roughly 5,000 HPL per round.',
+      text:'Reflections are generated by HPL trading: when people buy or sell the token, part of that activity flows to eligible holders. In this demo, fake buys/sells create exaggerated reflections every 5 seconds so you can see the mechanic in action.',
       requirement:null
     },
     {
       target:'#tourRewards',
       title:'Your Demo Rewards',
-      text:'Practice result: you placed 2nd this round. That earns 20% of the current simulated reward pool. Claim it below to see how game rewards would work.',
+      text:'Practice result: you placed 2nd this round. That earns 20% of the current simulated reward pool. View the result, then claim the demo HPL to complete the reward flow.',
       requirement:'rewardclaim'
     },
     {
@@ -2061,12 +2208,19 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
   const tourNext=$('hplTourNext');
   const tourSkip=$('hplTourSkip');
   const tourReplay=$('hplTourReplay');
+  const rewardReveal=$('hplRewardReveal');
+  const rewardRevealAmount=$('hplRewardRevealAmount');
+  const rewardRevealOk=$('hplRewardRevealOk');
   let tourIndex=0;
   let tourTarget=null;
   let tourPurchaseSatisfied=false;
   let tourActivateSatisfied=false;
   let tourGameplaySatisfied=false;
+  let tourBasicPlaySatisfied=false;
+  let tourPoweredPlaySatisfied=false;
+  let tutorialPoweredScoreStart=0;
   let tourRewardClaimSatisfied=false;
+  let tutorialRewardRevealAcknowledged=false;
   let tourRunning=false;
 
   // Two clearly separated game states:
@@ -2086,6 +2240,10 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
 
     const step=tourSteps[tourIndex];
     if(!step) return;
+
+    if(step.target==='#tourPoints'){
+      document.querySelector('#tourPoints')?.classList.add('hplTutorialPulse');
+    }
 
     if(step.requirement==='purchase'){
       // Exact Extra Ball Drop selector: Marketplace item id 2.
@@ -2121,8 +2279,10 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
 
   function tourRequirementMet(step){
     if(!step.requirement) return true;
+    if(step.requirement==='basicplay') return tourBasicPlaySatisfied;
     if(step.requirement==='purchase') return tourPurchaseSatisfied;
     if(step.requirement==='activate') return tourActivateSatisfied;
+    if(step.requirement==='poweredplay') return tourPoweredPlaySatisfied;
     if(step.requirement==='gameplay') return tourGameplaySatisfied;
     if(step.requirement==='rewardclaim') return tourRewardClaimSatisfied;
     return true;
@@ -2132,7 +2292,12 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     if(!tourRunning) return;
     const step=tourSteps[tourIndex];
 
-    if(step.requirement==='purchase'){
+    if(step.requirement==='basicplay'){
+      tourNext.disabled=true;
+      tourNext.textContent='DROP ONE BALL TO CONTINUE';
+      tourNext.style.opacity='.55';
+      tourNext.style.cursor='not-allowed';
+    } else if(step.requirement==='purchase'){
       tourNext.disabled=true;
       tourNext.textContent='BUY EXTRA BALL DROP TO CONTINUE';
       tourNext.style.opacity='.55';
@@ -2140,6 +2305,11 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     } else if(step.requirement==='activate'){
       tourNext.disabled=true;
       tourNext.textContent='ACTIVATE EXTRA BALL DROP TO CONTINUE';
+      tourNext.style.opacity='.55';
+      tourNext.style.cursor='not-allowed';
+    } else if(step.requirement==='poweredplay'){
+      tourNext.disabled=true;
+      tourNext.textContent='TRY EXTRA BALL DROP';
       tourNext.style.opacity='.55';
       tourNext.style.cursor='not-allowed';
     } else if(step.requirement==='gameplay'){
@@ -2176,24 +2346,46 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     tourTitleEl.textContent=step.title;
     tourTextEl.textContent=step.text;
 
+    if(step.target==='#tourPoints'){
+      tourTextEl.innerHTML=
+        `<strong style="color:#69f0ae;font-size:17px">YOU HAVE ${Math.round(score).toLocaleString()} POINTS</strong><br>`+
+        `That came from your normal single-ball drop. Every ball that reaches the bottom can add to this round score.`;
+    }
+
     tourBackdrop.classList.add('show');
     tourCard.classList.add('show');
 
     updateTourControls();
     setTimeout(pulseRequiredTutorialAction,260);
 
+    if(step.requirement==='poweredplay'){
+      tutorialPoweredScoreStart=score;
+    }
+
     // Tutorial reward lesson: simulate a completed round where YOU placed 2nd.
     if(step.requirement==='rewardclaim'){
       const tutorialReward=currentRewardPool*.20;
       pendingReward=tutorialReward;
+      tutorialRewardRevealAcknowledged=false;
+
+      // Hide/disable the actual claim until the player acknowledges the result popup.
+      claimBtn.disabled=true;
       claimStatusEl.innerHTML=
-        `<strong style="color:#ffd45c">🏆 YOU PLACED 2ND!</strong><br>`+
-        `2nd place earns <strong>20%</strong> of the current ${Math.round(currentRewardPool).toLocaleString()} HPL pool.<br>`+
-        `<strong style="color:#69f0ae">${tutorialReward.toLocaleString(undefined,{maximumFractionDigits:2})} HPL READY TO CLAIM</strong>`;
+        `<strong style="color:#ffd45c">Round complete.</strong><br>`+
+        `Check your placement result first.`;
+
+      rewardRevealAmount.textContent=
+        `${tutorialReward.toLocaleString(undefined,{maximumFractionDigits:2})} HPL`;
+      rewardReveal?.classList.add('show');
       renderWallet();
+      claimBtn.disabled=true;
     }
 
     if(tourTarget) positionTourTarget(tourTarget);
+
+    if(step.target==='#tourScoreboard'){
+      setTimeout(updateTutorialRankCopy,80);
+    }
   }
 
   function advanceTour(){
@@ -2206,6 +2398,7 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
   }
 
   function closeTour(markSeen=true){
+    rewardReveal?.classList.remove('show');
     tutorialGate='';
     clearTutorialActionPulse();
     clearTourTarget();
@@ -2273,19 +2466,30 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     startRound();
   }
 
-  function showTutorialRankStep(){
-    if(!tourRunning || gameMode!=='guided' || tutorialRankPromptShown) return;
-    tutorialRankPromptShown=true;
-    tourGameplaySatisfied=true;
+  function updateTutorialRankCopy(){
+    if(!tourRunning || gameMode!=='guided') return;
+    if(tourSteps[tourIndex]?.target!=='#tourScoreboard') return;
 
     const result=renderLeaderboard();
     const rank=result?.yourRank || 1;
     const total=result?.rows?.length || (1+botScores.filter(b=>b.joined).length);
 
-    const rankStep=tourSteps[3];
-    rankStep.text=`You’re currently #${rank} of ${total}. Keep dropping balls in normal rounds to climb higher — your final position determines your share of the reward pool.`;
+    tourTextEl.innerHTML=
+      `<strong style="color:#72e6ff;font-size:16px">YOU ARE CURRENTLY #${rank} OF ${total}</strong><br>`+
+      `Your current score is <strong>${Math.round(score).toLocaleString()} points</strong>. Keep scoring to climb higher — your finishing position determines your share of the HPL game reward pool.`;
 
-    showTourStep(3);
+    const yourRow=[...scoreRows.querySelectorAll('tr')].find(
+      tr=>/YOU/.test(tr.textContent||'')
+    );
+    yourRow?.classList.add('hplTutorialPulse');
+  }
+
+  function showTutorialRankStep(){
+    if(!tourRunning || gameMode!=='guided') return;
+    const scoreboardIndex=tourSteps.findIndex(s=>s.target==='#tourScoreboard');
+    if(scoreboardIndex<0) return;
+    showTourStep(scoreboardIndex);
+    updateTutorialRankCopy();
   }
 
   function startTour(){
@@ -2294,14 +2498,18 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     tourPurchaseSatisfied=false;
     tourActivateSatisfied=false;
     tourGameplaySatisfied=false;
+    tourBasicPlaySatisfied=false;
+    tourPoweredPlaySatisfied=false;
+    tutorialPoweredScoreStart=0;
     tourRewardClaimSatisfied=false;
+    tutorialRewardRevealAcknowledged=false;
+    rewardReveal?.classList.remove('show');
     tutorialFirstDropAt=null;
     tutorialRankPromptShown=false;
 
     // Clean guided-practice state.
-    // The purchase lesson begins with an empty cart and Extra Ball Drop
-    // is the only Marketplace item the tutorial will allow.
-    tutorialGate='purchase';
+    // We begin with normal one-ball gameplay; the Marketplace is introduced later.
+    tutorialGate='basicplay';
     cart[1]=cart[2]=cart[3]=0;
 
     [1,2,3].forEach(id=>{
@@ -2324,8 +2532,8 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     roundNoEl.textContent='PRACTICE';
     poolEl.textContent=Math.round(currentRewardPool).toLocaleString();
 
-    marketStatusEl.textContent='Tutorial: purchase Extra Ball Drop to continue.';
-    inventoryStatusEl.textContent='Guided demo • activate Extra Ball Drop next.';
+    marketStatusEl.textContent='Guided demo • the Marketplace will unlock after you try a normal ball drop.';
+    inventoryStatusEl.textContent='Guided demo • power-ups will be introduced after basic scoring.';
     claimStatusEl.textContent='Guided demo rewards are practice only.';
     reflectionStatusEl.textContent='Guided demo reflections are practice only.';
 
