@@ -992,7 +992,7 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
       box-shadow:0 5px 20px rgba(0,0,0,.35);pointer-events:none">
       PUBLIC DEMO • SIMULATED HPL • NO WALLET CONNECTION
     </div>
-<div id="hplModeBadge" class="hplModeBadge guided">
+<div id="hplModeBadge" class="hplModeBadge guided" style="display:none">
   🎓 GUIDED DEMO — WALKTHROUGH ACTIVE
 </div>
 
@@ -1324,6 +1324,10 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
 
   let W=0,H=0,dpr=1;
   let balls=[], pegs=[], particles=[];
+
+  // Must exist before the very first startRound() call.
+  // The page begins in guided mode and switches to live mode after the tutorial.
+  let gameMode='guided';
   let score=0;
   let round=1;
   let secondsLeft=ROUND_SECONDS;
@@ -1999,7 +2003,6 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
 
   // Two clearly separated game states:
   // guided tutorial round vs normal public demo round.
-  let gameMode='guided';
   let tutorialFirstDropAt=null;
   let tutorialRankPromptShown=false;
   const TUTORIAL_PLAY_SECONDS=10;
@@ -2104,6 +2107,7 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
   function setGameMode(mode){
     gameMode=mode;
     if(modeBadge){
+      modeBadge.style.display='block';
       if(mode==='guided'){
         modeBadge.classList.remove('live');
         modeBadge.classList.add('guided');
@@ -2259,7 +2263,7 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
   // The player can skip it, finish it, or replay it later.
   setTimeout(()=>{
     startTour();
-  },2200);
+  },1800);
 
 })();
 </script>
