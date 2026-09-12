@@ -1082,7 +1082,25 @@ body.hplSplashLocked{
 .hplDropArrowText{color:#ffd84d;background:rgba(5,12,20,.94);border:1px solid #ffd84d;border-radius:9px;padding:7px 12px;font:1000 11px/1 system-ui;letter-spacing:.6px;white-space:nowrap}
 .hplDropArrowIcon{color:#ffd84d;font:1000 46px/34px system-ui;animation:hplDropBounce .7s ease-in-out infinite alternate}
 @keyframes hplDropBounce{from{transform:translateY(0)}to{transform:translateY(12px)}}
-</style></head>
+</style><style id="hplPositionBannerStyles">
+.yourPositionBanner{
+  display:flex;align-items:center;gap:9px;
+  margin:8px 10px 4px;padding:8px 10px;
+  border:1px solid rgba(76,232,255,.42);
+  border-radius:8px;background:rgba(25,173,205,.10);
+  font:900 10px/1 system-ui;letter-spacing:.5px;color:#8fdff0
+}
+.yourPositionBanner strong{
+  font-size:18px;color:#69f0ae;margin-left:auto
+}
+.yourPositionBanner small{color:#a8bac8;font-weight:800}
+#scoreRows tr.youRow{
+  background:rgba(105,240,174,.12)!important;
+  outline:1px solid rgba(105,240,174,.38)
+}
+#scoreRows tr.youRow td{color:#69f0ae!important;font-weight:1000!important}
+</style>
+</head>
 <body>
 <div id="publicDemoRibbon" style="position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:2147483000;
       padding:6px 14px;border-radius:0 0 12px 12px;background:linear-gradient(90deg,#0d7ea5,#7839c9);
@@ -1246,6 +1264,11 @@ body.hplSplashLocked{
 </div>
 <div class="card scoreboard" id="tourScoreboard">
 <div class="cardTitle">SCOREBOARD • 50 PLAYERS</div>
+<div id="yourPositionBanner" class="yourPositionBanner">
+  <span>YOUR POSITION</span>
+  <strong id="yourPositionValue">—</strong>
+  <small id="yourPositionScore">0 PTS</small>
+</div>
 <table>
 <thead><tr><th class="rank">#</th><th>PLAYER</th><th style="text-align:right">SCORE</th><th>STATUS</th></tr></thead>
 <tbody id="scoreRows">
@@ -1778,6 +1801,8 @@ body.hplSplashLocked{
     ].sort((a,b)=>b.score-a.score);
 
     const yourRank=rows.findIndex(r=>r.you)+1;
+    if(yourPositionValue) yourPositionValue.textContent=`#${yourRank}`;
+    if(yourPositionScore) yourPositionScore.textContent=`${Math.round(score).toLocaleString()} PTS`;
     scoreRows.innerHTML=rows.map((r,i)=>`
       <tr${r.you?' style="background:rgba(43,217,255,.08)"':''}>
         <td class="rank">${i+1}</td>
@@ -1787,6 +1812,10 @@ body.hplSplashLocked{
       </tr>
     `).join('');
     playerCountEl.textContent=rows.length;
+
+    [...scoreRows.querySelectorAll('tr')].forEach(tr=>{
+      if(/\bYOU\b/.test(tr.textContent||'')) tr.classList.add('youRow');
+    });
     return {rows,yourRank};
   }
 
