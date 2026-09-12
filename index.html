@@ -1755,7 +1755,7 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     roundEnded=false;
     balls=[];
     particles=[];
-    botScores=makeBots();
+    botScores.splice(0, botScores.length, ...makeBots());
     active[1]=active[2]=active[3]=false;
 
     topScoreEl.textContent='0';
@@ -2130,7 +2130,7 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     score=0;
     secondsLeft=ROUND_SECONDS;
     currentRewardPool=STARTING_REWARD_POOL;
-    botScores=makeBots();
+    botScores.splice(0, botScores.length, ...makeBots());
 
     active[1]=active[2]=active[3]=false;
     balls=[];
@@ -2184,7 +2184,7 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     score=0;
     secondsLeft=ROUND_SECONDS;
     currentRewardPool=STARTING_REWARD_POOL;
-    botScores=makeBots();
+    botScores.splice(0, botScores.length, ...makeBots());
     balls=[];
     particles=[];
     topScoreEl.textContent='0';
@@ -2255,17 +2255,11 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     });
   });
 
-  // First visit gets the guided walkthrough.
-  // Returning visitors go straight into a normal live demo round.
+  // Always auto-start the guided walkthrough when the page is freshly loaded.
+  // The player can skip it, finish it, or replay it later.
   setTimeout(()=>{
-    let seen=false;
-    try{seen=localStorage.getItem('hpl-public-demo-tour-seen-v4')==='1';}catch(e){}
-    if(!seen){
-      startTour();
-    } else {
-      startFreshLiveDemoRound();
-    }
-  },3600);
+    startTour();
+  },2200);
 
 })();
 </script>
