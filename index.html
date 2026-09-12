@@ -1128,20 +1128,76 @@ body.hplSplashLocked{
 </style>
 
 
-<style id="hplTourPointsVisibilityFix">
-  .hplTourCard.hplTourCardTop{
-    top:18px !important;
-    bottom:auto !important;
-  }
-  @media (max-width:800px){
-    .hplTourCard.hplTourCardTop{
-      top:max(10px, env(safe-area-inset-top, 0px)) !important;
-      bottom:auto !important;
-    }
+
+
+
+<style id="hplPointsViewportFix">
+  #tourPoints{
+    scroll-margin-bottom:140px;
   }
   #tourPoints.hplTourHighlight{
     z-index:2147483650 !important;
-    box-shadow:0 0 0 4px #ffd84d,0 0 34px rgba(255,216,77,.75) !important;
+    box-shadow:
+      0 0 0 4px #ffd84d,
+      0 0 34px rgba(255,216,77,.75) !important;
+  }
+</style>
+
+
+<style id="hplPointsLessonCardLift">
+  .hplTourCard.hplTourCardLiftForPoints{
+    bottom:170px !important;
+  }
+  @media (max-width:800px){
+    .hplTourCard.hplTourCardLiftForPoints{
+      bottom:150px !important;
+    }
+  }
+  @media (max-height:760px){
+    .hplTourCard.hplTourCardLiftForPoints{
+      bottom:125px !important;
+    }
+  }
+</style>
+
+
+<style id="hplPointsBoxTutorialLift">
+  /* During score-teaching steps, pin YOUR POINTS to the visible viewport.
+     This avoids the game board extending below fullscreen/mobile browser view. */
+  #tourPoints.hplPointsBoxLift{
+    position:fixed !important;
+    bottom:22px !important;
+    left:50% !important;
+    transform:translateX(-50%) !important;
+    z-index:2147483660 !important;
+    box-shadow:
+      0 0 0 3px #ffd84d,
+      0 0 30px rgba(255,216,77,.72) !important;
+  }
+
+  @media (max-width:800px){
+    #tourPoints.hplPointsBoxLift{
+      bottom:max(16px, env(safe-area-inset-bottom, 0px)) !important;
+    }
+  }
+</style>
+
+
+<style id="hplPoweredPlayCardLift">
+  .hplTourCard.hplTourCardLiftForPoweredPlay{
+    bottom:170px !important;
+  }
+
+  @media (max-width:800px){
+    .hplTourCard.hplTourCardLiftForPoweredPlay{
+      bottom:150px !important;
+    }
+  }
+
+  @media (max-height:760px){
+    .hplTourCard.hplTourCardLiftForPoweredPlay{
+      bottom:125px !important;
+    }
   }
 </style>
 
@@ -1387,7 +1443,7 @@ body.hplSplashLocked{
 </div>
 <div class="reflNote">Demo concept: reflections are HPL rewards generated when other people BUY or SELL the HPL token. A portion of that trading activity is shared with eligible HPL holders. This demo exaggerates the amounts so you can visibly watch them accumulate.</div>
 <button class="claimReflBtn" id="claimReflectionsBtn">COLLECT DEMO REFLECTIONS</button>
-<div class="marketStatus" id="reflectionStatus">Illustrative only • fake HPL buys/sells generate simulated reflections every 5 seconds. The real concept is: more eligible HPL held = a larger share of the reflection pool.</div>
+<div class="marketStatus" id="reflectionStatus">Illustrative only • fake HPL buys/sells generate simulated reflections every 5 seconds. Eligible holdings here include your wallet balance plus unclaimed reflections, so the displayed eligible total grows as reflections accrue.</div>
 </div>
 <div class="card" id="tourRewards">
 <div class="cardTitle">YOUR DEMO REWARDS</div>
@@ -1513,6 +1569,7 @@ body.hplSplashLocked{
     if(fullscreenBtn){
       fullscreenBtn.textContent=document.fullscreenElement?'⛶ EXIT FULLSCREEN':'⛶ FULLSCREEN';
     }
+    setTimeout(positionTutorialPointsBox,120);
   });
 
   const PRICES = {1:100, 2:50, 3:250};
@@ -1726,7 +1783,8 @@ body.hplSplashLocked{
         const gainedSincePower=Math.max(0,Math.round(score-tutorialPoweredScoreStart));
         tourTextEl.innerHTML=
           `<strong style="color:#69f0ae;font-size:16px">EXTRA BALL DROP WORKED!</strong><br>`+
-          `One click released two balls. You’ve added <strong>${gainedSincePower.toLocaleString()} points</strong> since activating it, bringing your score to <strong>${Math.round(score).toLocaleString()}</strong>.`;
+          `One click released two balls. You’ve added <strong>${gainedSincePower.toLocaleString()} points</strong> since activating it, bringing your score to <strong>${Math.round(score).toLocaleString()}</strong>.<br>`+
+          `<span style="color:#ffd84d;font-weight:900">Watch YOUR POINTS below update as both balls score.</span>`;
         tourNext.disabled=false;
         tourNext.style.opacity='1';
         tourNext.style.cursor='pointer';
@@ -1867,7 +1925,8 @@ body.hplSplashLocked{
   function renderWallet(){
     walletBalEl.textContent=fmt(demoHpl,2);
     reflWalletBalanceEl.textContent=fmt(demoHpl,2);
-    reflEligibleEl.textContent=fmt(demoHpl,2);
+    const reflectionEligibleHoldings=demoHpl+demoReflections;
+    reflEligibleEl.textContent=fmt(reflectionEligibleHoldings,2);
     reflClaimableEl.textContent=fmt(demoReflections,4);
     claimAmountEl.textContent=fmt(pendingReward,2);
     claimBtn.disabled=pendingReward<=0;
@@ -2269,6 +2328,7 @@ body.hplSplashLocked{
   },300);
 
   addEventListener('resize',resize,{passive:true});
+  addEventListener('resize',positionTutorialPointsBox,{passive:true});
   resize();
   renderWallet();
   renderMarket();
@@ -2439,10 +2499,7 @@ body.hplSplashLocked{
   function positionTourTarget(el){
     if(!el) return;
 
-    if(el.id==='tourPoints'){
-      const board=el.closest('.boardShell');
-      (board || el).scrollIntoView({behavior:'smooth',block:'center'});
-    } else {
+    if(el.id!=='tourPoints'){
       el.scrollIntoView({behavior:'smooth',block:'center'});
     }
 
@@ -2530,7 +2587,25 @@ body.hplSplashLocked{
     const step=tourSteps[tourIndex];
     tourTarget=document.querySelector(step.target);
 
-    tourCard.classList.toggle('hplTourCardTop', step.target==='#tourPoints');
+    const pointsTarget=document.querySelector('#tourPoints');
+    const onPointsStep=step.target==='#tourPoints';
+    const onPoweredPlayStep=step.requirement==='poweredplay';
+
+    tourCard.classList.toggle('hplTourCardLiftForPoints', onPointsStep);
+    tourCard.classList.toggle('hplTourCardLiftForPoweredPlay', onPoweredPlayStep);
+
+    // Keep YOUR POINTS visible for both the normal-score lesson
+    // and the Extra Ball Drop lesson so players can watch the score change.
+    pointsTarget?.classList.toggle(
+      'hplPointsBoxLift',
+      onPointsStep || onPoweredPlayStep
+    );
+
+    if(onPointsStep || onPoweredPlayStep){
+      requestAnimationFrame(positionTutorialPointsBox);
+    } else if(pointsTarget){
+      pointsTarget.style.left='';
+    }
 
     dropArrowEl?.classList.toggle(
       'show',
@@ -2599,7 +2674,11 @@ body.hplSplashLocked{
   }
 
   function closeTour(markSeen=true){
-    tourCard?.classList.remove('hplTourCardTop');
+    tourCard?.classList.remove('hplTourCardLiftForPoints');
+    tourCard?.classList.remove('hplTourCardLiftForPoweredPlay');
+    const closingPoints=document.querySelector('#tourPoints');
+    closingPoints?.classList.remove('hplPointsBoxLift');
+    if(closingPoints) closingPoints.style.left='';
     dropArrowEl?.classList.remove('show');
     rewardReveal?.classList.remove('show');
     tutorialGate='';
@@ -2667,6 +2746,19 @@ body.hplSplashLocked{
     renderWallet();
     renderMarket();
     startRound();
+  }
+
+  function positionTutorialPointsBox(){
+    const el=document.querySelector('#tourPoints');
+    if(!el || !el.classList.contains('hplPointsBoxLift')) return;
+
+    const board=document.querySelector('.boardShell');
+    if(!board) return;
+
+    const r=board.getBoundingClientRect();
+    const center=r.left+(r.width/2);
+    const clamped=Math.max(90,Math.min(window.innerWidth-90,center));
+    el.style.left=`${clamped}px`;
   }
 
   function updateTutorialPointsCopy(){
