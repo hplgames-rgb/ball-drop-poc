@@ -1075,7 +1075,14 @@ body.hplSplashLocked{
   }
 </style>
 
-</head>
+<style id="hplDropArrowStyles">
+.boardShell{position:relative}
+.hplDropArrow{position:absolute;z-index:2147483200;left:50%;top:62px;transform:translateX(-50%);display:none;flex-direction:column;align-items:center;pointer-events:none;filter:drop-shadow(0 4px 8px rgba(0,0,0,.85))}
+.hplDropArrow.show{display:flex}
+.hplDropArrowText{color:#ffd84d;background:rgba(5,12,20,.94);border:1px solid #ffd84d;border-radius:9px;padding:7px 12px;font:1000 11px/1 system-ui;letter-spacing:.6px;white-space:nowrap}
+.hplDropArrowIcon{color:#ffd84d;font:1000 46px/34px system-ui;animation:hplDropBounce .7s ease-in-out infinite alternate}
+@keyframes hplDropBounce{from{transform:translateY(0)}to{transform:translateY(12px)}}
+</style></head>
 <body>
 <div id="publicDemoRibbon" style="position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:2147483000;
       padding:6px 14px;border-radius:0 0 12px 12px;background:linear-gradient(90deg,#0d7ea5,#7839c9);
@@ -1205,6 +1212,9 @@ body.hplSplashLocked{
 </div>
 <div class="boardShell">
 <canvas id="game"></canvas>
+<div id="hplDropArrow" class="hplDropArrow" aria-hidden="true">
+ <div class="hplDropArrowText">CLICK / TAP HERE</div><div class="hplDropArrowIcon">↓</div>
+</div>
 <div class="dropHint" id="dropHint"><b>⚡</b> PREP PHASE • EQUIP POWER-UPS <b>⚡</b></div>
 <div class="pointsBox" id="tourPoints"><div class="label">YOUR POINTS</div><div class="value" id="points">0</div></div>
 <div class="overlay" id="roundOverlay">
@@ -1391,6 +1401,7 @@ body.hplSplashLocked{
   const roundSummary = $('roundSummary');
   const newRoundBtn = $('newRoundBtn');
   const dropHintEl = $('dropHint');
+  const dropArrowEl = $('hplDropArrow');
 
   const walletBalEl = $('walletHplBalance');
   const cartTotalEl = $('cartTotal');
@@ -1621,6 +1632,7 @@ body.hplSplashLocked{
     if(!Number.isFinite(score)) score=0;
     topScoreEl.textContent=Math.round(score).toLocaleString();
     pointsEl.textContent=Math.round(score).toLocaleString();
+    updateTutorialPointsCopy();
     burst(b.x,H-26,'#63f3a6');
 
     if(gameMode==='guided' && tourRunning){
@@ -1629,6 +1641,10 @@ body.hplSplashLocked{
       // First lesson: a NORMAL single ball must actually finish and score.
       if(req==='basicplay' && !b.bonus && !tourBasicPlaySatisfied){
         tourBasicPlaySatisfied=true;
+        dropArrowEl?.classList.remove('show');
+        tourTextEl.innerHTML=
+          `<strong style="color:#69f0ae;font-size:17px">YOU SCORED ${Math.round(score).toLocaleString()} POINTS!</strong><br>`+
+          `That came from your first normal ball drop.`;
         tourNext.disabled=false;
         tourNext.style.opacity='1';
         tourNext.style.cursor='pointer';
@@ -2049,6 +2065,10 @@ body.hplSplashLocked{
 
       if(req==='basicplay'){
         dropBall(e.clientX-r.left);
+        dropArrowEl?.classList.remove('show');
+        tourTextEl.innerHTML=
+          `<strong style="color:#72e6ff">BALL DROPPED!</strong><br>`+
+          `Watch it fall. You currently have <strong>${Math.round(score).toLocaleString()} points</strong>; this will update when the ball scores.`;
         tourNext.textContent='WAIT FOR YOUR BALL TO SCORE...';
         return;
       }
@@ -2418,6 +2438,11 @@ body.hplSplashLocked{
     const step=tourSteps[tourIndex];
     tourTarget=document.querySelector(step.target);
 
+    dropArrowEl?.classList.toggle(
+      'show',
+      step.requirement==='basicplay' || step.requirement==='poweredplay'
+    );
+
     tutorialGate=step.requirement || '';
     renderMarket();
 
@@ -2462,6 +2487,9 @@ body.hplSplashLocked{
 
     if(tourTarget) positionTourTarget(tourTarget);
 
+    if(step.target==='#tourPoints'){
+      setTimeout(updateTutorialPointsCopy,80);
+    }
     if(step.target==='#tourScoreboard'){
       setTimeout(updateTutorialRankCopy,80);
     }
@@ -2477,6 +2505,7 @@ body.hplSplashLocked{
   }
 
   function closeTour(markSeen=true){
+    dropArrowEl?.classList.remove('show');
     rewardReveal?.classList.remove('show');
     tutorialGate='';
     clearTutorialActionPulse();
@@ -2543,6 +2572,14 @@ body.hplSplashLocked{
     renderWallet();
     renderMarket();
     startRound();
+  }
+
+  function updateTutorialPointsCopy(){
+    if(!tourRunning || gameMode!=='guided') return;
+    if(tourSteps[tourIndex]?.target!=='#tourPoints') return;
+    tourTextEl.innerHTML=
+      `<strong style="color:#69f0ae;font-size:17px">YOU HAVE ${Math.round(score).toLocaleString()} POINTS</strong><br>`+
+      `Those points came from the ball you just dropped. Every scored ball adds to your round total.`;
   }
 
   function updateTutorialRankCopy(){
