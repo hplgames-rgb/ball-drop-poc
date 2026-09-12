@@ -939,7 +939,15 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
 .hplSimpleLoader{height:7px;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.12)}
 .hplSimpleLoaderBar{height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg,#2bd9ff,#8b5cff);transition:width .12s linear}
 .hplSimpleLoading{margin-top:10px;font-size:10px;font-weight:900;letter-spacing:1.4px;color:#8194a8}
-</style></head>
+</style>
+<style id="hplTourGateStyles">
+  #hplTourNext:disabled{
+    filter:saturate(.35);
+    box-shadow:none!important;
+  }
+</style>
+
+</head>
 <body>
 <div id="publicDemoRibbon" style="position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:2147483000;
       padding:6px 14px;border-radius:0 0 12px 12px;background:linear-gradient(90deg,#0d7ea5,#7839c9);
@@ -1110,7 +1118,7 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
 <div><div class="small">PLAYERS</div><div class="v" id="playerCount">0</div></div>
 <div><div class="small">AVAILABLE REWARDS</div><div class="v"><span id="pool">20,000</span> <small>HPL</small></div></div>
 </div>
-<div class="poolLive">Local browser simulation • no cron job or backend</div>
+<div class="poolLive">Live local simulation • players join + fake trading funds rewards</div>
 </div>
 <div class="card" id="tourMarketplace">
 <div class="cardTitle">HPL MARKETPLACE</div>
@@ -1184,11 +1192,11 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
 </div>
 </div>
 <div class="card reward">
-<div class="cardTitle">DEMO REWARD RULES • 20,000 HPL POOL</div>
-<div><strong>#1:</strong> 50% • <strong>10,000 HPL</strong></div>
-<div><strong>#2:</strong> 20% • <strong>4,000 HPL</strong></div>
-<div><strong>#3:</strong> 10% • <strong>2,000 HPL</strong></div>
-<div><strong>#4–#50:</strong> remaining 20% split equally • about <strong>85.11 HPL each</strong></div>
+<div class="cardTitle">DEMO REWARD RULES • DYNAMIC HPL POOL</div>
+<div><strong>#1:</strong> 50% of the final reward pool</div>
+<div><strong>#2:</strong> 20% of the final reward pool</div>
+<div><strong>#3:</strong> 10% of the final reward pool</div>
+<div><strong>#4+:</strong> remaining 20% split equally among other players</div>
 <div class="footer">PUBLIC PREVIEW • Local-only gameplay • Simulated HPL • No wallets • No backend • No monetary value.</div>
 </div>
 </aside>
@@ -1267,7 +1275,8 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
   const PRICES = {1:100, 2:50, 3:250};
   const NAMES = {1:'1.5× Ball Booster',2:'Extra Ball Drop',3:'2× Score Booster'};
   const ROUND_SECONDS = 60;
-  const DEMO_REWARD_POOL = 20000;
+  const STARTING_REWARD_POOL = 12000;
+  const MAX_SIMULATED_REWARD_POOL = 32000;
   const REFLECTION_CAP_PER_ROUND = 5000;
   const REFLECTION_TICK_MS = 5000;
   const DROP_COOLDOWN_MS = 180;
@@ -1288,6 +1297,11 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
   let reflectionsThisRound=0;
   let lastReflectionTick=performance.now();
   let pendingReward=0;
+  let currentRewardPool=STARTING_REWARD_POOL;
+  let lastTradeTick=performance.now();
+  let nextTradeDelay=3500;
+  let lastJoinTick=performance.now();
+  let nextJoinDelay=1800;
 
   const cart={1:0,2:0,3:0};
   const inventory={1:0,2:0,3:0};
@@ -1314,7 +1328,12 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     const suffixes=['King','Fox','Pilot','Cat','Node','Runner','Ace','Byte','Wolf','Bot'];
     for(let i=0;i<49;i++){
       const name=prefixes[i%prefixes.length]+suffixes[(i*3)%suffixes.length]+'_'+String(i+1).padStart(2,'0');
-      bots.push({name,score:Math.floor(Math.random()*140)});
+      bots.push({
+        name,
+        score:0,
+        joined:i<8,
+        joinedAt:i<8?0:null
+      });
     }
     return bots;
   }
@@ -1531,15 +1550,16 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
   }
 
   function renderLeaderboard(){
-    // Fifty-player simulated field: YOU + 49 local-only competitors.
     for(const bot of botScores){
-      if(running && Math.random()<.72){
+      if(bot.joined && running && Math.random()<.72){
         bot.score+=Math.floor(45+Math.random()*260);
       }
     }
+
+    const activeBots=botScores.filter(b=>b.joined);
     const rows=[
       {name:'YOU',score:score,you:true},
-      ...botScores
+      ...activeBots
     ].sort((a,b)=>b.score-a.score);
 
     const yourRank=rows.findIndex(r=>r.you)+1;
@@ -1635,10 +1655,11 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
   });
 
   function rewardForPlace(place,totalPlayers){
-    if(place===1) return DEMO_REWARD_POOL*.50;
-    if(place===2) return DEMO_REWARD_POOL*.20;
-    if(place===3) return DEMO_REWARD_POOL*.10;
-    const remainder=DEMO_REWARD_POOL*.20;
+    if(place===1) return currentRewardPool*.50;
+    if(place===2) return currentRewardPool*.20;
+    if(place===3) return currentRewardPool*.10;
+
+    const remainder=currentRewardPool*.20;
     return remainder/Math.max(1,totalPlayers-3);
   }
 
@@ -1649,7 +1670,7 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
 
     const finalRows=[
       {name:'YOU',score,you:true},
-      ...botScores
+      ...botScores.filter(b=>b.joined)
     ].sort((a,b)=>b.score-a.score);
     const place=finalRows.findIndex(r=>r.you)+1;
 
@@ -1668,7 +1689,7 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
         <div style="font-size:22px;font-weight:1000;margin-bottom:6px">YOU FINISHED #${place}</div>
         <div><strong>Score:</strong> ${Math.round(score).toLocaleString()}</div>
         <div><strong>Players:</strong> ${finalRows.length}</div>
-        <div><strong>Round reward pool:</strong> ${DEMO_REWARD_POOL.toLocaleString()} HPL</div>
+        <div><strong>Round reward pool:</strong> ${Math.round(currentRewardPool).toLocaleString()} HPL</div>
         <div><strong>Your allocation:</strong> ${fmt(pendingReward,2)} HPL <span style="color:#8da6ba">(${payoutLabel})</span></div>
         <div><strong>Reflections generated this round:</strong> ${fmt(reflectionsThisRound,2)} HPL</div>
         <div style="margin-top:10px;color:#8da6ba;font-size:12px">
@@ -1684,6 +1705,11 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     secondsLeft=ROUND_SECONDS;
     reflectionsThisRound=0;
     lastReflectionTick=performance.now();
+    currentRewardPool=STARTING_REWARD_POOL;
+    lastTradeTick=performance.now();
+    nextTradeDelay=2800+Math.random()*2800;
+    lastJoinTick=performance.now();
+    nextJoinDelay=1200+Math.random()*1800;
     running=true;
     roundEnded=false;
     balls=[];
@@ -1695,7 +1721,7 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     pointsEl.textContent='0';
     timerEl.textContent='01:00';
     roundNoEl.textContent='#'+round;
-    poolEl.textContent=DEMO_REWARD_POOL.toLocaleString();
+    poolEl.textContent=Math.round(currentRewardPool).toLocaleString();
     overlay?.classList.remove('show');
     dropHintEl.innerHTML='<b>●</b> CLICK / TAP THE BOARD TO DROP BALLS <b>●</b>';
     inventoryStatusEl.textContent='Local demo inventory • activate purchased items anytime this round.';
@@ -1713,7 +1739,10 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     demoReflections=0;
     pendingReward=0;
     reflectionsThisRound=0;
+    currentRewardPool=STARTING_REWARD_POOL;
     lastReflectionTick=performance.now();
+    lastTradeTick=performance.now();
+    lastJoinTick=performance.now();
     round=1;
     cart[1]=cart[2]=cart[3]=0;
     inventory[1]=inventory[2]=inventory[3]=0;
@@ -1729,12 +1758,65 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     dropBall(e.clientX-r.left);
   });
 
+
+  function simulateTradeActivity(now){
+    if(!running || currentRewardPool>=MAX_SIMULATED_REWARD_POOL) return;
+    if(now-lastTradeTick < nextTradeDelay) return;
+
+    lastTradeTick=now;
+    nextTradeDelay=3000+Math.random()*4200;
+
+    const tradeSize=Math.round(450+Math.random()*1550);
+    const rewardContribution=Math.min(
+      MAX_SIMULATED_REWARD_POOL-currentRewardPool,
+      tradeSize
+    );
+
+    currentRewardPool+=rewardContribution;
+    poolEl.textContent=Math.round(currentRewardPool).toLocaleString();
+
+    const poolLiveEl=document.querySelector('.poolLive');
+    if(poolLiveEl){
+      poolLiveEl.innerHTML=
+        `<span style="color:#63f3a6;font-weight:900">+${rewardContribution.toLocaleString()} HPL</span> from simulated buy/sell tax • reward pool now ${Math.round(currentRewardPool).toLocaleString()} HPL`;
+    }
+  }
+
+  function simulatePlayerJoins(now){
+    if(!running) return;
+    if(now-lastJoinTick < nextJoinDelay) return;
+
+    const waiting=botScores.filter(b=>!b.joined);
+    if(waiting.length===0) return;
+
+    lastJoinTick=now;
+    nextJoinDelay=1100+Math.random()*2400;
+
+    const joinCount=Math.min(waiting.length, 1+Math.floor(Math.random()*3));
+    for(let i=0;i<joinCount;i++){
+      waiting[i].joined=true;
+      waiting[i].joinedAt=ROUND_SECONDS-secondsLeft;
+      waiting[i].score=Math.floor(Math.random()*250);
+    }
+
+    renderLeaderboard();
+
+    const poolLiveEl=document.querySelector('.poolLive');
+    if(poolLiveEl && Math.random()<.55){
+      const currentPlayers=1+botScores.filter(b=>b.joined).length;
+      poolLiveEl.innerHTML=
+        `<span style="color:#72e6ff;font-weight:900">${joinCount} new player${joinCount>1?'s':''} joined</span> • ${currentPlayers} players now in the demo round`;
+    }
+  }
+
   function tick(now){
     const dt=Math.min(.025,(now-lastTick)/1000);
     lastTick=now;
 
     if(running){
       physics(dt);
+      simulateTradeActivity(now);
+      simulatePlayerJoins(now);
       if(now-lastSecondStamp>=1000){
         const elapsed=Math.floor((now-lastSecondStamp)/1000);
         lastSecondStamp+=elapsed*1000;
@@ -1788,33 +1870,39 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
   const tourSteps=[
     {
       target:'#tourMarketplace',
-      title:'Buy Boosters',
-      text:'Use simulated HPL here to buy power-ups. This public demo does not connect to a wallet or blockchain.'
+      title:'Buy a Booster',
+      text:'Start by purchasing any demo power-up from the HPL Marketplace. Add one to your cart, then click BUY DEMO CART. The tour will continue only after a purchase is completed.',
+      requirement:'purchase'
     },
     {
       target:'#tourInventory',
-      title:'Activate Boosters',
-      text:'Purchased boosters show up here. Activate them to see how HPL-powered game items could work.'
+      title:'Activate Your Booster',
+      text:'Nice — now activate one of the boosters you just purchased. The tour will continue only after a booster is equipped for this round.',
+      requirement:'activate'
     },
     {
       target:'#tourReflections',
       title:'Claim Reflections',
-      text:'Your demo starts with 1,000,000 HPL. Simulated reflections arrive every 5 seconds and can build to roughly 5,000 HPL per round.'
+      text:'Your demo starts with 1,000,000 HPL. Simulated reflections arrive every 5 seconds and can build to roughly 5,000 HPL per round.',
+      requirement:null
     },
     {
       target:'#tourRewards',
       title:'Claim Game Rewards',
-      text:'Each round has a simulated 20,000 HPL reward pool. Your finishing position determines the amount you can claim.'
+      text:'The reward pool starts funded and grows during the round as simulated outside traders buy and sell HPL. Your final position determines your share of whatever the pool reaches.',
+      requirement:null
     },
     {
       target:'#tourScoreboard',
       title:'50-Player Demo Round',
-      text:'You compete against 49 simulated players. Your current position moves throughout the round and your final rank determines your reward.'
+      text:'Players gradually join during the round until the field fills out. Your position changes as new simulated players arrive and scores move.',
+      requirement:null
     },
     {
       target:'#tourRoundInfo',
       title:'Public Pre-Alpha Demo',
-      text:'Everything here is simulated locally in your browser. No wallet, blockchain, Supabase, cron job, or real HPL is used.'
+      text:'Everything here is simulated locally in your browser. No wallet, blockchain, Supabase, cron job, or real HPL is used.',
+      requirement:null
     }
   ];
 
@@ -1828,6 +1916,9 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
   const tourReplay=$('hplTourReplay');
   let tourIndex=0;
   let tourTarget=null;
+  let tourPurchaseSatisfied=false;
+  let tourActivateSatisfied=false;
+  let tourRunning=false;
 
   function clearTourTarget(){
     if(tourTarget) tourTarget.classList.remove('hplTourHighlight');
@@ -1842,54 +1933,153 @@ button[class*="fullscreen" i],a[class*="fullscreen" i]{display:none!important}
     },220);
   }
 
+  function tourRequirementMet(step){
+    if(!step.requirement) return true;
+    if(step.requirement==='purchase') return tourPurchaseSatisfied;
+    if(step.requirement==='activate') return tourActivateSatisfied;
+    return true;
+  }
+
+  function updateTourControls(){
+    if(!tourRunning) return;
+    const step=tourSteps[tourIndex];
+
+    if(step.requirement==='purchase'){
+      tourNext.disabled=true;
+      tourNext.textContent='BUY A BOOSTER TO CONTINUE';
+      tourNext.style.opacity='.55';
+      tourNext.style.cursor='not-allowed';
+    } else if(step.requirement==='activate'){
+      tourNext.disabled=true;
+      tourNext.textContent='ACTIVATE A BOOSTER TO CONTINUE';
+      tourNext.style.opacity='.55';
+      tourNext.style.cursor='not-allowed';
+    } else {
+      tourNext.disabled=false;
+      tourNext.style.opacity='1';
+      tourNext.style.cursor='pointer';
+      tourNext.textContent=tourIndex===tourSteps.length-1?'START PLAYING':'NEXT';
+    }
+  }
+
   function showTourStep(index){
     if(!tourCard || !tourBackdrop) return;
     clearTourTarget();
     tourIndex=index;
+    tourRunning=true;
+
     const step=tourSteps[tourIndex];
     tourTarget=document.querySelector(step.target);
 
     tourStepEl.textContent=`STEP ${tourIndex+1} OF ${tourSteps.length}`;
     tourTitleEl.textContent=step.title;
     tourTextEl.textContent=step.text;
-    tourNext.textContent=tourIndex===tourSteps.length-1?'START PLAYING':'NEXT';
 
     tourBackdrop.classList.add('show');
     tourCard.classList.add('show');
 
+    updateTourControls();
+
     if(tourTarget) positionTourTarget(tourTarget);
+  }
+
+  function advanceTour(){
+    if(!tourRunning) return;
+    if(tourIndex < tourSteps.length-1){
+      showTourStep(tourIndex+1);
+    } else {
+      closeTour(true);
+    }
   }
 
   function closeTour(markSeen=true){
     clearTourTarget();
     tourBackdrop?.classList.remove('show');
     tourCard?.classList.remove('show');
+    tourRunning=false;
+
     if(markSeen){
-      try{localStorage.setItem('hpl-public-demo-tour-seen-v2','1');}catch(e){}
+      try{localStorage.setItem('hpl-public-demo-tour-seen-v3','1');}catch(e){}
     }
   }
 
   function startTour(){
+    tourPurchaseSatisfied=false;
+    tourActivateSatisfied=false;
+
+    // Replay-safe tutorial reset:
+    // clear the cart and unequip active boosters, but return any equipped
+    // booster to inventory so the player never loses their demo purchase.
+    cart[1]=cart[2]=cart[3]=0;
+
+    [1,2,3].forEach(id=>{
+      if(active[id]){
+        active[id]=false;
+        inventory[id]++;
+      }
+    });
+
+    marketStatusEl.textContent='Tutorial ready • buy any demo booster to continue.';
+    inventoryStatusEl.textContent='Tutorial reset • purchased boosters can be activated again.';
+    renderMarket();
+
     showTourStep(0);
   }
 
   tourNext?.addEventListener('click',()=>{
-    if(tourIndex<tourSteps.length-1) showTourStep(tourIndex+1);
-    else closeTour(true);
+    const step=tourSteps[tourIndex];
+    if(!tourRequirementMet(step)) return;
+    advanceTour();
   });
 
   tourSkip?.addEventListener('click',()=>closeTour(true));
-  tourBackdrop?.addEventListener('click',()=>closeTour(true));
+
+  // Clicking the dark backdrop should NOT let someone bypass required tutorial actions.
+  tourBackdrop?.addEventListener('click',(e)=>{
+    e.preventDefault();
+  });
+
   tourReplay?.addEventListener('click',(e)=>{
     e.preventDefault();
     e.stopPropagation();
     startTour();
   });
 
-  // First visit only: launch after the splash is gone.
+  // Hook into the existing demo purchase flow.
+  buyCartBtn?.addEventListener('click',()=>{
+    if(!tourRunning || tourSteps[tourIndex]?.requirement!=='purchase') return;
+
+    // The existing marketplace handler has already moved purchased items into inventory.
+    setTimeout(()=>{
+      const totalOwned=inventory[1]+inventory[2]+inventory[3];
+      if(totalOwned>0){
+        tourPurchaseSatisfied=true;
+        marketStatusEl.textContent='✓ Booster purchased! Tutorial moving to activation...';
+        setTimeout(()=>advanceTour(),550);
+      }
+    },0);
+  });
+
+  // Hook into the existing activation flow.
+  [1,2,3].forEach(id=>{
+    activateBtns[id]?.addEventListener('click',()=>{
+      if(!tourRunning || tourSteps[tourIndex]?.requirement!=='activate') return;
+
+      // Existing activation handler has already marked active[id] true.
+      setTimeout(()=>{
+        if(active[id]){
+          tourActivateSatisfied=true;
+          inventoryStatusEl.textContent='✓ Booster activated! Tutorial unlocked.';
+          setTimeout(()=>advanceTour(),550);
+        }
+      },0);
+    });
+  });
+
+  // First visit only: launch after splash.
   setTimeout(()=>{
     let seen=false;
-    try{seen=localStorage.getItem('hpl-public-demo-tour-seen-v2')==='1';}catch(e){}
+    try{seen=localStorage.getItem('hpl-public-demo-tour-seen-v3')==='1';}catch(e){}
     if(!seen) startTour();
   },3600);
 
