@@ -997,7 +997,7 @@ body.hplSplashLocked{
   .hplFullscreenBtn{
     position:fixed;
     left:150px;
-    bottom:14px;
+    bottom:max(72px, calc(env(safe-area-inset-bottom, 0px) + 72px));
     z-index:2147483300;
     border:1px solid rgba(104,229,255,.55);
     background:rgba(8,20,34,.94);
@@ -1011,7 +1011,7 @@ body.hplSplashLocked{
   }
   .hplFullscreenBtn:hover{filter:brightness(1.12)}
   @media (max-width:700px){
-    .hplFullscreenBtn{left:14px;bottom:58px}
+    .hplFullscreenBtn{left:14px;bottom:max(86px, calc(env(safe-area-inset-bottom, 0px) + 86px))}
   }
 </style>
 
@@ -2783,7 +2783,7 @@ body.hplSplashLocked{
   }
   .hplTourBtn.primary{background:#0f7cac;border-color:#2ddcff;color:white}
   .hplTourReplay{
-    position:fixed;right:14px;bottom:14px;z-index:2147483000;
+    position:fixed;right:14px;bottom:72px;z-index:2147483000;
     pointer-events:auto;
     border:1px solid rgba(104,229,255,.35);border-radius:999px;
     background:rgba(4,14,26,.86);color:#8eeeff;
