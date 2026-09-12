@@ -1060,7 +1060,7 @@ body.hplSplashLocked{
 <div class="small">PUBLIC BUILD</div>
 <div class="walletAddr"><span class="dot on"></span>LOCAL DEMO SESSION</div>
 <div class="network">No wallet • No blockchain • No Supabase • No real HPL</div>
-<div class="tokenBalance">DEMO HPL: <strong id="walletHplBalance">1,000</strong></div>
+<div class="tokenBalance">DEMO HPL: <strong id="walletHplBalance">1,000,000</strong></div>
 </div>
 <div class="walletActions">
 <button class="connect" id="resetDemoBtn">RESET DEMO</button>
@@ -1071,8 +1071,8 @@ body.hplSplashLocked{
       Everything on this page exists only in this browser tab. Refreshing the page resets the demo.
     </div>
 </div>
-<div class="card scoreboard">
-<div class="cardTitle">SCOREBOARD</div>
+<div class="card scoreboard" id="tourScoreboard">
+<div class="cardTitle">SCOREBOARD • 50 PLAYERS</div>
 <table>
 <thead><tr><th class="rank">#</th><th>PLAYER</th><th style="text-align:right">SCORE</th><th>STATUS</th></tr></thead>
 <tbody id="scoreRows">
@@ -1080,16 +1080,16 @@ body.hplSplashLocked{
 </tbody>
 </table>
 </div>
-<div class="card">
+<div class="card" id="tourRoundInfo">
 <div class="cardTitle">ROUND INFO</div>
 <div class="roundGrid">
 <div><div class="small">ROUND</div><div class="v" id="roundNo">#1</div></div>
 <div><div class="small">PLAYERS</div><div class="v" id="playerCount">0</div></div>
-<div><div class="small">AVAILABLE REWARDS</div><div class="v"><span id="pool">500</span> <small>HPL</small></div></div>
+<div><div class="small">AVAILABLE REWARDS</div><div class="v"><span id="pool">20,000</span> <small>HPL</small></div></div>
 </div>
 <div class="poolLive">Local browser simulation • no cron job or backend</div>
 </div>
-<div class="card">
+<div class="card" id="tourMarketplace">
 <div class="cardTitle">HPL MARKETPLACE</div>
 <div class="marketRows">
 <div class="marketItem">
@@ -1109,7 +1109,7 @@ body.hplSplashLocked{
 <button class="marketBuy" id="buyCartBtn">BUY CART</button>
 <div class="marketStatus" id="marketStatus">Demo purchase only • spends simulated HPL in this browser session.</div>
 </div>
-<div class="card">
+<div class="card" id="tourInventory">
 <div class="cardTitle">POWER-UP INVENTORY</div>
 <div class="prepNotice" id="prepNotice">DEMO • Buy and equip local-only power-ups.</div>
 <div class="inventoryRows">
@@ -1128,12 +1128,12 @@ body.hplSplashLocked{
 </div>
 <div class="marketStatus" id="inventoryStatus">Local demo inventory • nothing is stored on-chain.</div>
 </div>
-<div class="card">
+<div class="card" id="tourReflections">
 <div class="cardTitle">✨ SIMULATED HPL REFLECTIONS</div>
 <div class="reflGrid">
 <div class="reflStat">
 <div class="reflLabel">WALLET BALANCE</div>
-<div class="reflValue" id="reflWalletBalance">1,000.00</div>
+<div class="reflValue" id="reflWalletBalance">1,000,000.00</div>
 </div>
 <div class="reflStat">
 <div class="reflLabel">UNCLAIMED REFLECTIONS</div>
@@ -1141,18 +1141,18 @@ body.hplSplashLocked{
 </div>
 <div class="reflStat reflWide">
 <div class="reflLabel">REFLECTION-ELIGIBLE HOLDINGS</div>
-<div class="reflValue" id="reflEligible">1,000.00</div>
+<div class="reflValue" id="reflEligible">1,000,000.00</div>
 </div>
 </div>
-<div class="reflNote">Demo concept: eligible HPL holdings can receive a slice of taxable trading activity. These numbers are simulated and have no monetary value.</div>
+<div class="reflNote">Demo concept: your simulated 1,000,000 HPL holding earns visibly exaggerated reflections from fake trading activity. Up to roughly 5,000 HPL can accrue during each demo round.</div>
 <button class="claimReflBtn" id="claimReflectionsBtn">COLLECT DEMO REFLECTIONS</button>
-<div class="marketStatus" id="reflectionStatus">Illustrative only • fake trading activity slowly generates fake reflections.</div>
+<div class="marketStatus" id="reflectionStatus">Illustrative only • simulated trading activity adds reflections every 5 seconds, up to about 5,000 HPL per round.</div>
 </div>
-<div class="card">
+<div class="card" id="tourRewards">
 <div class="cardTitle">YOUR DEMO REWARDS</div>
 <div class="claimBox">
 <div>
-<div class="small">CLAIMABLE TEST-HPL</div>
+<div class="small">CLAIMABLE DEMO HPL</div>
 <div class="claimAmount" id="claimAmount">0</div>
 <div class="claimStatus" id="claimStatus">Finish a demo round to generate simulated HPL rewards.</div>
 <div class="claimMeta">Demo rewards exist only in this tab and reset when the page is refreshed.</div>
@@ -1161,9 +1161,11 @@ body.hplSplashLocked{
 </div>
 </div>
 <div class="card reward">
-<div class="cardTitle">DEMO REWARD RULES</div>
-<div>Winner gets <strong>50%</strong> of the round reward pool.</div>
-<div>The other <strong>50%</strong> is split equally among the other participating wallets.</div>
+<div class="cardTitle">DEMO REWARD RULES • 20,000 HPL POOL</div>
+<div><strong>#1:</strong> 50% • <strong>10,000 HPL</strong></div>
+<div><strong>#2:</strong> 20% • <strong>4,000 HPL</strong></div>
+<div><strong>#3:</strong> 10% • <strong>2,000 HPL</strong></div>
+<div><strong>#4–#50:</strong> remaining 20% split equally • about <strong>85.11 HPL each</strong></div>
 <div class="footer">PUBLIC PREVIEW • Local-only gameplay • Simulated HPL • No wallets • No backend • No monetary value.</div>
 </div>
 </aside>
@@ -1236,6 +1238,9 @@ body.hplSplashLocked{
   const PRICES = {1:100, 2:50, 3:250};
   const NAMES = {1:'1.5× Ball Booster',2:'Extra Ball Drop',3:'2× Score Booster'};
   const ROUND_SECONDS = 60;
+  const DEMO_REWARD_POOL = 20000;
+  const REFLECTION_CAP_PER_ROUND = 5000;
+  const REFLECTION_TICK_MS = 5000;
   const DROP_COOLDOWN_MS = 180;
 
   let W=0,H=0,dpr=1;
@@ -1249,8 +1254,10 @@ body.hplSplashLocked{
   let lastSecondStamp=performance.now();
   let lastDrop=0;
 
-  let demoHpl=1000;
+  let demoHpl=1000000;
   let demoReflections=0;
+  let reflectionsThisRound=0;
+  let lastReflectionTick=performance.now();
   let pendingReward=0;
 
   const cart={1:0,2:0,3:0};
@@ -1273,12 +1280,14 @@ body.hplSplashLocked{
   ];
 
   function makeBots(){
-    return [
-      {name:'DemoBot_A', score:0},
-      {name:'DemoBot_B', score:0},
-      {name:'DemoBot_C', score:0},
-      {name:'DemoBot_D', score:0}
-    ];
+    const bots=[];
+    const prefixes=['Drop','HPL','Ball','Peg','Alpha','Neon','Chain','Turbo','Pixel','Moon'];
+    const suffixes=['King','Fox','Pilot','Cat','Node','Runner','Ace','Byte','Wolf','Bot'];
+    for(let i=0;i<49;i++){
+      const name=prefixes[i%prefixes.length]+suffixes[(i*3)%suffixes.length]+'_'+String(i+1).padStart(2,'0');
+      bots.push({name,score:Math.floor(Math.random()*140)});
+    }
+    return bots;
   }
 
   function fmt(n, digits=2){
@@ -1493,24 +1502,28 @@ body.hplSplashLocked{
   }
 
   function renderLeaderboard(){
-    // Fake competitors drift upward gradually. This is intentionally illustrative.
+    // Fifty-player simulated field: YOU + 49 local-only competitors.
     for(const bot of botScores){
-      if(running && Math.random()<.45) bot.score+=Math.floor(Math.random()*155);
+      if(running && Math.random()<.72){
+        bot.score+=Math.floor(45+Math.random()*260);
+      }
     }
     const rows=[
       {name:'YOU',score:score,you:true},
       ...botScores
     ].sort((a,b)=>b.score-a.score);
 
+    const yourRank=rows.findIndex(r=>r.you)+1;
     scoreRows.innerHTML=rows.map((r,i)=>`
-      <tr>
+      <tr${r.you?' style="background:rgba(43,217,255,.08)"':''}>
         <td class="rank">${i+1}</td>
-        <td><strong>${r.name}</strong>${r.you?'<div class="you">YOU</div>':''}</td>
+        <td><strong>${r.name}</strong>${r.you?'<div class="you">YOU • CURRENT POSITION #'+yourRank+'</div>':''}</td>
         <td style="text-align:right"><strong>${Math.round(r.score).toLocaleString()}</strong></td>
         <td>${r.you?'LOCAL':'SIM'}</td>
       </tr>
     `).join('');
     playerCountEl.textContent=rows.length;
+    return {rows,yourRank};
   }
 
   function renderWallet(){
@@ -1592,37 +1605,56 @@ body.hplSplashLocked{
     renderWallet();
   });
 
+  function rewardForPlace(place,totalPlayers){
+    if(place===1) return DEMO_REWARD_POOL*.50;
+    if(place===2) return DEMO_REWARD_POOL*.20;
+    if(place===3) return DEMO_REWARD_POOL*.10;
+    const remainder=DEMO_REWARD_POOL*.20;
+    return remainder/Math.max(1,totalPlayers-3);
+  }
+
   function endRound(){
     if(roundEnded)return;
     running=false;roundEnded=true;
     balls=[];
 
     const finalRows=[
-      {name:'YOU',score},
+      {name:'YOU',score,you:true},
       ...botScores
     ].sort((a,b)=>b.score-a.score);
-    const place=finalRows.findIndex(r=>r.name==='YOU')+1;
+    const place=finalRows.findIndex(r=>r.you)+1;
 
-    pendingReward = place===1 ? 250 : place===2 ? 150 : place===3 ? 100 : 50;
-    claimStatusEl.textContent=`Demo Round #${round} complete • simulated reward ready to collect.`;
+    pendingReward = rewardForPlace(place,finalRows.length);
+    claimStatusEl.textContent=`You finished #${place} of ${finalRows.length} • simulated reward ready to collect.`;
     renderWallet();
+    renderLeaderboard();
+
+    const payoutLabel = place===1 ? '50% winner share'
+      : place===2 ? '20% second-place share'
+      : place===3 ? '10% third-place share'
+      : 'share of the remaining 20%';
 
     roundSummary.innerHTML=`
       <div style="font-size:15px;line-height:1.7">
+        <div style="font-size:22px;font-weight:1000;margin-bottom:6px">YOU FINISHED #${place}</div>
         <div><strong>Score:</strong> ${Math.round(score).toLocaleString()}</div>
-        <div><strong>Placement:</strong> #${place} of ${finalRows.length}</div>
-        <div><strong>Demo reward:</strong> ${pendingReward.toLocaleString()} HPL</div>
+        <div><strong>Players:</strong> ${finalRows.length}</div>
+        <div><strong>Round reward pool:</strong> ${DEMO_REWARD_POOL.toLocaleString()} HPL</div>
+        <div><strong>Your allocation:</strong> ${fmt(pendingReward,2)} HPL <span style="color:#8da6ba">(${payoutLabel})</span></div>
+        <div><strong>Reflections generated this round:</strong> ${fmt(reflectionsThisRound,2)} HPL</div>
         <div style="margin-top:10px;color:#8da6ba;font-size:12px">
-          This result was generated entirely inside your browser and was not recorded anywhere.
+          Everything shown here is a browser-only simulation and has no monetary value.
         </div>
       </div>`;
     overlay?.classList.add('show');
-    dropHintEl.innerHTML='<b>✓</b> DEMO ROUND COMPLETE';
+    dropHintEl.innerHTML='<b>✓</b> DEMO ROUND COMPLETE • YOU PLACED #'+place;
   }
 
   function startRound(){
     score=0;
     secondsLeft=ROUND_SECONDS;
+    reflectionsThisRound=0;
+    lastReflectionTick=performance.now();
     running=true;
     roundEnded=false;
     balls=[];
@@ -1634,7 +1666,7 @@ body.hplSplashLocked{
     pointsEl.textContent='0';
     timerEl.textContent='01:00';
     roundNoEl.textContent='#'+round;
-    poolEl.textContent='500';
+    poolEl.textContent=DEMO_REWARD_POOL.toLocaleString();
     overlay?.classList.remove('show');
     dropHintEl.innerHTML='<b>●</b> CLICK / TAP THE BOARD TO DROP BALLS <b>●</b>';
     inventoryStatusEl.textContent='Local demo inventory • activate purchased items anytime this round.';
@@ -1648,15 +1680,17 @@ body.hplSplashLocked{
   });
 
   resetDemoBtn?.addEventListener('click',()=>{
-    demoHpl=1000;
+    demoHpl=1000000;
     demoReflections=0;
     pendingReward=0;
+    reflectionsThisRound=0;
+    lastReflectionTick=performance.now();
     round=1;
     cart[1]=cart[2]=cart[3]=0;
     inventory[1]=inventory[2]=inventory[3]=0;
     active[1]=active[2]=active[3]=false;
     marketStatusEl.textContent='Demo reset. Everything is local to this browser session.';
-    reflectionStatusEl.textContent='Illustrative only • fake trading activity slowly generates fake reflections.';
+    reflectionStatusEl.textContent='Illustrative only • simulated trading activity adds reflections every 5 seconds, up to about 5,000 HPL per round.';
     claimStatusEl.textContent='Finish a demo round to generate simulated HPL rewards.';
     renderWallet();renderMarket();startRound();
   });
@@ -1679,9 +1713,16 @@ body.hplSplashLocked{
         timerEl.textContent='00:'+String(secondsLeft).padStart(2,'0');
         renderLeaderboard();
 
-        // Simulated reflections: intentionally small and obviously illustrative.
-        demoReflections += Math.max(.003, demoHpl*0.0000035) * elapsed;
-        renderWallet();
+        // Reflections arrive every 5 seconds and are deliberately exaggerated for the public demo.
+        if(now-lastReflectionTick>=REFLECTION_TICK_MS && reflectionsThisRound<REFLECTION_CAP_PER_ROUND){
+          lastReflectionTick=now;
+          const remaining=REFLECTION_CAP_PER_ROUND-reflectionsThisRound;
+          const tickAmount=Math.min(remaining, 325 + Math.random()*225);
+          demoReflections+=tickAmount;
+          reflectionsThisRound+=tickAmount;
+          reflectionStatusEl.textContent=`+${fmt(tickAmount,2)} demo HPL reflection received • ${fmt(reflectionsThisRound,2)} / ${REFLECTION_CAP_PER_ROUND.toLocaleString()} this round`;
+          renderWallet();
+        }
 
         if(secondsLeft<=0)endRound();
       }
@@ -1710,7 +1751,167 @@ body.hplSplashLocked{
   renderLeaderboard();
   startRound();
   requestAnimationFrame(tick);
+
+  // ------------------------------------------------------------
+  // First-visit guided tour
+  // ------------------------------------------------------------
+  const tourSteps=[
+    {
+      target:'#tourMarketplace',
+      title:'Buy Boosters',
+      text:'This is the simulated HPL marketplace. Spend your fake HPL balance on boosters such as score multipliers and extra ball drops. Nothing is purchased on-chain in this public demo.'
+    },
+    {
+      target:'#tourInventory',
+      title:'Activate Your Boosters',
+      text:'Purchased boosters appear here. Activate one to equip it for the current demo round and see how in-game HPL utility could work.'
+    },
+    {
+      target:'#tourReflections',
+      title:'Watch Reflections Accumulate',
+      text:'The demo starts you with 1,000,000 HPL. Simulated reflections arrive every 5 seconds and can add up to roughly 5,000 HPL during a round. Collect them to grow your demo balance.'
+    },
+    {
+      target:'#tourRewards',
+      title:'Claim Game Rewards',
+      text:'A 20,000 HPL demo reward pool is distributed by placement. #1 gets 50%, #2 gets 20%, #3 gets 10%, and the remaining 20% is divided among positions #4–#50.'
+    },
+    {
+      target:'#tourScoreboard',
+      title:'Compete Against 49 Simulated Players',
+      text:'You are one of 50 players in this fake round. Your current placement moves as scores change, and your final position determines your simulated HPL reward.'
+    },
+    {
+      target:'#tourRoundInfo',
+      title:'One-Minute Proof of Concept',
+      text:'Each public demo round lasts 60 seconds. The reward pool, players, scores, reflections and claims are all simulated locally in your browser. Refreshing resets the experience.'
+    }
+  ];
+
+  const tourBackdrop=$('hplTourBackdrop');
+  const tourCard=$('hplTourCard');
+  const tourStepEl=$('hplTourStep');
+  const tourTitleEl=$('hplTourTitle');
+  const tourTextEl=$('hplTourText');
+  const tourNext=$('hplTourNext');
+  const tourSkip=$('hplTourSkip');
+  const tourReplay=$('hplTourReplay');
+  let tourIndex=0;
+  let tourTarget=null;
+
+  function clearTourTarget(){
+    if(tourTarget) tourTarget.classList.remove('hplTourHighlight');
+    tourTarget=null;
+  }
+
+  function showTourStep(index){
+    clearTourTarget();
+    tourIndex=index;
+    const step=tourSteps[tourIndex];
+    tourTarget=document.querySelector(step.target);
+    if(tourTarget){
+      tourTarget.classList.add('hplTourHighlight');
+      tourTarget.scrollIntoView({behavior:'smooth',block:'center'});
+    }
+    tourStepEl.textContent=`STEP ${tourIndex+1} OF ${tourSteps.length}`;
+    tourTitleEl.textContent=step.title;
+    tourTextEl.textContent=step.text;
+    tourNext.textContent=tourIndex===tourSteps.length-1?'START PLAYING':'NEXT';
+    tourBackdrop.classList.add('show');
+    tourCard.classList.add('show');
+  }
+
+  function closeTour(markSeen=true){
+    clearTourTarget();
+    tourBackdrop.classList.remove('show');
+    tourCard.classList.remove('show');
+    if(markSeen){
+      try{sessionStorage.setItem('hpl-public-demo-tour-seen','1');}catch(e){}
+    }
+  }
+
+  function startTour(){
+    showTourStep(0);
+  }
+
+  tourNext?.addEventListener('click',()=>{
+    if(tourIndex<tourSteps.length-1) showTourStep(tourIndex+1);
+    else closeTour(true);
+  });
+  tourSkip?.addEventListener('click',()=>closeTour(true));
+  tourBackdrop?.addEventListener('click',()=>closeTour(true));
+  tourReplay?.addEventListener('click',startTour);
+
+  setTimeout(()=>{
+    let seen=false;
+    try{seen=sessionStorage.getItem('hpl-public-demo-tour-seen')==='1';}catch(e){}
+    if(!seen) startTour();
+  },2800);
+
 })();
 </script>
+
+
+<style id="hplTourStyles">
+  .hplTourBackdrop{
+    position:fixed; inset:0; z-index:2147483500;
+    background:rgba(0,0,0,.72);
+    opacity:0; pointer-events:none;
+    transition:opacity .2s ease;
+  }
+  .hplTourBackdrop.show{opacity:1;pointer-events:auto}
+  .hplTourHighlight{
+    position:relative !important;
+    z-index:2147483600 !important;
+    box-shadow:0 0 0 3px #68e5ff,0 0 38px rgba(104,229,255,.55) !important;
+    border-radius:14px;
+  }
+  .hplTourCard{
+    position:fixed; z-index:2147483700;
+    left:50%; bottom:28px; transform:translateX(-50%);
+    width:min(560px,calc(100vw - 28px));
+    border:1px solid rgba(106,226,255,.55);
+    border-radius:16px;
+    background:linear-gradient(180deg,#111b2a,#09111d);
+    box-shadow:0 24px 80px rgba(0,0,0,.65);
+    color:#e9f6ff;
+    padding:18px 18px 14px;
+    display:none;
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  }
+  .hplTourCard.show{display:block}
+  .hplTourStep{font-size:10px;font-weight:900;letter-spacing:1.4px;color:#68e5ff;margin-bottom:6px}
+  .hplTourTitle{font-size:20px;font-weight:1000;margin-bottom:8px}
+  .hplTourText{font-size:13px;line-height:1.55;color:#b9cddd}
+  .hplTourActions{display:flex;justify-content:space-between;gap:10px;margin-top:15px}
+  .hplTourBtn{
+    border:1px solid #31516b;background:#0b1826;color:#dff7ff;
+    border-radius:10px;padding:9px 13px;font-weight:900;cursor:pointer
+  }
+  .hplTourBtn.primary{background:#0f7cac;border-color:#2ddcff;color:white}
+  .hplTourReplay{
+    position:fixed;right:14px;bottom:14px;z-index:1000;
+    border:1px solid rgba(104,229,255,.35);border-radius:999px;
+    background:rgba(4,14,26,.86);color:#8eeeff;
+    padding:7px 11px;font:800 10px/1 system-ui,sans-serif;cursor:pointer
+  }
+  @media (max-width:800px){
+    .hplTourCard{bottom:12px}
+    .hplTourHighlight{scroll-margin-top:70px}
+  }
+</style>
+
+
+<div id="hplTourBackdrop" class="hplTourBackdrop"></div>
+<div id="hplTourCard" class="hplTourCard" role="dialog" aria-modal="true" aria-live="polite">
+  <div id="hplTourStep" class="hplTourStep">STEP 1 OF 6</div>
+  <div id="hplTourTitle" class="hplTourTitle">Welcome to HPL Ball Drop</div>
+  <div id="hplTourText" class="hplTourText"></div>
+  <div class="hplTourActions">
+    <button id="hplTourSkip" class="hplTourBtn">SKIP TOUR</button>
+    <button id="hplTourNext" class="hplTourBtn primary">NEXT</button>
+  </div>
+</div>
+<button id="hplTourReplay" class="hplTourReplay">? REPLAY TOUR</button>
 
 </body></html>
