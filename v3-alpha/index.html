@@ -159,24 +159,11 @@
           <small>Live Reward Pool</small>
           <strong id="pool">— HPL</strong>
         </div>
-        <div class="hint" id="hint">Connect Supabase to load the live round</div>
+        <div class="hint" id="hint">Connect your wallet to join the round</div>
         <button class="drop" id="drop" disabled>DROP BALL</button>
       </div>
 
-      <details class="config">
-        <summary>Supabase connection</summary>
-        <div class="config-grid">
-          <input id="supabaseUrl" placeholder="https://your-project.supabase.co" />
-          <input id="supabaseKey" placeholder="Publishable / anon key" type="password" />
-        </div>
-        <button id="connectBtn">Connect & Load Live Round</button>
-        <div id="apiStatus" class="notice"><strong>Status:</strong> Not connected.</div>
-        <div class="notice">
-          <strong>V3:</strong> Public round reads are optional. Wallet authentication starts the
-          authoritative V3 game session through the server even if Row Level Security blocks
-          direct browser reads of the round tables.
-        </div>
-      </details>
+      <div id="apiStatus" class="notice" role="status" aria-live="polite">Connecting…</div>
     </section>
 
     <aside class="side">
@@ -222,10 +209,23 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.1 · Testnet only</div>
 </div>
 
 <script>
+const CONFIG={url:"https://edoaonjcbodpccqiglzn.supabase.co",key:"sb_publishable_Pfbv5shn4OdBrIe1C3XC3g_NAkHpeZR"};
+const walletProviders=new Map();
+window.addEventListener("eip6963:announceProvider",event=>{
+  const detail=event.detail;
+  if(detail?.info?.uuid && typeof detail.provider?.request==="function") walletProviders.set(detail.info.uuid,detail);
+});
+window.dispatchEvent(new Event("eip6963:requestProvider"));
+function selectWalletProvider(){
+  const announced=[...walletProviders.values()].find(x=>x.info.rdns==="io.metamask");
+  if(announced) return announced.provider;
+  const injected=window.ethereum;
+  return injected?.providers?.find(x=>x.isMetaMask) || (injected?.isMetaMask ? injected : null);
+}
 const state = {
   supabase: null,
   round: null,
@@ -251,6 +251,7 @@ const state = {
   serverScore: null,
   serverStateReadable: false,
   authBusy: false,
+  provider: null,
   timersStarted: false,
   eventBusy: false,
   lifecycleBusy: false,
@@ -584,9 +585,9 @@ async function edgeRequest(name,body){
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),15000);
   try{
-    const response=await fetch(`${$("supabaseUrl").value.trim().replace(/\/$/,"")}/functions/v1/${name}`,{
+    const response=await fetch(`${CONFIG.url}/functions/v1/${name}`,{
       method:"POST",signal:controller.signal,
-      headers:{"Content-Type":"application/json","apikey":$("supabaseKey").value.trim()},
+      headers:{"Content-Type":"application/json","apikey":CONFIG.key},
       body:JSON.stringify(body)
     });
     const data=await response.json().catch(()=>({}));
@@ -621,44 +622,46 @@ async function advanceRound(){
 }
 
 async function authenticateWallet(){
-  if(!window.ethereum){
-    alert("MetaMask (or another injected EVM wallet) is required for the V3 Alpha.");
-    return;
-  }
   if(state.authBusy) return;
   state.authBusy=true;
+  $("walletBtn").disabled=true;
+  $("walletBtn").textContent="Connecting…";
+  let stage="Finding MetaMask";
   try{
-    if(!state.supabase) await connectBackend();
-    if(!state.supabase) throw new Error("Backend configuration is not available.");
-    const chain=await window.ethereum.request({method:"eth_chainId"});
-    if(chain!=="0x14a34") await window.ethereum.request({method:"wallet_switchEthereumChain",params:[{chainId:"0x14a34"}]});
-    const accounts=await window.ethereum.request({method:"eth_requestAccounts"});
+    window.dispatchEvent(new Event("eip6963:requestProvider"));
+    let provider=selectWalletProvider();
+    if(!provider){await new Promise(resolve=>setTimeout(resolve,400));provider=selectWalletProvider();}
+    if(!provider) throw new Error("MetaMask is not available to this page. Open the MetaMask extension, unlock it, allow access to this website, then refresh. On mobile, open this link inside MetaMask's browser.");
+    if(state.provider!==provider){
+      state.provider=provider;
+      provider.on?.("accountsChanged",()=>{if(!state.authBusy) resetWallet();});
+      provider.on?.("chainChanged",()=>{if(!state.authBusy) resetWallet();});
+    }
+    stage="Requesting wallet access";
+    $("apiStatus").textContent=stage;
+    const accounts=await provider.request({method:"eth_requestAccounts"});
     if(!accounts?.length) throw new Error("No wallet account returned.");
     state.wallet=accounts[0].toLowerCase();
-
-    if(!$("supabaseUrl").value.trim() || !$("supabaseKey").value.trim()){
-      throw new Error("Enter the Supabase project URL and publishable/anon key first.");
-    }
-
+    stage="Switching to Base Sepolia";
+    const chain=await provider.request({method:"eth_chainId"});
+    if(chain!=="0x14a34") await provider.request({method:"wallet_switchEthereumChain",params:[{chainId:"0x14a34"}]});
     $("connection").textContent="Authenticating wallet…";
     $("apiStatus").textContent="Backend session: requesting wallet challenge…";
 
-    const base=$("supabaseUrl").value.trim().replace(/\/$/,"");
+    stage="Requesting login challenge";
+    const base=CONFIG.url;
     const headers={
       "Content-Type":"application/json",
-      "apikey":$("supabaseKey").value.trim(),
+      "apikey":CONFIG.key,
 
     };
 
-    const challengeRes=await fetch(`${base}/functions/v1/alpha-auth-challenge`,{
-      method:"POST",headers,body:JSON.stringify({wallet_address:state.wallet})
-    });
-    const challenge=await challengeRes.json().catch(()=>({}));
-    if(!challengeRes.ok || challenge.allowed!==true){
-      throw new Error(challenge.error || `Wallet challenge failed (${challengeRes.status})`);
-    }
+    const challenge=await edgeRequest("alpha-auth-challenge",{wallet_address:state.wallet});
+    if(challenge.allowed!==true) throw new Error(challenge.error||"Wallet is not allowed for Alpha access");
+    stage="Waiting for your login signature";
+    $("apiStatus").textContent=stage;
 
-    const signature=await window.ethereum.request({
+    const signature=await provider.request({
       method:"personal_sign",
       params:[challenge.message,state.wallet]
     });
@@ -666,35 +669,29 @@ async function authenticateWallet(){
     const nonceMatch=challenge.message.match(/Nonce:\s*([a-fA-F0-9]{64})/);
     if(!nonceMatch) throw new Error("Could not recover the server-issued nonce from the challenge.");
 
-    const verifyRes=await fetch(`${base}/functions/v1/alpha-auth-verify`,{
-      method:"POST",headers,
-      body:JSON.stringify({
-        wallet_address:state.wallet,
-        nonce:nonceMatch[1],
-        signature
-      })
-    });
-    const verified=await verifyRes.json().catch(()=>({}));
-    if(!verifyRes.ok || verified.authenticated!==true){
-      throw new Error(verified.error || `Wallet verification failed (${verifyRes.status})`);
-    }
+    stage="Verifying login signature";
+    const verified=await edgeRequest("alpha-auth-verify",{wallet_address:state.wallet,nonce:nonceMatch[1],signature});
+    if(verified.authenticated!==true) throw new Error(verified.error||"Wallet verification failed");
 
     state.sessionToken=verified.session_token;
     $("walletBtn").textContent=`${state.wallet.slice(0,6)}…${state.wallet.slice(-4)}`;
     $("connection").textContent="Wallet authenticated";
     $("statusDot").classList.add("live");
 
+    stage="Starting your round";
     await startGameSession();
     await refreshServerState();
 
   }catch(err){
     console.error(err);
-    $("apiStatus").textContent=`Backend session: ${err.message}`;
+    $("apiStatus").textContent=`${stage}: ${err.message}`;
     $("connection").textContent="Authentication failed";
     $("statusDot").classList.remove("live");
-    alert(err.message);
+    alert(`${stage}: ${err.message}`);
   }finally{
     state.authBusy=false;
+    $("walletBtn").disabled=false;
+    if(!state.sessionToken) $("walletBtn").textContent="Connect Wallet";
   }
 }
 
@@ -849,33 +846,16 @@ async function loadRound(){
 }
 
 async function connectBackend(){
-  const url=$("supabaseUrl").value.trim();
-  const key=$("supabaseKey").value.trim();
-  if(!url||!key){ alert("Enter your Supabase project URL and publishable/anon key."); return; }
-  localStorage.setItem("hpl_supabase_url",url);
-  localStorage.setItem("hpl_supabase_key",key);
-  try{
-    state.supabase=supabase.createClient(url,key);
-    await loadRound();
-    if(!state.timersStarted){
-      setInterval(()=>{if(!state.gameSessionId) loadRound().catch(console.error);},10000);
-      setInterval(advanceRound,1000);
-      setInterval(refreshServerState,2000);
-      state.timersStarted=true;
-    }
-  }catch(err){
-    console.error(err);
-    $("connection").textContent="Supabase connection failed";
-    $("statusDot").classList.remove("live");
-    $("apiStatus").textContent=`Connection failed: ${err.message}`;
+  if(window.supabase) state.supabase=window.supabase.createClient(CONFIG.url,CONFIG.key);
+  if(!state.timersStarted){
+    setInterval(()=>{if(!state.gameSessionId) loadRound().catch(console.error);},10000);
+    setInterval(advanceRound,1000);
+    setInterval(refreshServerState,2000);
+    state.timersStarted=true;
   }
+  if(state.supabase) await loadRound();
+  else $("apiStatus").textContent="Connect your wallet to join. Public round preview is unavailable.";
 }
-$("connectBtn").addEventListener("click",connectBackend);
-
-const savedUrl=localStorage.getItem("hpl_supabase_url")||"https://edoaonjcbodpccqiglzn.supabase.co";
-const savedKey=localStorage.getItem("hpl_supabase_key")||"sb_publishable_Pfbv5shn4OdBrIe1C3XC3g_NAkHpeZR";
-if(savedUrl) $("supabaseUrl").value=savedUrl;
-if(savedKey) $("supabaseKey").value=savedKey;
 
 function resetWallet(){
   state.sessionToken=null;state.gameSessionId=null;state.wallet=null;state.round=null;
@@ -883,9 +863,7 @@ function resetWallet(){
   $("walletBtn").textContent="Connect Wallet";$("connection").textContent="Reconnect wallet";
   $("statusDot").classList.remove("live");$("drop").disabled=true;setPowerupButtons(false);
 }
-window.ethereum?.on?.("accountsChanged",resetWallet);
-window.ethereum?.on?.("chainChanged",resetWallet);
-connectBackend();
+connectBackend().catch(error=>{$("apiStatus").textContent=`Round preview unavailable: ${error.message}. Connect your wallet to join.`;});
 drawBoard();
 </script>
 </body>
