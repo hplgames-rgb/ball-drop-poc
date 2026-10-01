@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HPL Games — Ball Drop V3 Alpha</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#07111f;
+    --panel:#0d1b2d;
+    --panel2:#10243b;
+    --line:#24405e;
+    --text:#f4f7fb;
+    --muted:#8ea4bd;
+    --gold:#ffd34d;
+    --green:#38e39b;
+    --blue:#55a9ff;
+    --red:#ff6675;
+    --shadow:0 18px 60px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; color:var(--text);
+    font-family:Inter,Segoe UI,Roboto,Arial,sans-serif;
+    background:
+      radial-gradient(circle at 50% -10%, #17385c 0, transparent 42%),
+      linear-gradient(180deg,#07111f,#050b14);
+  }
+  button{font:inherit}
+  .app{max-width:1250px;margin:auto;padding:18px}
+  header{
+    display:flex;align-items:center;justify-content:space-between;gap:15px;
+    padding:12px 4px 18px;
+  }
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{
+    width:42px;height:42px;border-radius:12px;display:grid;place-items:center;
+    background:linear-gradient(145deg,#ffd84d,#ff9e32);color:#111;font-weight:900;
+    box-shadow:0 8px 25px rgba(255,190,50,.22)
+  }
+  .brand h1{font-size:19px;margin:0}.brand small{display:block;color:var(--muted);margin-top:2px}
+  .status{
+    display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--line);
+    background:#0b1828;border-radius:999px;color:var(--muted);font-size:13px
+  }
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--red)}
+  .dot.live{background:var(--green);box-shadow:0 0 12px var(--green)}
+  .layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px}
+  .card{
+    background:linear-gradient(180deg,rgba(16,36,59,.96),rgba(9,23,39,.96));
+    border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)
+  }
+  .game-card{padding:16px}
+  .roundbar{
+    display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;
+    padding:5px 3px 14px
+  }
+  .round{font-weight:800}.round span{color:var(--gold)}
+  .phase{text-align:center;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.12em}
+  .timer{text-align:right;font-variant-numeric:tabular-nums;font-weight:800;font-size:18px}
+  .board-wrap{
+    position:relative;overflow:hidden;border-radius:14px;border:1px solid #1e3853;
+    background:
+      radial-gradient(circle at 50% 0%,rgba(70,145,255,.16),transparent 38%),
+      linear-gradient(180deg,#09192a,#06101c);
+    min-height:620px;
+  }
+  canvas{display:block;width:100%;height:620px}
+  .pool-chip{
+    position:absolute;left:50%;top:14px;transform:translateX(-50%);
+    background:rgba(5,13,23,.82);border:1px solid #38536f;border-radius:999px;
+    padding:8px 15px;text-align:center;backdrop-filter:blur(8px)
+  }
+  .pool-chip small{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.12em}
+  .pool-chip strong{color:var(--gold);font-size:19px}
+  .drop{
+    position:absolute;left:50%;bottom:18px;transform:translateX(-50%);
+    border:0;border-radius:14px;padding:14px 34px;font-weight:900;color:#111;
+    background:linear-gradient(135deg,#ffe16a,#ffae37);cursor:pointer;
+    box-shadow:0 10px 30px rgba(255,185,45,.25);min-width:190px
+  }
+  .drop:hover{filter:brightness(1.06);transform:translateX(-50%) translateY(-1px)}
+  .drop:disabled{opacity:.45;cursor:not-allowed;transform:translateX(-50%)}
+  .hint{
+    position:absolute;left:50%;bottom:75px;transform:translateX(-50%);
+    color:var(--muted);font-size:12px;white-space:nowrap
+  }
+  .side{display:flex;flex-direction:column;gap:16px}
+  .side .card{padding:16px}
+  .metric-label{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
+  .metric{font-size:30px;font-weight:900;margin-top:4px}
+  .metric.gold{color:var(--gold)}
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+  .mini{padding:12px;border:1px solid var(--line);border-radius:12px;background:rgba(5,14,25,.35)}
+  .mini strong{display:block;font-size:19px;margin-top:3px}
+  .leader-row{display:flex;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid rgba(36,64,94,.65)}
+  .leader-row:last-child{border-bottom:0}
+  .leader-name{color:#dce8f5}.leader-score{font-weight:800}
+  .powerups{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .power{
+    border:1px solid var(--line);background:#0a1727;color:var(--text);border-radius:11px;
+    padding:10px;text-align:left;cursor:pointer
+  }
+  .power:disabled{opacity:.4;cursor:not-allowed}
+  .power b{display:block;font-size:12px}.power span{font-size:11px;color:var(--muted)}
+  .notice{margin-top:12px;color:var(--muted);font-size:12px;line-height:1.45}
+  .notice strong{color:#dce8f5}
+  .config{
+    margin-top:16px;padding:14px;border:1px dashed #38536f;border-radius:14px;background:#081524
+  }
+  .config summary{cursor:pointer;color:#bcd0e5;font-weight:700}
+  .config-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+  input{
+    width:100%;padding:10px;border-radius:9px;border:1px solid var(--line);
+    background:#06101c;color:var(--text);outline:none
+  }
+  .config button{
+    margin-top:9px;padding:10px 14px;border:1px solid var(--line);border-radius:9px;
+    background:#122942;color:var(--text);cursor:pointer
+  }
+  .footer{color:#607993;text-align:center;font-size:11px;padding:16px}
+  @media(max-width:900px){
+    .layout{grid-template-columns:1fr}.side{display:grid;grid-template-columns:1fr 1fr}
+    .board-wrap,canvas{min-height:560px;height:560px}
+  }
+  @media(max-width:600px){
+    .app{padding:10px}.side{display:flex}.roundbar{grid-template-columns:1fr auto}
+    .phase{display:none}.board-wrap,canvas{min-height:520px;height:520px}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <div class="logo">H</div>
+      <div><h1>HPL Games — Ball Drop</h1><small>V3 Alpha · Base Sepolia</small></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <button id="walletBtn" class="config button" style="margin:0;padding:9px 14px;border:1px solid var(--line);border-radius:10px;background:#122942;color:var(--text);cursor:pointer">
+        Connect Wallet
+      </button>
+      <div class="status"><span id="statusDot" class="dot"></span><span id="connection">Not connected</span></div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <section class="card game-card">
+      <div class="roundbar">
+        <div class="round">ROUND <span id="roundNumber">—</span></div>
+        <div class="phase" id="phase">Waiting for active round</div>
+        <div class="timer" id="timer">—:—</div>
+      </div>
+
+      <div class="board-wrap">
+        <canvas id="board"></canvas>
+        <div class="pool-chip">
+          <small>Live Reward Pool</small>
+          <strong id="pool">— HPL</strong>
+        </div>
+        <div class="hint" id="hint">Connect Supabase to load the live round</div>
+        <button class="drop" id="drop" disabled>DROP BALL</button>
+      </div>
+
+      <details class="config">
+        <summary>Supabase connection</summary>
+        <div class="config-grid">
+          <input id="supabaseUrl" placeholder="https://your-project.supabase.co" />
+          <input id="supabaseKey" placeholder="Publishable / anon key" type="password" />
+        </div>
+        <button id="connectBtn">Connect & Load Live Round</button>
+        <div id="apiStatus" class="notice"><strong>Status:</strong> Not connected.</div>
+        <div class="notice">
+          <strong>V3:</strong> Public round reads are optional. Wallet authentication starts the
+          authoritative V3 game session through the server even if Row Level Security blocks
+          direct browser reads of the round tables.
+        </div>
+      </details>
+    </section>
+
+    <aside class="side">
+      <div class="card">
+        <div class="metric-label">Your Score</div>
+        <div class="metric" id="score">—</div>
+        <div class="stat-grid">
+          <div class="mini"><div class="metric-label">Position</div><strong id="position">—</strong></div>
+          <div class="mini"><div class="metric-label">Balls</div><strong id="balls">0</strong></div>
+          <div class="mini"><div class="metric-label">Server Accepted</div><strong id="serverDrops">0</strong></div>
+        </div>
+        <div class="mini" style="margin-top:10px">
+          <div class="metric-label">Super Balls</div>
+          <strong id="superBalls">0 ⚡</strong>
+        </div>
+        <div class="mini" style="margin-top:10px">
+          <div class="metric-label">Lightning</div>
+          <strong id="lightningStatus">0 / 5 ⚡</strong>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="metric-label">Round Rewards</div>
+        <div class="metric gold" id="rewardPool">— HPL</div>
+        <div class="notice">The number above is read from the live round funding record — no seeded reward value.</div>
+      </div>
+
+      <div class="card">
+        <div class="metric-label">Leaderboard</div>
+        <div id="leaderboard" class="notice">Your authoritative server score will appear here after the V3 session is connected.</div>
+      </div>
+
+      <div class="card">
+        <div class="metric-label">Power-Ups</div>
+        <div class="powerups">
+          <button class="power" data-powerup="DOUBLE_DROP" disabled><b>Double Drop</b><span>Server-authorized</span></button>
+          <button class="power" data-powerup="WIDE_BALL" disabled><b>Wide Ball</b><span>Server-authorized</span></button>
+          <button class="power" data-powerup="PADDLE_EXTENDER" disabled><b>Paddle Extender</b><span>Server-authorized</span></button>
+          <button class="power" data-powerup="LIGHTNING_MAGNET" disabled><b>Lightning Magnet</b><span>Server-authorized</span></button>
+          <button class="power" data-powerup="EXTRA_SUPER_BALL" disabled><b>Extra Super Ball</b><span>Server-authorized</span></button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="footer">HPL Games · V3 Alpha · Testnet only</div>
+</div>
+
+<script>
+const state = {
+  supabase: null,
+  round: null,
+  pool: 0,
+  score: 0,
+  balls: 0,
+  lastRefresh: 0,
+  running: true,
+  ballsOnBoard: [],
+  paddlePhase: 0,
+  paddleMultipliers: [2,3,4,5,3],
+  lightningCharge: 0,
+  superBalls: 0,
+  lastPaddleChange: Date.now(),
+  lightningPickups: [],
+  lastLightningSpawn: Date.now() - 5000,
+  lightningCollected: 0,
+  wallet: null,
+  sessionToken: null,
+  gameSessionId: null,
+  clientSequence: 0,
+  serverAcceptedDrops: 0,
+  serverScore: null,
+  serverStateReadable: false,
+  authBusy: false,
+  timersStarted: false,
+  eventBusy: false,
+  lifecycleBusy: false,
+  completed: false,
+  serverOffset: 0,
+  stateBusy: false,
+  retryAt: 0
+};
+
+const $ = id => document.getElementById(id);
+const canvas = $("board");
+const ctx = canvas.getContext("2d");
+
+function money(n){ return Number(n || 0).toLocaleString(undefined,{maximumFractionDigits:4}); }
+
+function resize(){
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width*dpr;
+  canvas.height = rect.height*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+window.addEventListener("resize", resize);
+resize();
+
+function drawLightningBolt(x,y,scale=1,active=true){
+  ctx.save();
+  ctx.translate(x,y);
+  ctx.scale(scale,scale);
+  ctx.shadowColor = active ? "#ffd34d" : "#5b7187";
+  ctx.shadowBlur = active ? 18 : 4;
+  ctx.fillStyle = active ? "#ffe36b" : "#425b70";
+  ctx.strokeStyle = active ? "#fff4ae" : "#60788e";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(4,-18);
+  ctx.lineTo(-7,1);
+  ctx.lineTo(2,1);
+  ctx.lineTo(-5,19);
+  ctx.lineTo(13,-5);
+  ctx.lineTo(4,-5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawBoard(){
+  const w=canvas.clientWidth,h=canvas.clientHeight;
+  ctx.clearRect(0,0,w,h);
+
+  // Pegs
+  const rows=11, cols=9;
+  for(let r=0;r<rows;r++){
+    const y=100+r*40;
+    const offset=(r%2)*22;
+    for(let c=0;c<cols;c++){
+      const x=55+c*((w-110)/(cols-1))+offset;
+      if(x>w-35) continue;
+      ctx.beginPath();ctx.arc(x,y,3.5,0,Math.PI*2);
+      ctx.fillStyle="#4c769d";ctx.fill();
+    }
+  }
+
+  // Moving bonus paddles. Their multiplier values rotate every 10 seconds.
+  const paddleY = 185;
+  const paddleOffsets = [-.32,-.16,0,.16,.32];
+  const paddleNames = ["A","B","C","D","E"];
+  paddleOffsets.forEach((offset,i)=>{
+    const wave = Math.sin(state.paddlePhase + i*0.9) * 0.10;
+    const x = w*(0.5 + offset + wave);
+    const mult = state.paddleMultipliers[i];
+
+    // Small mounting arm.
+    ctx.strokeStyle="#315674";
+    ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(x,paddleY-26);ctx.lineTo(x,paddleY-8);ctx.stroke();
+
+    // Paddle.
+    ctx.strokeStyle=mult>=4?"#ffd34d":"#6ea6d3";
+    ctx.lineWidth=7;
+    ctx.lineCap="round";
+    ctx.beginPath();ctx.moveTo(x-30,paddleY);ctx.lineTo(x+30,paddleY);ctx.stroke();
+    ctx.lineCap="butt";
+
+    ctx.fillStyle=mult>=4?"#ffd34d":"#d5e5f3";
+    ctx.font="900 12px Segoe UI";
+    ctx.textAlign="center";
+    ctx.fillText(`x${mult}`,x,paddleY-16);
+
+    ctx.fillStyle="#6887a4";
+    ctx.font="600 9px Segoe UI";
+    ctx.fillText(paddleNames[i],x,paddleY+20);
+  });
+
+  // Lightning charge indicators.
+  const boltStartX = w/2 - 62;
+  for(let i=0;i<5;i++){
+    const x = boltStartX + i*31;
+    const active = i < state.lightningCharge;
+    ctx.fillStyle = active ? "#ffd34d" : "#294762";
+    ctx.strokeStyle = active ? "#fff0a3" : "#476782";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x+4,235); ctx.lineTo(x-3,249); ctx.lineTo(x+3,249);
+    ctx.lineTo(x-3,264); ctx.lineTo(x+12,245); ctx.lineTo(x+5,245); ctx.closePath();
+    ctx.fill(); ctx.stroke();
+  }
+  ctx.fillStyle="#8ea4bd";
+  ctx.font="700 10px Segoe UI";
+  ctx.textAlign="center";
+  ctx.fillText(`LIGHTNING ${state.lightningCharge}/5`,w/2,280);
+
+  // Active Lightning pickups.
+  state.lightningPickups.forEach(p=>{
+    drawLightningBolt(p.x,p.y,1.05,true);
+    ctx.fillStyle="rgba(255,211,77,.18)";
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,23,0,Math.PI*2);
+    ctx.fill();
+  });
+
+  // Nine contiguous reward buckets — no gaps between them.
+  const bucketMultipliers=[0.5,1,1.5,1,0.5,1,1.5,1,0.5];
+  const bucketTop=h-112;
+  const bucketHeight=70;
+  const bucketW=w/bucketMultipliers.length;
+
+  for(let i=0;i<bucketMultipliers.length;i++){
+    const x=i*bucketW;
+    const mult=bucketMultipliers[i];
+    ctx.fillStyle=mult===1.5?"#294f70":"#18344e";
+    ctx.fillRect(x+1,bucketTop,bucketW-2,bucketHeight);
+
+    ctx.strokeStyle="#3d6486";
+    ctx.lineWidth=1;
+    ctx.strokeRect(x+1,bucketTop,bucketW-2,bucketHeight);
+
+    ctx.fillStyle=mult===1.5?"#ffd34d":"#b7cbe0";
+    ctx.font="800 12px Segoe UI";
+    ctx.textAlign="center";
+    ctx.fillText(`x${mult}`,x+bucketW/2,bucketTop+29);
+  }
+
+  // Balls
+  state.ballsOnBoard.forEach(b=>{
+    ctx.beginPath();ctx.arc(b.x,b.y,7,0,Math.PI*2);
+    ctx.fillStyle="#ffd34d";ctx.shadowColor="#ffd34d";ctx.shadowBlur=14;ctx.fill();
+    ctx.shadowBlur=0;
+  });
+}
+
+function animate(){
+  const w=canvas.clientWidth,h=canvas.clientHeight;
+
+  // Smooth side-to-side paddle motion.
+  state.paddlePhase += 0.012;
+
+  // Rotate paddle multipliers every 10 seconds.
+  if(Date.now() - state.lastPaddleChange >= 10000){
+    const values=[2,3,4,5];
+    state.paddleMultipliers = state.paddleMultipliers.map(()=>{
+      return values[Math.floor(Math.random()*values.length)];
+    });
+    state.lastPaddleChange = Date.now();
+  }
+
+  // Rare Lightning spawns: roughly one every 35-55 seconds, with a
+  // short lifetime so pickups feel special rather than constant.
+  const now = Date.now();
+  const elapsed = now - state.lastLightningSpawn;
+  if(elapsed > 35000 + Math.random()*20000 && state.lightningPickups.length < 1){
+    const margin = 70;
+    state.lightningPickups.push({
+      x: margin + Math.random()*(w-margin*2),
+      y: 285 + Math.random()*150,
+      bornAt: now,
+      expiresAt: now + 7000
+    });
+    state.lastLightningSpawn = now;
+  }
+
+  state.lightningPickups = state.lightningPickups.filter(p => p.expiresAt > now && !p.collected);
+
+  state.ballsOnBoard.forEach(b=>{
+    b.vy += .18;
+    b.x += b.vx;
+    b.y += b.vy;
+    if(b.x<20||b.x>w-20)b.vx*=-.9;
+    // Collect Lightning when a falling ball intersects the pickup.
+    state.lightningPickups.forEach(p=>{
+      if(!p.collected){
+        const dx=b.x-p.x, dy=b.y-p.y;
+        if(Math.sqrt(dx*dx+dy*dy) < 18){
+          p.collected=true;
+          if(state.sessionToken) return;
+          state.lightningCollected++;
+          state.lightningCharge = Math.min(5, state.lightningCharge + 1);
+          if(state.lightningCharge === 5){
+            state.superBalls = Math.min(2, state.superBalls + 1);
+            state.lightningCharge = 0;
+          }
+        }
+      }
+    });
+
+    if(b.y>h-115){
+      const lane=Math.max(0,Math.min(8,Math.floor(b.x/(w/9))));
+      const mult=[0.5,1,1.5,1,0.5,1,1.5,1,0.5][lane];
+      if(!state.sessionToken){
+        // Visual-only fallback until the authoritative player-state row is readable.
+        state.score += Math.round(100*mult);
+      }
+      state.balls++;
+      b.dead=true;
+    }
+  });
+  state.ballsOnBoard=state.ballsOnBoard.filter(b=>!b.dead);
+  $("score").textContent=state.serverStateReadable
+    ? state.serverScore.toLocaleString()
+    : state.sessionToken ? "—" : state.score.toLocaleString();
+  $("balls").textContent=state.balls;
+  $("superBalls").textContent=`${state.superBalls} ⚡`;
+  $("lightningStatus").textContent=`${state.lightningCharge} / 5 ⚡`;
+  drawBoard();
+  requestAnimationFrame(animate);
+}
+animate();
+
+async function submitGameEvent(eventType, payload={}){
+  if(!state.sessionToken || !state.gameSessionId) throw new Error("Game session is not started.");
+  const eventId = crypto.randomUUID();
+  const sequence = state.clientSequence + 1;
+
+  let data;
+  try{
+    data=await edgeRequest("game-event-submit",{
+      session_token:state.sessionToken,game_session_id:state.gameSessionId,
+      event_id:eventId,event_type:eventType,event_payload:payload,
+      client_sequence:sequence,client_timestamp:new Date().toISOString()
+    });
+  }catch(error){
+    if(error.data?.expected_sequence) state.clientSequence=Number(error.data.expected_sequence)-1;
+    throw error;
+  }
+  if(data.accepted!==true) throw new Error(data.rejection_reason||data.error||"Event rejected");
+  state.clientSequence = Number(data.accepted_sequence || sequence);
+  return data;
+}
+
+async function startGameSession(){
+  if(!state.sessionToken) return false;
+  const authToken=state.sessionToken;
+  $("apiStatus").textContent="Backend session: starting…";
+  const requestStarted=Date.now();
+  let data;
+  try{data=await edgeRequest("ball-drop-start-session",{session_token:state.sessionToken});}
+  catch(error){
+    if(error.data?.waiting_for_round){
+      $("apiStatus").textContent="Backend session: waiting for the next round.";
+      return false;
+    }
+    throw error;
+  }
+  if(authToken!==state.sessionToken) return false;
+  if(data.started!==true){
+    if(data.waiting_for_round) return false;
+    throw new Error(data.error||"Start session failed");
+  }
+  if(data.server_time) state.serverOffset=new Date(data.server_time).getTime()-(requestStarted+Date.now())/2;
+  state.completed=false;
+  state.serverScore=null;
+  state.serverStateReadable=false;
+  state.ballsOnBoard=[];
+  state.balls=0;
+  state.lightningCharge=0;
+  state.superBalls=0;
+
+  state.gameSessionId=data.game_session_id;
+  state.clientSequence=0; // Restored sessions resynchronize from a sequence rejection.
+  state.round={
+    id:data.round_id,
+    round_number:data.round_number,
+    status:"active",
+    starts_at:data.round_starts_at,
+    gameplay_ends_at:data.gameplay_ends_at,
+    submission_deadline:data.submission_deadline,
+    next_round_at:data.next_round_at
+  };
+
+  $("roundNumber").textContent=data.round_number;
+  $("hint").textContent=`Wallet authenticated · V3 server session ${data.existing_session ? "restored" : "started"}`;
+  $("apiStatus").textContent=`Backend session: ACTIVE · Round ${data.round_number}`;
+  $("statusDot").classList.add("live");
+  $("connection").textContent=`Live · ${state.wallet.slice(0,6)}…${state.wallet.slice(-4)}`;
+  setPowerupButtons(true);
+  countdown();
+  return true;
+}
+
+async function refreshServerState(){
+  if(!state.sessionToken || !state.gameSessionId || state.stateBusy) return;
+  state.stateBusy=true;
+  const sessionId=state.gameSessionId;
+  try{
+    const data=await edgeRequest("ball-drop-player-state",{session_token:state.sessionToken,game_session_id:sessionId});
+    if(sessionId!==state.gameSessionId) return;
+    const row=data.player_state;
+    if(data.loaded!==true || !row) throw new Error("Player state unavailable");
+    state.serverStateReadable=true;
+    state.serverAcceptedDrops=Number(row.accepted_drops||0);
+    state.serverScore=Number(row.authoritative_score||0);
+    state.lightningCollected=Number(row.lightning_collected||0);
+    state.superBalls=Math.max(0,Number(row.super_balls_earned||0)-Number(row.super_balls_used||0));
+    state.lightningCharge=state.lightningCollected % 5;
+    $("serverDrops").textContent=state.serverAcceptedDrops;
+    $("score").textContent=state.serverScore.toLocaleString();
+    $("superBalls").textContent=`${state.superBalls} ⚡`;
+    $("lightningStatus").textContent=`${state.lightningCharge} / 5 ⚡`;
+    $("leaderboard").textContent=`Your server score: ${state.serverScore.toLocaleString()}`;
+  }catch(error){
+    if(sessionId===state.gameSessionId){
+      state.serverStateReadable=false;
+      $("apiStatus").textContent=`Player state unavailable: ${error.message}`;
+    }
+  }finally{state.stateBusy=false;}
+}
+
+function serverNow(){return Date.now()+state.serverOffset;}
+async function edgeRequest(name,body){
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),15000);
+  try{
+    const response=await fetch(`${$("supabaseUrl").value.trim().replace(/\/$/,"")}/functions/v1/${name}`,{
+      method:"POST",signal:controller.signal,
+      headers:{"Content-Type":"application/json","apikey":$("supabaseKey").value.trim()},
+      body:JSON.stringify(body)
+    });
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok){const error=new Error(data.rejection_reason||data.error||`Request failed (${response.status})`);error.status=response.status;error.data=data;throw error;}
+    return data;
+  }finally{clearTimeout(timeout);}
+}
+async function advanceRound(){
+  if(!state.sessionToken || state.authBusy || state.eventBusy || state.lifecycleBusy || Date.now()<state.retryAt) return;
+  if(state.gameSessionId && serverNow()<new Date(state.round?.gameplay_ends_at).getTime()) return;
+  state.lifecycleBusy=true;
+  try{
+    if(state.gameSessionId && !state.completed){
+      const deadline=new Date(state.round.submission_deadline).getTime();
+      if(serverNow()<=deadline){
+        const result=await edgeRequest("ball-drop-complete-session",{session_token:state.sessionToken,game_session_id:state.gameSessionId});
+        if(result.completed!==true) throw new Error(result.error||"Completion failed");
+      }
+      state.completed=true;
+      await refreshServerState();
+    }
+    if(state.gameSessionId && serverNow()<new Date(state.round.next_round_at).getTime()) return;
+    const started=await startGameSession();
+    if(started) await refreshServerState();
+    else state.retryAt=Date.now()+3000;
+  }catch(error){
+    // Already finalized/expired sessions can proceed to the next round.
+    if(error.status===410 || (error.status===409 && /already finalized/.test(error.message))) state.completed=true;
+    $("apiStatus").textContent=`Round transition: ${error.message}`;
+    state.retryAt=Date.now()+3000;
+  }finally{state.lifecycleBusy=false;countdown();}
+}
+
+async function authenticateWallet(){
+  if(!window.ethereum){
+    alert("MetaMask (or another injected EVM wallet) is required for the V3 Alpha.");
+    return;
+  }
+  if(state.authBusy) return;
+  state.authBusy=true;
+  try{
+    if(!state.supabase) await connectBackend();
+    if(!state.supabase) throw new Error("Backend configuration is not available.");
+    const chain=await window.ethereum.request({method:"eth_chainId"});
+    if(chain!=="0x14a34") await window.ethereum.request({method:"wallet_switchEthereumChain",params:[{chainId:"0x14a34"}]});
+    const accounts=await window.ethereum.request({method:"eth_requestAccounts"});
+    if(!accounts?.length) throw new Error("No wallet account returned.");
+    state.wallet=accounts[0].toLowerCase();
+
+    if(!$("supabaseUrl").value.trim() || !$("supabaseKey").value.trim()){
+      throw new Error("Enter the Supabase project URL and publishable/anon key first.");
+    }
+
+    $("connection").textContent="Authenticating wallet…";
+    $("apiStatus").textContent="Backend session: requesting wallet challenge…";
+
+    const base=$("supabaseUrl").value.trim().replace(/\/$/,"");
+    const headers={
+      "Content-Type":"application/json",
+      "apikey":$("supabaseKey").value.trim(),
+
+    };
+
+    const challengeRes=await fetch(`${base}/functions/v1/alpha-auth-challenge`,{
+      method:"POST",headers,body:JSON.stringify({wallet_address:state.wallet})
+    });
+    const challenge=await challengeRes.json().catch(()=>({}));
+    if(!challengeRes.ok || challenge.allowed!==true){
+      throw new Error(challenge.error || `Wallet challenge failed (${challengeRes.status})`);
+    }
+
+    const signature=await window.ethereum.request({
+      method:"personal_sign",
+      params:[challenge.message,state.wallet]
+    });
+
+    const nonceMatch=challenge.message.match(/Nonce:\s*([a-fA-F0-9]{64})/);
+    if(!nonceMatch) throw new Error("Could not recover the server-issued nonce from the challenge.");
+
+    const verifyRes=await fetch(`${base}/functions/v1/alpha-auth-verify`,{
+      method:"POST",headers,
+      body:JSON.stringify({
+        wallet_address:state.wallet,
+        nonce:nonceMatch[1],
+        signature
+      })
+    });
+    const verified=await verifyRes.json().catch(()=>({}));
+    if(!verifyRes.ok || verified.authenticated!==true){
+      throw new Error(verified.error || `Wallet verification failed (${verifyRes.status})`);
+    }
+
+    state.sessionToken=verified.session_token;
+    $("walletBtn").textContent=`${state.wallet.slice(0,6)}…${state.wallet.slice(-4)}`;
+    $("connection").textContent="Wallet authenticated";
+    $("statusDot").classList.add("live");
+
+    await startGameSession();
+    await refreshServerState();
+
+  }catch(err){
+    console.error(err);
+    $("apiStatus").textContent=`Backend session: ${err.message}`;
+    $("connection").textContent="Authentication failed";
+    $("statusDot").classList.remove("live");
+    alert(err.message);
+  }finally{
+    state.authBusy=false;
+  }
+}
+
+function setPowerupButtons(enabled){
+  document.querySelectorAll("[data-powerup]").forEach(btn=>{
+    btn.disabled=!enabled;
+  });
+}
+
+$("drop").addEventListener("click",async()=>{
+  if(!state.round || !state.sessionToken || !state.gameSessionId){
+    $("apiStatus").textContent="Connect wallet and start a V3 session before playing.";
+    return;
+  }
+  if(state.eventBusy) return;
+
+  const now=serverNow();
+  const end=new Date(state.round.gameplay_ends_at).getTime();
+  if(now>end){
+    $("drop").disabled=true;
+    return;
+  }
+
+  state.eventBusy=true;
+  $("drop").disabled=true;
+  setPowerupButtons(false);
+  try{
+    await submitGameEvent("BALL_DROP",{});
+  const w=canvas.clientWidth;
+  state.ballsOnBoard.push({
+    x:w/2+(Math.random()-.5)*35,
+    y:70,
+    vx:(Math.random()-.5)*1.6,
+    vy:1.5
+  });
+
+
+    $("apiStatus").textContent=`Backend session: LIVE · drop accepted`;
+    await refreshServerState();
+  }catch(err){
+    console.error(err);
+    $("apiStatus").textContent=`Drop rejected: ${err.message}`;
+
+  }finally{
+    state.eventBusy=false;
+    countdown();
+  }
+});
+
+document.querySelectorAll("[data-powerup]").forEach(btn=>{
+  btn.addEventListener("click",async()=>{
+    if(!state.sessionToken || !state.gameSessionId || state.eventBusy) return;
+    state.eventBusy=true;
+    setPowerupButtons(false);
+    $("drop").disabled=true;
+    try{
+      const data=await submitGameEvent("POWERUP_ACTIVATE",{powerup_id:btn.dataset.powerup});
+      $("apiStatus").textContent=`Power-up accepted: ${btn.dataset.powerup}`;
+      await refreshServerState();
+    }catch(err){
+      $("apiStatus").textContent=`Power-up rejected: ${err.message}`;
+      console.error(err);
+
+    }finally{
+      state.eventBusy=false;
+      countdown();
+    }
+  });
+});
+
+$("walletBtn").addEventListener("click",authenticateWallet);
+
+function countdown(){
+  if(!state.round){
+    $("timer").textContent="—:—";
+    $("drop").disabled=true;setPowerupButtons(false);
+    return;
+  }
+  const end=new Date(state.round.gameplay_ends_at).getTime();
+  const ms=Math.max(0,end-serverNow());
+  const sec=Math.floor(ms/1000);
+  $("timer").textContent=`${String(Math.floor(sec/60)).padStart(2,"0")}:${String(sec%60).padStart(2,"0")}`;
+  if(ms<=0){
+    $("phase").textContent="Round transition";
+    $("drop").disabled=true;
+    setPowerupButtons(false);
+  } else {
+    $("phase").textContent=state.gameSessionId ? "Gameplay active" : "Connect wallet";
+    $("drop").disabled=!state.gameSessionId || state.eventBusy || state.completed;
+    setPowerupButtons(!state.gameSessionId ? false : !state.eventBusy && !state.completed);
+  }
+}
+setInterval(countdown,250);
+
+async function loadRound(){
+  if(state.gameSessionId) return true;
+  if(!state.supabase) return false;
+  $("apiStatus").innerHTML="<strong>Status:</strong> Testing Supabase connection…";
+  const {data:round,error}=await state.supabase
+    .from("game_rounds")
+    .select("id,round_number,status,starts_at,gameplay_ends_at,submission_deadline,next_round_at")
+    .eq("status","active")
+    .order("round_number",{ascending:false})
+    .limit(1)
+    .maybeSingle();
+
+  if(error){
+    const detail = [error.message, error.code ? `code ${error.code}` : "", error.hint || ""].filter(Boolean).join(" · ");
+    $("connection").textContent="Supabase connected · public round read blocked";
+    $("statusDot").classList.add("live");
+    $("apiStatus").textContent=`Public round read blocked: ${detail}. Connect Wallet to load the round through the server.`;
+    return false;
+  }
+
+  if(state.gameSessionId) return true;
+  state.round=round || null;
+  if(!round){
+    $("roundNumber").textContent="—";
+    $("phase").textContent="Waiting for active round";
+    $("drop").disabled=true;
+    $("pool").textContent="— HPL";
+    $("rewardPool").textContent="— HPL";
+    return;
+  }
+
+  $("roundNumber").textContent=round.round_number;
+  const {data:fund,error:fundError}=await state.supabase
+    .from("game_round_funding")
+    .select("funded_base_units,locked_base_units,is_locked")
+    .eq("round_id",round.id)
+    .maybeSingle();
+
+  if(!fundError && fund){
+    state.pool=Number(fund.funded_base_units || 0)/1e18;
+    $("pool").textContent=`${money(state.pool)} HPL`;
+    $("rewardPool").textContent=`${money(state.pool)} HPL`;
+  }else{
+    $("pool").textContent="— HPL";
+    $("rewardPool").textContent="— HPL";
+  }
+
+  $("hint").textContent=state.gameSessionId
+    ? "Live round loaded · server-authoritative session active"
+    : "Live round loaded · connect wallet to start your server session";
+  $("statusDot").classList.add("live");
+  $("connection").textContent=state.wallet
+    ? `Live · ${state.wallet.slice(0,6)}…${state.wallet.slice(-4)}`
+    : "Live · Supabase connected";
+  $("apiStatus").innerHTML="<strong>Supabase connected.</strong> Public round data is readable.";
+  countdown();
+  return true;
+}
+
+async function connectBackend(){
+  const url=$("supabaseUrl").value.trim();
+  const key=$("supabaseKey").value.trim();
+  if(!url||!key){ alert("Enter your Supabase project URL and publishable/anon key."); return; }
+  localStorage.setItem("hpl_supabase_url",url);
+  localStorage.setItem("hpl_supabase_key",key);
+  try{
+    state.supabase=supabase.createClient(url,key);
+    await loadRound();
+    if(!state.timersStarted){
+      setInterval(()=>{if(!state.gameSessionId) loadRound().catch(console.error);},10000);
+      setInterval(advanceRound,1000);
+      setInterval(refreshServerState,2000);
+      state.timersStarted=true;
+    }
+  }catch(err){
+    console.error(err);
+    $("connection").textContent="Supabase connection failed";
+    $("statusDot").classList.remove("live");
+    $("apiStatus").textContent=`Connection failed: ${err.message}`;
+  }
+}
+$("connectBtn").addEventListener("click",connectBackend);
+
+const savedUrl=localStorage.getItem("hpl_supabase_url")||"https://edoaonjcbodpccqiglzn.supabase.co";
+const savedKey=localStorage.getItem("hpl_supabase_key")||"sb_publishable_Pfbv5shn4OdBrIe1C3XC3g_NAkHpeZR";
+if(savedUrl) $("supabaseUrl").value=savedUrl;
+if(savedKey) $("supabaseKey").value=savedKey;
+
+function resetWallet(){
+  state.sessionToken=null;state.gameSessionId=null;state.wallet=null;state.round=null;
+  state.serverStateReadable=false;state.serverScore=null;state.ballsOnBoard=[];
+  $("walletBtn").textContent="Connect Wallet";$("connection").textContent="Reconnect wallet";
+  $("statusDot").classList.remove("live");$("drop").disabled=true;setPowerupButtons(false);
+}
+window.ethereum?.on?.("accountsChanged",resetWallet);
+window.ethereum?.on?.("chainChanged",resetWallet);
+connectBackend();
+drawBoard();
+</script>
+</body>
+</html>
