@@ -66,7 +66,8 @@
       linear-gradient(180deg,#09192a,#06101c);
     min-height:620px;
   }
-  canvas{display:block;width:100%;height:620px}
+  canvas{display:block;width:100%;height:620px;cursor:crosshair;touch-action:manipulation}
+  .pool-chip,.hint{pointer-events:none}
   .pool-chip{
     position:absolute;left:50%;top:14px;transform:translateX(-50%);
     background:rgba(5,13,23,.82);border:1px solid #38536f;border-radius:999px;
@@ -153,15 +154,13 @@
         <div class="timer" id="timer">—:—</div>
       </div>
 
-      <label style="display:flex;gap:12px;align-items:center;margin:0 0 12px">Drop position <input id="dropPosition" type="range" min="0" max="100" value="50" aria-label="Drop position" style="flex:1;accent-color:#ffd34d"><span id="aimValue">50%</span></label>
       <div class="board-wrap">
         <canvas id="board"></canvas>
         <div class="pool-chip">
           <small>Live Reward Pool</small>
           <strong id="pool">— HPL</strong>
         </div>
-        <div class="hint" id="hint">Connect your wallet to join the round</div>
-        <button class="drop" id="drop" disabled>DROP BALL</button>
+        <div class="hint" id="hint">Connect your wallet, then click the board to drop</div>
       </div>
 
       <div id="apiStatus" class="notice" role="status" aria-live="polite">Connecting…</div>
@@ -210,7 +209,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.3 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.4 · Testnet only</div>
 </div>
 
 <script>
@@ -302,16 +301,14 @@ function drawLightningBolt(x,y,scale=1,active=true){
 
 let aimPosition=0.5;
 function launchX(w){return 20+aimPosition*(w-40);}
-$("dropPosition").addEventListener("input",()=>{
-  aimPosition=Math.max(0,Math.min(1,Number($("dropPosition").value)/100));
-  $("aimValue").textContent=`${Math.round(aimPosition*100)}%`;
+canvas.addEventListener("pointermove",event=>{
+  const rect=canvas.getBoundingClientRect();
+  aimPosition=Math.max(0,Math.min(1,(event.clientX-rect.left-20)/(rect.width-40)));
 });
 canvas.addEventListener("pointerdown",event=>{
+  if(event.button!==undefined && event.button!==0) return;
   const rect=canvas.getBoundingClientRect();
-  if(event.clientY-rect.top>95) return;
-  aimPosition=Math.max(0,Math.min(1,(event.clientX-rect.left-20)/(rect.width-40)));
-  $("dropPosition").value=Math.round(aimPosition*100);
-  $("aimValue").textContent=`${Math.round(aimPosition*100)}%`;
+  dropAt(Math.max(0,Math.min(1,(event.clientX-rect.left-20)/(rect.width-40))));
 });
 function boardPegs(w,h){
   const pegs=[],cols=9,spacing=(w-110)/(cols-1);
@@ -351,8 +348,8 @@ function drawBoard(){
   // The launch marker follows the chosen position.
   const aimX=launchX(w);
   ctx.strokeStyle="#ffd34d";ctx.setLineDash([4,4]);
-  ctx.beginPath();ctx.moveTo(aimX,45);ctx.lineTo(aimX,88);ctx.stroke();ctx.setLineDash([]);
-  ctx.beginPath();ctx.arc(aimX,55,7,0,Math.PI*2);ctx.fillStyle="#ffd34d";ctx.fill();
+  ctx.beginPath();ctx.moveTo(aimX,76);ctx.lineTo(aimX,94);ctx.stroke();ctx.setLineDash([]);
+  ctx.beginPath();ctx.arc(aimX,82,7,0,Math.PI*2);ctx.fillStyle="#ffd34d";ctx.fill();
   boardPegs(w,h).forEach(p=>{
     ctx.beginPath();ctx.arc(p.x,p.y,3.5,0,Math.PI*2);
     ctx.fillStyle="#4c769d";ctx.fill();
@@ -484,7 +481,7 @@ function animate(timestamp){
     stepBall(b,w,h,dt);
     // Collect Lightning when a falling ball intersects the pickup.
     state.lightningPickups.forEach(p=>{
-      if(!p.collected){
+      if(!p.collected && !b.pending){
         const dx=b.x-p.x, dy=b.y-p.y;
         if(Math.sqrt(dx*dx+dy*dy) < 18){
           p.collected=true;
@@ -506,7 +503,8 @@ function animate(timestamp){
         // Visual-only fallback until the authoritative player-state row is readable.
         state.score += Math.round(100*mult);
       }
-      state.balls++;
+      b.landed=true;
+      if(!b.pending && !b.rejected) state.balls++;
       b.dead=true;
     }
   });
@@ -522,8 +520,22 @@ function animate(timestamp){
 }
 animate();
 
-async function submitGameEvent(eventType, payload={}){
+let eventQueue=Promise.resolve();
+let pendingEvents=0;
+function submitGameEvent(eventType,payload={}){
+  const sessionId=state.gameSessionId,token=state.sessionToken;
+  pendingEvents++;
+  state.eventBusy=true;
+  const task=eventQueue.then(()=>{
+    if(state.gameSessionId!==sessionId || state.sessionToken!==token) throw new Error("Game session changed");
+    return sendGameEvent(eventType,payload);
+  });
+  eventQueue=task.catch(()=>{});
+  return task.finally(()=>{pendingEvents--;state.eventBusy=pendingEvents>0;});
+}
+async function sendGameEvent(eventType, payload={}){
   if(!state.sessionToken || !state.gameSessionId) throw new Error("Game session is not started.");
+  const sessionId=state.gameSessionId,token=state.sessionToken;
   const eventId = crypto.randomUUID();
   const sequence = state.clientSequence + 1;
 
@@ -535,10 +547,11 @@ async function submitGameEvent(eventType, payload={}){
       client_sequence:sequence,client_timestamp:new Date().toISOString()
     });
   }catch(error){
-    if(error.data?.expected_sequence) state.clientSequence=Number(error.data.expected_sequence)-1;
+    if(state.gameSessionId===sessionId && state.sessionToken===token && error.data?.expected_sequence) state.clientSequence=Number(error.data.expected_sequence)-1;
     throw error;
   }
   if(data.accepted!==true) throw new Error(data.rejection_reason||data.error||"Event rejected");
+  if(state.gameSessionId!==sessionId || state.sessionToken!==token) throw new Error("Game session changed");
   state.clientSequence = Number(data.accepted_sequence || sequence);
   return data;
 }
@@ -584,7 +597,7 @@ async function startGameSession(){
   };
 
   $("roundNumber").textContent=data.round_number;
-  $("hint").textContent=`Wallet authenticated · V3 server session ${data.existing_session ? "restored" : "started"}`;
+  $("hint").textContent="Click anywhere on the board to drop a ball";
   $("apiStatus").textContent=`Backend session: ACTIVE · Round ${data.round_number}`;
   $("statusDot").classList.add("live");
   $("connection").textContent=`Live · ${state.wallet.slice(0,6)}…${state.wallet.slice(-4)}`;
@@ -742,57 +755,33 @@ function setPowerupButtons(enabled){
   });
 }
 
-$("drop").addEventListener("click",async()=>{
+function dropAt(chosenPosition){
   if(!state.round || !state.sessionToken || !state.gameSessionId){
-    $("apiStatus").textContent="Connect wallet and start a V3 session before playing.";
+    $("apiStatus").textContent="Connect wallet to play, then click anywhere on the board to drop.";
     return;
   }
-  if(state.eventBusy) return;
-
-  const now=serverNow();
-  const end=new Date(state.round.gameplay_ends_at).getTime();
-  if(now>end){
-    $("drop").disabled=true;
-    return;
-  }
-
-  const chosenPosition=aimPosition,sessionId=state.gameSessionId;
-  state.eventBusy=true;
-  $("drop").disabled=true;
-  $("drop").textContent="AUTHORIZING…";
-  $("apiStatus").textContent="Authorizing your drop…";
-  setPowerupButtons(false);
-  try{
-    await submitGameEvent("BALL_DROP",{drop_position:chosenPosition});
+  if(state.completed || state.lifecycleBusy || serverNow()>=new Date(state.round.gameplay_ends_at).getTime()) return;
+  const sessionId=state.gameSessionId,w=canvas.clientWidth;
+  const ball={x:20+chosenPosition*(w-40),y:70,vx:(Math.random()-.5)*24,vy:70,pending:true};
+  state.ballsOnBoard.push(ball);
+  $("apiStatus").textContent="Playing · confirming drops in the background";
+  return submitGameEvent("BALL_DROP",{drop_position:chosenPosition}).then(()=>{
     if(state.gameSessionId!==sessionId) return;
-  const w=canvas.clientWidth;
-  state.ballsOnBoard.push({
-    x:20+chosenPosition*(w-40),
-    y:70,
-    vx:(Math.random()-.5)*24,
-    vy:70
+    ball.pending=false;
+    if(ball.landed) state.balls++;
+    $("apiStatus").textContent="Backend session: LIVE · drop confirmed";
+  }).catch(err=>{
+    ball.rejected=true;ball.dead=true;
+    if(state.gameSessionId===sessionId) $("apiStatus").textContent=`Drop not counted: ${err.message}`;
   });
-
-
-    $("apiStatus").textContent=`Backend session: LIVE · drop accepted`;
-    void refreshServerState();
-  }catch(err){
-    console.error(err);
-    $("apiStatus").textContent=`Drop rejected: ${err.message}`;
-
-  }finally{
-    state.eventBusy=false;
-    $("drop").textContent="DROP BALL";
-    countdown();
-  }
-});
+}
 
 document.querySelectorAll("[data-powerup]").forEach(btn=>{
   btn.addEventListener("click",async()=>{
     if(!state.sessionToken || !state.gameSessionId || state.eventBusy) return;
     state.eventBusy=true;
     setPowerupButtons(false);
-    $("drop").disabled=true;
+    
     try{
       const data=await submitGameEvent("POWERUP_ACTIVATE",{powerup_id:btn.dataset.powerup});
       $("apiStatus").textContent=`Power-up accepted: ${btn.dataset.powerup}`;
@@ -802,7 +791,7 @@ document.querySelectorAll("[data-powerup]").forEach(btn=>{
       console.error(err);
 
     }finally{
-      state.eventBusy=false;
+      state.eventBusy=pendingEvents>0;
       countdown();
     }
   });
@@ -813,7 +802,7 @@ $("walletBtn").addEventListener("click",authenticateWallet);
 function countdown(){
   if(!state.round){
     $("timer").textContent="—:—";
-    $("drop").disabled=true;setPowerupButtons(false);
+    setPowerupButtons(false);
     return;
   }
   const end=new Date(state.round.gameplay_ends_at).getTime();
@@ -822,11 +811,11 @@ function countdown(){
   $("timer").textContent=`${String(Math.floor(sec/60)).padStart(2,"0")}:${String(sec%60).padStart(2,"0")}`;
   if(ms<=0){
     $("phase").textContent="Round transition";
-    $("drop").disabled=true;
+    
     setPowerupButtons(false);
   } else {
     $("phase").textContent=state.gameSessionId ? "Gameplay active" : "Connect wallet";
-    $("drop").disabled=!state.gameSessionId || state.eventBusy || state.completed;
+    
     setPowerupButtons(!state.gameSessionId ? false : !state.eventBusy && !state.completed);
   }
 }
@@ -857,7 +846,7 @@ async function loadRound(){
   if(!round){
     $("roundNumber").textContent="—";
     $("phase").textContent="Waiting for active round";
-    $("drop").disabled=true;
+    
     $("pool").textContent="— HPL";
     $("rewardPool").textContent="— HPL";
     return;
@@ -907,7 +896,7 @@ function resetWallet(){
   state.sessionToken=null;state.gameSessionId=null;state.wallet=null;state.round=null;
   state.serverStateReadable=false;state.serverScore=null;state.ballsOnBoard=[];
   $("walletBtn").textContent="Connect Wallet";$("connection").textContent="Reconnect wallet";
-  $("statusDot").classList.remove("live");$("drop").disabled=true;setPowerupButtons(false);
+  $("statusDot").classList.remove("live");setPowerupButtons(false);
 }
 connectBackend().catch(error=>{$("apiStatus").textContent=`Round preview unavailable: ${error.message}. Connect your wallet to join.`;});
 drawBoard();
