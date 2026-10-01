@@ -153,6 +153,7 @@
         <div class="timer" id="timer">—:—</div>
       </div>
 
+      <label style="display:flex;gap:12px;align-items:center;margin:0 0 12px">Drop position <input id="dropPosition" type="range" min="0" max="100" value="50" aria-label="Drop position" style="flex:1;accent-color:#ffd34d"><span id="aimValue">50%</span></label>
       <div class="board-wrap">
         <canvas id="board"></canvas>
         <div class="pool-chip">
@@ -209,7 +210,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.2 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.3 · Testnet only</div>
 </div>
 
 <script>
@@ -299,22 +300,63 @@ function drawLightningBolt(x,y,scale=1,active=true){
   ctx.restore();
 }
 
+let aimPosition=0.5;
+function launchX(w){return 20+aimPosition*(w-40);}
+$("dropPosition").addEventListener("input",()=>{
+  aimPosition=Math.max(0,Math.min(1,Number($("dropPosition").value)/100));
+  $("aimValue").textContent=`${Math.round(aimPosition*100)}%`;
+});
+canvas.addEventListener("pointerdown",event=>{
+  const rect=canvas.getBoundingClientRect();
+  if(event.clientY-rect.top>95) return;
+  aimPosition=Math.max(0,Math.min(1,(event.clientX-rect.left-20)/(rect.width-40)));
+  $("dropPosition").value=Math.round(aimPosition*100);
+  $("aimValue").textContent=`${Math.round(aimPosition*100)}%`;
+});
+function boardPegs(w,h){
+  const pegs=[],cols=9,spacing=(w-110)/(cols-1);
+  for(let r=0;100+r*40<h-125;r++){
+    for(let c=0;c<cols;c++){
+      const x=55+c*spacing+(r%2)*spacing/2;
+      if(x<=w-35) pegs.push({x,y:100+r*40});
+    }
+  }
+  return pegs;
+}
+function stepBall(b,w,h,dt){
+  const pegs=boardPegs(w,h),steps=Math.max(1,Math.ceil(dt/0.004)),step=dt/steps;
+  for(let i=0;i<steps;i++){
+    b.vy+=650*step;b.x+=b.vx*step;b.y+=b.vy*step;
+    if(b.x<12){b.x=12;b.vx=Math.abs(b.vx)*.8;}
+    if(b.x>w-12){b.x=w-12;b.vx=-Math.abs(b.vx)*.8;}
+    for(const p of pegs){
+      let dx=b.x-p.x,dy=b.y-p.y,d=Math.hypot(dx,dy);
+      if(d>=10.5) continue;
+      if(d<.001){dx=.01;dy=-1;d=Math.hypot(dx,dy);}
+      const nx=dx/d,ny=dy/d;
+      b.x=p.x+nx*10.6;b.y=p.y+ny*10.6;
+      const approach=b.vx*nx+b.vy*ny;
+      if(approach<0){
+        b.vx-=1.65*approach*nx;b.vy-=1.65*approach*ny;
+        if(Math.abs(b.vx)<12) b.vx+=(nx>=0?1:-1)*24;
+      }
+    }
+  }
+}
+let lastFrameTime=null;
 function drawBoard(){
   const w=canvas.clientWidth,h=canvas.clientHeight;
   ctx.clearRect(0,0,w,h);
 
-  // Pegs
-  const rows=11, cols=9;
-  for(let r=0;r<rows;r++){
-    const y=100+r*40;
-    const offset=(r%2)*22;
-    for(let c=0;c<cols;c++){
-      const x=55+c*((w-110)/(cols-1))+offset;
-      if(x>w-35) continue;
-      ctx.beginPath();ctx.arc(x,y,3.5,0,Math.PI*2);
-      ctx.fillStyle="#4c769d";ctx.fill();
-    }
-  }
+  // The launch marker follows the chosen position.
+  const aimX=launchX(w);
+  ctx.strokeStyle="#ffd34d";ctx.setLineDash([4,4]);
+  ctx.beginPath();ctx.moveTo(aimX,45);ctx.lineTo(aimX,88);ctx.stroke();ctx.setLineDash([]);
+  ctx.beginPath();ctx.arc(aimX,55,7,0,Math.PI*2);ctx.fillStyle="#ffd34d";ctx.fill();
+  boardPegs(w,h).forEach(p=>{
+    ctx.beginPath();ctx.arc(p.x,p.y,3.5,0,Math.PI*2);
+    ctx.fillStyle="#4c769d";ctx.fill();
+  });
 
   // Moving bonus paddles. Their multiplier values rotate every 10 seconds.
   const paddleY = 185;
@@ -404,11 +446,13 @@ function drawBoard(){
   });
 }
 
-function animate(){
+function animate(timestamp){
+  const dt=lastFrameTime===null||!Number.isFinite(timestamp)?1/60:Math.min(.033,Math.max(0,(timestamp-lastFrameTime)/1000));
+  if(Number.isFinite(timestamp)) lastFrameTime=timestamp;
   const w=canvas.clientWidth,h=canvas.clientHeight;
 
   // Smooth side-to-side paddle motion.
-  state.paddlePhase += 0.012;
+  state.paddlePhase += 0.72*dt;
 
   // Rotate paddle multipliers every 10 seconds.
   if(Date.now() - state.lastPaddleChange >= 10000){
@@ -437,10 +481,7 @@ function animate(){
   state.lightningPickups = state.lightningPickups.filter(p => p.expiresAt > now && !p.collected);
 
   state.ballsOnBoard.forEach(b=>{
-    b.vy += .18;
-    b.x += b.vx;
-    b.y += b.vy;
-    if(b.x<20||b.x>w-20)b.vx*=-.9;
+    stepBall(b,w,h,dt);
     // Collect Lightning when a falling ball intersects the pickup.
     state.lightningPickups.forEach(p=>{
       if(!p.collected){
@@ -715,28 +756,33 @@ $("drop").addEventListener("click",async()=>{
     return;
   }
 
+  const chosenPosition=aimPosition,sessionId=state.gameSessionId;
   state.eventBusy=true;
   $("drop").disabled=true;
+  $("drop").textContent="AUTHORIZING…";
+  $("apiStatus").textContent="Authorizing your drop…";
   setPowerupButtons(false);
   try{
-    await submitGameEvent("BALL_DROP",{});
+    await submitGameEvent("BALL_DROP",{drop_position:chosenPosition});
+    if(state.gameSessionId!==sessionId) return;
   const w=canvas.clientWidth;
   state.ballsOnBoard.push({
-    x:w/2+(Math.random()-.5)*35,
+    x:20+chosenPosition*(w-40),
     y:70,
-    vx:(Math.random()-.5)*1.6,
-    vy:1.5
+    vx:(Math.random()-.5)*24,
+    vy:70
   });
 
 
     $("apiStatus").textContent=`Backend session: LIVE · drop accepted`;
-    await refreshServerState();
+    void refreshServerState();
   }catch(err){
     console.error(err);
     $("apiStatus").textContent=`Drop rejected: ${err.message}`;
 
   }finally{
     state.eventBusy=false;
+    $("drop").textContent="DROP BALL";
     countdown();
   }
 });
