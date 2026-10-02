@@ -209,7 +209,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.6 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.7 · Testnet only</div>
 </div>
 
 <script>
@@ -259,6 +259,7 @@ const state = {
   serverOffset: 0,
   stateBusy: false,
   bucketFlashes: [],
+  paddleFlashes: [],
   retryAt: 0,
   rules:null,normalDrops:0,lastDropAt:-Infinity,resultSubmitted:false,resultStatus:null,frozenResult:null,resultEventId:null,startedAt:null
 };
@@ -338,14 +339,14 @@ function roundSeconds(){return Math.max(0,(serverNow()-new Date(state.round?.sta
 function paddlesAt(w,time=roundSeconds()){
   const offsets=[-.32,-.16,0,.16,.32],rules=state.rules||{min:2,max:4};
   const slot=Math.floor(time/10);
-  return offsets.map((offset,i)=>({x:w*(.5+offset+Math.sin(time*.72+i*.9)*.1),y:185,
+  return offsets.map((offset,i)=>({index:i,x:w*(.5+offset+Math.sin(time*.72+i*.9)*.1),y:185,
     mult:rules.min+((slot+i*7)%3)/2*(rules.max-rules.min)}));
 }
 function applyPaddle(b,previousX,previousY,w){
   if(!state.rules?.paddles || b.paddleHit || previousY>185 || b.y<185 || b.y===previousY) return;
   const x=previousX+(b.x-previousX)*(185-previousY)/(b.y-previousY);
   const paddle=paddlesAt(w).find(p=>Math.abs(x-p.x)<=37);
-  if(paddle){b.value*=paddle.mult;b.paddleHit=true;}
+  if(paddle){b.value*=paddle.mult;b.paddleHit=true;state.paddleFlashes[paddle.index]=Date.now();}
 }
 function checkpoint(){
   if(!state.gameSessionId) return;
@@ -411,11 +412,15 @@ function drawBoard(){
     ctx.beginPath();ctx.moveTo(x,paddleY-26);ctx.lineTo(x,paddleY-8);ctx.stroke();
 
     // Paddle.
-    ctx.strokeStyle=mult>=4?"#ffd34d":"#6ea6d3";
+    ctx.save();
+    const hitGlow=Math.max(0,1-(Date.now()-(state.paddleFlashes[i]||0))/600);
+    if(hitGlow>0){ctx.shadowColor="#ffd34d";ctx.shadowBlur=24*hitGlow;}
+    ctx.strokeStyle=hitGlow>0||mult>=4?"#ffd34d":"#6ea6d3";
     ctx.lineWidth=7;
     ctx.lineCap="round";
     ctx.beginPath();ctx.moveTo(x-30,paddleY);ctx.lineTo(x+30,paddleY);ctx.stroke();
     ctx.lineCap="butt";
+    ctx.restore();
 
     ctx.fillStyle=mult>=4?"#ffd34d":"#d5e5f3";
     ctx.font="900 12px Segoe UI";
@@ -595,7 +600,7 @@ async function startGameSession(){
   state.serverScore=null;
   state.serverStateReadable=false;
   state.ballsOnBoard=[];
-  state.balls=0;state.bucketFlashes=[];
+  state.balls=0;state.bucketFlashes=[];state.paddleFlashes=[];
   state.score=0;state.normalDrops=0;state.lastDropAt=-Infinity;
   state.resultSubmitted=false;state.resultStatus=null;state.frozenResult=null;state.resultEventId=null;
   state.rules=scoringRules(data.config_snapshot);state.startedAt=data.started_at;
