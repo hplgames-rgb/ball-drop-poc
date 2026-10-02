@@ -28,6 +28,10 @@
       linear-gradient(180deg,#07111f,#050b14);
   }
   button{font:inherit}
+  #superBallBtn{color:#fff;background:#6435b5;border:1px solid #c5a5ff;border-radius:10px;padding:10px 12px;margin-top:8px;font-weight:800;cursor:pointer}
+  #superBallBtn:disabled{color:#d7cbe8;background:#302443;opacity:.65;cursor:default}
+  #superBallBtn:not(:disabled){box-shadow:0 0 18px #a66cff66}
+
   .app{max-width:1250px;margin:auto;padding:18px}
   header{
     display:flex;align-items:center;justify-content:space-between;gap:15px;
@@ -178,7 +182,7 @@
         <div class="mini" style="margin-top:10px">
           <div class="metric-label">Super Balls</div>
           <strong id="superBalls">0 ⚡</strong>
-          <button id="superBallBtn" class="config button" disabled>Launch Super Ball ×10</button>
+          <button id="superBallBtn" class="config button" disabled>Arm Super Ball ×10</button>
         </div>
         <div class="mini" style="margin-top:10px">
           <div class="metric-label">Lightning</div>
@@ -210,7 +214,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.8 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.9 · Testnet only</div>
 </div>
 
 <script>
@@ -240,6 +244,7 @@ const state = {
   paddleMultipliers: [2,3,4,5,3],
   lightningCharge: 0,
   superBalls: 0,
+  superArmed: false,
   lastPaddleChange: Date.now(),
   lightningPickups: [],
   lastLightningSpawn: Date.now() - 5000,
@@ -313,7 +318,7 @@ canvas.addEventListener("pointermove",event=>{
 canvas.addEventListener("pointerdown",event=>{
   if(event.button!==undefined && event.button!==0) return;
   const rect=canvas.getBoundingClientRect();
-  dropAt(Math.max(0,Math.min(1,(event.clientX-rect.left-20)/(rect.width-40))));
+  clickToDrop(Math.max(0,Math.min(1,(event.clientX-rect.left-20)/(rect.width-40))));
 });
 function boardPegs(w,h){
   const pegs=[],cols=9,spacing=(w-110)/(cols-1);
@@ -375,13 +380,29 @@ function superBallReady(){
     && state.superUsed<state.rules.lightning.max_super_balls_used_per_round
     && serverNow()<new Date(state.round?.gameplay_ends_at).getTime();
 }
-async function launchSuperBall(){
+function armSuperBall(){
   if(!superBallReady()) return;
-  const sessionId=state.gameSessionId,position=aimPosition;
+  state.superArmed=true;
+  $("superBallBtn").textContent="Armed — click the board";
+  $("apiStatus").textContent="Super Ball armed. Choose where to drop it by clicking the board.";
+}
+function clickToDrop(position){
+  aimPosition=position;
+  if(state.superBusy) return;
+  if(state.superArmed){
+    if(!superBallReady()){state.superArmed=false;return;}
+    return launchSuperBall(position);
+  }
+  dropAt(position);
+}
+async function launchSuperBall(position=aimPosition){
+  if(!superBallReady()) return;
+  const sessionId=state.gameSessionId;
   state.superBusy=true;
   try{
     await submitGameEvent("SUPER_BALL_USE",{});
     if(state.gameSessionId!==sessionId) return;
+    state.superArmed=false;
     state.superUsed++;state.superBalls=Math.max(0,state.superBalls-1);
     const w=canvas.clientWidth;
     state.ballsOnBoard.push({x:20+position*(w-40),y:70,vx:(Math.random()-.5)*24,vy:70,
@@ -390,7 +411,7 @@ async function launchSuperBall(){
   }catch(error){if(state.gameSessionId===sessionId){await refreshServerState();$("apiStatus").textContent=`Super Ball not launched: ${error.message}`;}}
   finally{state.superBusy=false;}
 }
-$("superBallBtn").addEventListener("click",launchSuperBall);
+$("superBallBtn").addEventListener("click",armSuperBall);
 function applyPaddle(b,previousX,previousY,w){
   if(!state.rules?.paddles || b.paddleHit || previousY>185 || b.y<185 || b.y===previousY) return;
   const x=previousX+(b.x-previousX)*(185-previousY)/(b.y-previousY);
@@ -442,9 +463,10 @@ function drawBoard(){
 
   // The launch marker follows the chosen position.
   const aimX=launchX(w);
-  ctx.strokeStyle="#ffd34d";ctx.setLineDash([4,4]);
+  const aimColor=state.superArmed?"#bfa2ff":"#ffd34d";
+  ctx.strokeStyle=aimColor;ctx.setLineDash([4,4]);
   ctx.beginPath();ctx.moveTo(aimX,76);ctx.lineTo(aimX,94);ctx.stroke();ctx.setLineDash([]);
-  ctx.beginPath();ctx.arc(aimX,82,7,0,Math.PI*2);ctx.fillStyle="#ffd34d";ctx.fill();
+  ctx.beginPath();ctx.arc(aimX,82,7,0,Math.PI*2);ctx.fillStyle=aimColor;ctx.fill();
   boardPegs(w,h).forEach(p=>{
     ctx.beginPath();ctx.arc(p.x,p.y,3.5,0,Math.PI*2);
     ctx.fillStyle="#4c769d";ctx.fill();
@@ -571,7 +593,9 @@ function animate(timestamp){
   $("balls").textContent=state.balls;
   $("superBalls").textContent=`${state.superBalls} ⚡`;
   $("lightningStatus").textContent=`${state.lightningCharge} / ${state.rules?.lightning?.required_for_super_ball||5} ⚡`;
-  $("superBallBtn").disabled=!superBallReady();
+  if(!state.superBusy && !superBallReady()) state.superArmed=false;
+  $("superBallBtn").textContent=state.superArmed?"Armed — click the board":"Arm Super Ball ×10";
+  $("superBallBtn").disabled=!superBallReady() || state.superArmed;
   drawBoard();
   requestAnimationFrame(animate);
 }
@@ -642,7 +666,7 @@ async function startGameSession(){
   state.resultSubmitted=false;state.resultStatus=null;state.frozenResult=null;state.resultEventId=null;
   state.rules=scoringRules(data.config_snapshot);state.startedAt=data.started_at;
   state.lightningCharge=0;
-  state.superBalls=0;
+  state.superBalls=0;state.superArmed=false;
 
   state.gameSessionId=data.game_session_id;
   state.clientSequence=0; // Player-state read or a sequence rejection resynchronizes restores.
@@ -697,7 +721,9 @@ async function refreshServerState(){
     displayScore();
     $("superBalls").textContent=`${state.superBalls} ⚡`;
     $("lightningStatus").textContent=`${state.lightningCharge} / ${state.rules?.lightning?.required_for_super_ball||5} ⚡`;
-  $("superBallBtn").disabled=!superBallReady();
+  if(!state.superBusy && !superBallReady()) state.superArmed=false;
+  $("superBallBtn").textContent=state.superArmed?"Armed — click the board":"Arm Super Ball ×10";
+  $("superBallBtn").disabled=!superBallReady() || state.superArmed;
     $("leaderboard").textContent=state.resultStatus==="accepted"?`Confirmed round score: ${state.serverScore.toLocaleString()}`:"Live standings will appear after round validation";
   }catch(error){
     if(sessionId===state.gameSessionId){
@@ -978,7 +1004,7 @@ async function connectBackend(){
 
 function resetWallet(){
   state.sessionToken=null;state.gameSessionId=null;state.wallet=null;state.round=null;
-  state.serverStateReadable=false;state.serverScore=null;state.ballsOnBoard=[];state.score=0;state.rules=null;state.claimedPickups=new Set();state.collectingPickups=new Set();$("superBallBtn").disabled=true;
+  state.superArmed=false;state.serverStateReadable=false;state.serverScore=null;state.ballsOnBoard=[];state.score=0;state.rules=null;state.claimedPickups=new Set();state.collectingPickups=new Set();$("superBallBtn").disabled=true;
   $("walletBtn").textContent="Connect Wallet";$("connection").textContent="Reconnect wallet";
   $("statusDot").classList.remove("live");setPowerupButtons(false);
 }
