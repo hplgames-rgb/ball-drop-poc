@@ -190,7 +190,7 @@
         <div class="metric-label" id="scoreLabel">Live Score</div>
         <div class="metric" id="score">—</div>
         <div class="stat-grid">
-          <div class="mini"><div class="metric-label" id="positionLabel">Last round position</div><strong id="position">—</strong></div>
+          <div class="mini"><div class="metric-label" id="positionLabel">Current position</div><strong id="position">—</strong></div>
           <div class="mini" hidden><div class="metric-label">Balls</div><strong id="balls">0</strong></div>
           <div class="mini" hidden><div class="metric-label">Server Accepted</div><strong id="serverDrops">0</strong></div>
         </div>
@@ -212,6 +212,12 @@
       </div>
 
       <div class="card">
+        <div class="metric-label" id="liveLeaderboardTitle">Current round leaderboard</div>
+        <div class="notice" id="liveStatus">Connect your wallet to see current standings.</div>
+        <div id="liveLeaderboard" class="notice">Waiting for players.</div>
+        <div id="yourLiveResult" class="result-summary" hidden></div>
+      </div>
+      <div class="card">
         <div class="metric-label" id="leaderboardTitle">Round results</div>
         <div class="notice" id="resultsStatus">Connect your wallet to see round results.</div>
         <div id="leaderboard" class="notice">Standings appear after submissions close.</div>
@@ -231,11 +237,12 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.13 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.14 · Testnet only</div>
 </div>
 
 <script>
 const CONFIG={url:"https://brvnzzkatyxfxpevukzt.supabase.co",key:"sb_publishable_N7wjJGUvFGcNznaPN_aFZQ_nnSVYmZ0"};
+const LIVE_REFRESH_MS=2000; // Alpha setting: increase this interval when scaling.
 const walletProviders=new Map();
 window.addEventListener("eip6963:announceProvider",event=>{
   const detail=event.detail;
@@ -286,6 +293,7 @@ const state = {
   bucketFlashes: [],
   paddleFlashes: [],
   claimedPickups:new Set(),collectingPickups:new Set(),collectionBusy:0,superBusy:false,superUsed:0,
+  liveResults:null,lastLiveAt:0,liveSessionId:null,
   roundResults:null,standingsError:null,lastStandingsAt:0,standingsPhase:null,
   retryAt: 0,
   rules:null,normalDrops:0,lastDropAt:-Infinity,resultSubmitted:false,resultStatus:null,frozenResult:null,resultEventId:null,startedAt:null
@@ -710,6 +718,10 @@ async function startGameSession(){
     throw new Error(data.error||"Start session failed");
   }
   if(data.server_time) state.serverOffset=new Date(data.server_time).getTime()-(requestStarted+Date.now())/2;
+  state.liveResults=null;state.lastLiveAt=0;state.liveSessionId=null;
+  $("position").textContent="—";$("positionLabel").textContent="Current position";
+  $("liveLeaderboard").textContent="Loading current standings…";$("yourLiveResult").hidden=true;
+  $("liveStatus").textContent="Provisional · syncing scores";
   state.completed=false;state.lastStandingsAt=0;state.standingsPhase=null;
   state.serverScore=null;
   state.serverStateReadable=false;
@@ -759,7 +771,16 @@ async function refreshServerState(){
     const phase=`${state.round?.id}:${serverNow()>new Date(state.round?.submission_deadline).getTime()?"closed":"open"}`;
     const includeStandings=Date.now()-state.lastStandingsAt>=10000 || phase!==state.standingsPhase;
     if(includeStandings){state.lastStandingsAt=Date.now();state.standingsPhase=phase;}
-    const data=await edgeRequest("ball-drop-player-state",{session_token:state.sessionToken,game_session_id:sessionId,include_standings:includeStandings});
+    const includeLive=Date.now()-state.lastLiveAt>=LIVE_REFRESH_MS || state.liveSessionId!==sessionId;
+    const snapshot={};
+    if(includeLive){
+      state.lastLiveAt=Date.now();state.liveSessionId=sessionId;
+      if(state.rules && !state.completed && !state.frozenResult && serverNow()<new Date(state.round?.gameplay_ends_at).getTime()){
+        snapshot.live_score=state.score;snapshot.normal_drops=state.normalDrops;
+      }
+    }
+    const data=await edgeRequest("ball-drop-player-state",{session_token:state.sessionToken,game_session_id:sessionId,
+      include_standings:includeStandings,include_live:includeLive,...snapshot});
     if(sessionId!==state.gameSessionId) return;
     const row=data.player_state;
     if(data.loaded!==true || !row) throw new Error("Player state unavailable");
@@ -781,6 +802,8 @@ async function refreshServerState(){
   if(!state.superBusy && !superBallReady()) state.superArmed=false;
   $("superBallBtn").textContent=state.superArmed?"Armed — click the board":"Arm Super Ball ×10";
   $("superBallBtn").disabled=!superBallReady() || state.superArmed;
+    if(data.live_leaderboard) renderLiveLeaderboard(data.live_leaderboard);
+    if(data.live_error) $("liveStatus").textContent=data.live_error;
     if(includeStandings) state.standingsError=data.standings_error||null;
     if(data.round_results) renderRoundResults(data.round_results);
     updateResultsStatus();
@@ -814,15 +837,34 @@ function renderRoundResults(data){
   $("yourRoundResult").hidden=false;
   if(mine){
     $("yourRoundResult").textContent=`You placed ${resultRank(mine)} of ${Number(data.players)} · ${resultPoints(mine.score)} points`;
-    $("position").textContent=resultRank(mine);
+
   }else{
     const messages={rejected:"Your score was rejected and is not ranked.",not_submitted:"Your result was not submitted in time.",not_played:"You did not play this round."};
     $("yourRoundResult").textContent=messages[data.your_status]||"Your result is not ranked.";
-    $("position").textContent="—";
   }
-  $("positionLabel").textContent=`Round ${Number(data.round_number)} position`;
   updateResultsStatus();
 }
+function renderLiveLeaderboard(data){
+  if(data.round_id!==state.round?.id) return;
+  state.liveResults=data;
+  $("liveLeaderboardTitle").textContent=`Round ${Number(state.round.round_number||0)} · Current leaderboard`;
+  const rows=(data.entries||[]).filter(row=>Number.isInteger(row.placement) && row.placement>0);
+  $("liveLeaderboard").innerHTML=rows.length?rows.map(row=>{
+    const wallet=/^0x[0-9a-f]{40}$/i.test(row.wallet_address||"")?row.wallet_address.toLowerCase():null;
+    const me=wallet && wallet===state.wallet?.toLowerCase();
+    const name=me?"You":wallet?`${wallet.slice(0,6)}…${wallet.slice(-4)}`:"Player";
+    return `<div class="leader-row${me?" you":""}"><span>${resultRank(row)} · ${name}</span><span class="leader-score">${resultPoints(row.score)}</span></div>`;
+  }).join("") : "Waiting for players.";
+  $("yourLiveResult").hidden=!data.your_result;
+  if(data.your_result){
+    $("position").textContent=resultRank(data.your_result);
+    $("yourLiveResult").textContent=`You: ${resultRank(data.your_result)} of ${Number(data.players)} · ${resultPoints(data.your_result.score)} points`;
+  }else $("position").textContent="—";
+  $("positionLabel").textContent="Current position";
+  $("liveStatus").textContent=data.snapshot_reason==="SNAPSHOT_OUTSIDE_LIMITS"?"Provisional · your latest update was outside score limits":
+    `Provisional · updates every ${LIVE_REFRESH_MS/1000}s · ${Number(data.players)} players`;
+}
+
 function updateResultsStatus(){
   if(!state.sessionToken){$("resultsStatus").textContent="Connect your wallet to see round results.";return;}
   if(state.standingsError){$("resultsStatus").textContent=state.standingsError;return;}
@@ -1096,7 +1138,7 @@ async function connectBackend(){
   if(!state.timersStarted){
     setInterval(()=>{if(!state.gameSessionId) loadRound().catch(console.error);},10000);
     setInterval(advanceRound,1000);
-    setInterval(refreshServerState,2000);
+    setInterval(refreshServerState,LIVE_REFRESH_MS);
     state.timersStarted=true;
   }
   if(state.supabase) await loadRound();
@@ -1104,9 +1146,12 @@ async function connectBackend(){
 }
 
 function resetWallet(){
+  state.liveResults=null;state.lastLiveAt=0;state.liveSessionId=null;
+  $("liveLeaderboardTitle").textContent="Current round leaderboard";$("liveLeaderboard").textContent="Waiting for players.";
+  $("liveStatus").textContent="Connect your wallet to see current standings.";$("yourLiveResult").hidden=true;
   state.roundResults=null;state.standingsError=null;state.lastStandingsAt=0;state.standingsPhase=null;
   $("leaderboardTitle").textContent="Round results";$("leaderboard").textContent="Standings appear after submissions close.";
-  $("yourRoundResult").hidden=true;$("position").textContent="—";$("positionLabel").textContent="Last round position";
+  $("yourRoundResult").hidden=true;$("position").textContent="—";$("positionLabel").textContent="Current position";
   state.recentScores=[];state.landingSequence=0;renderBallHistory();
   state.sessionToken=null;state.gameSessionId=null;state.wallet=null;state.round=null;
   state.lightningCharge=0;state.superBalls=0;state.superArmed=false;state.superBusy=false;state.serverStateReadable=false;state.serverScore=null;state.ballsOnBoard=[];state.score=0;state.rules=null;state.claimedPickups=new Set();state.collectingPickups=new Set();$("superBallBtn").disabled=true;
