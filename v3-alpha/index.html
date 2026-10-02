@@ -168,12 +168,12 @@
 
     <aside class="side">
       <div class="card">
-        <div class="metric-label">Your Score</div>
+        <div class="metric-label" id="scoreLabel">Live Score</div>
         <div class="metric" id="score">—</div>
         <div class="stat-grid">
           <div class="mini"><div class="metric-label">Position</div><strong id="position">—</strong></div>
-          <div class="mini"><div class="metric-label">Balls</div><strong id="balls">0</strong></div>
-          <div class="mini"><div class="metric-label">Server Accepted</div><strong id="serverDrops">0</strong></div>
+          <div class="mini" hidden><div class="metric-label">Balls</div><strong id="balls">0</strong></div>
+          <div class="mini" hidden><div class="metric-label">Server Accepted</div><strong id="serverDrops">0</strong></div>
         </div>
         <div class="mini" style="margin-top:10px">
           <div class="metric-label">Super Balls</div>
@@ -209,7 +209,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.4 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.5 · Testnet only</div>
 </div>
 
 <script>
@@ -258,7 +258,8 @@ const state = {
   completed: false,
   serverOffset: 0,
   stateBusy: false,
-  retryAt: 0
+  retryAt: 0,
+  rules:null,normalDrops:0,lastDropAt:-Infinity,resultSubmitted:false,resultStatus:null,frozenResult:null,resultEventId:null,startedAt:null
 };
 
 const $ = id => document.getElementById(id);
@@ -320,10 +321,52 @@ function boardPegs(w,h){
   }
   return pegs;
 }
+function scoringRules(snapshot){
+  const c=snapshot?.config,scoring=c?.scoring;
+  if(!scoring || !Number.isFinite(scoring.base_ball_points) || scoring.base_ball_points<=0) return null;
+  const buckets=scoring.buckets?.enabled===false?[1]:scoring.buckets?.multipliers;
+  const rate=c.validator?.max_drop_rate_per_second;
+  if(!Array.isArray(buckets)||!buckets.length||!buckets.every(x=>Number.isFinite(x)&&x>0)||!Number.isFinite(rate)||rate<=0) return null;
+  const paddle=scoring.bonus_paddle;
+  const min=paddle?.enabled===false?1:Number(paddle?.min_multiplier),max=paddle?.enabled===false?1:Number(paddle?.max_multiplier);
+  if(!Number.isFinite(min)||!Number.isFinite(max)||min<1||max<min) return null;
+  return {base:scoring.base_ball_points,buckets,rate,min,max,paddles:paddle?.enabled!==false};
+}
+function bucketValues(){return state.rules?.buckets || [0.5,1,1.5,1,0.5];}
+function roundSeconds(){return Math.max(0,(serverNow()-new Date(state.round?.starts_at || state.startedAt || Date.now()).getTime())/1000);}
+function paddlesAt(w,time=roundSeconds()){
+  const offsets=[-.32,-.16,0,.16,.32],rules=state.rules||{min:2,max:4};
+  const slot=Math.floor(time/10);
+  return offsets.map((offset,i)=>({x:w*(.5+offset+Math.sin(time*.72+i*.9)*.1),y:185,
+    mult:rules.min+((slot+i*7)%3)/2*(rules.max-rules.min)}));
+}
+function applyPaddle(b,previousX,previousY,w){
+  if(!state.rules?.paddles || b.paddleHit || previousY>185 || b.y<185 || b.y===previousY) return;
+  const x=previousX+(b.x-previousX)*(185-previousY)/(b.y-previousY);
+  const paddle=paddlesAt(w).find(p=>Math.abs(x-p.x)<=37);
+  if(paddle){b.value*=paddle.mult;b.paddleHit=true;}
+}
+function checkpoint(){
+  if(!state.gameSessionId) return;
+  try{localStorage.setItem(`hpl-v3-score:${state.gameSessionId}`,JSON.stringify({score:state.score,normalDrops:state.normalDrops,lastDropAt:state.lastDropAt,
+    frozenResult:state.frozenResult,resultEventId:state.resultEventId,resultSubmitted:state.resultSubmitted,resultStatus:state.resultStatus}));}catch{}
+}
+function landBall(b,w){
+  if(b.dead || state.frozenResult) return;
+  const buckets=bucketValues(),lane=Math.max(0,Math.min(buckets.length-1,Math.floor(b.x/(w/buckets.length))));
+  b.finalPoints=Math.floor((b.value || state.rules?.base || 100)*buckets[lane]);
+  state.score+=b.finalPoints;state.balls++;b.dead=true;checkpoint();
+}
+function displayScore(){
+  $("score").textContent=(state.resultStatus ? state.serverScore??0 : state.score).toLocaleString();
+  $("scoreLabel").textContent=state.resultStatus==="accepted"?"Confirmed Score":state.resultStatus==="rejected"?"Score Rejected":"Live Score";
+}
 function stepBall(b,w,h,dt){
   const pegs=boardPegs(w,h),steps=Math.max(1,Math.ceil(dt/0.004)),step=dt/steps;
   for(let i=0;i<steps;i++){
+    const previousX=b.x,previousY=b.y;
     b.vy+=650*step;b.x+=b.vx*step;b.y+=b.vy*step;
+    applyPaddle(b,previousX,previousY,w);
     if(b.x<12){b.x=12;b.vx=Math.abs(b.vx)*.8;}
     if(b.x>w-12){b.x=w-12;b.vx=-Math.abs(b.vx)*.8;}
     for(const p of pegs){
@@ -357,13 +400,9 @@ function drawBoard(){
 
   // Moving bonus paddles. Their multiplier values rotate every 10 seconds.
   const paddleY = 185;
-  const paddleOffsets = [-.32,-.16,0,.16,.32];
   const paddleNames = ["A","B","C","D","E"];
-  paddleOffsets.forEach((offset,i)=>{
-    const wave = Math.sin(state.paddlePhase + i*0.9) * 0.10;
-    const x = w*(0.5 + offset + wave);
-    const mult = state.paddleMultipliers[i];
-
+  paddlesAt(w).forEach((paddle,i)=>{
+    const x=paddle.x,mult=paddle.mult;
     // Small mounting arm.
     ctx.strokeStyle="#315674";
     ctx.lineWidth=2;
@@ -414,7 +453,7 @@ function drawBoard(){
   });
 
   // Nine contiguous reward buckets — no gaps between them.
-  const bucketMultipliers=[0.5,1,1.5,1,0.5,1,1.5,1,0.5];
+  const bucketMultipliers=bucketValues();
   const bucketTop=h-112;
   const bucketHeight=70;
   const bucketW=w/bucketMultipliers.length;
@@ -440,6 +479,8 @@ function drawBoard(){
     ctx.beginPath();ctx.arc(b.x,b.y,7,0,Math.PI*2);
     ctx.fillStyle="#ffd34d";ctx.shadowColor="#ffd34d";ctx.shadowBlur=14;ctx.fill();
     ctx.shadowBlur=0;
+    ctx.fillStyle="#fff0a3";ctx.font="bold 12px Segoe UI";ctx.textAlign="left";
+    ctx.fillText(Math.floor(b.value||state.rules?.base||100).toLocaleString(),b.x+11,b.y-8);
   });
 }
 
@@ -451,30 +492,8 @@ function animate(timestamp){
   // Smooth side-to-side paddle motion.
   state.paddlePhase += 0.72*dt;
 
-  // Rotate paddle multipliers every 10 seconds.
-  if(Date.now() - state.lastPaddleChange >= 10000){
-    const values=[2,3,4,5];
-    state.paddleMultipliers = state.paddleMultipliers.map(()=>{
-      return values[Math.floor(Math.random()*values.length)];
-    });
-    state.lastPaddleChange = Date.now();
-  }
-
-  // Rare Lightning spawns: roughly one every 35-55 seconds, with a
-  // short lifetime so pickups feel special rather than constant.
-  const now = Date.now();
-  const elapsed = now - state.lastLightningSpawn;
-  if(elapsed > 35000 + Math.random()*20000 && state.lightningPickups.length < 1){
-    const margin = 70;
-    state.lightningPickups.push({
-      x: margin + Math.random()*(w-margin*2),
-      y: 285 + Math.random()*150,
-      bornAt: now,
-      expiresAt: now + 7000
-    });
-    state.lastLightningSpawn = now;
-  }
-
+  // Lightning rewards will be integrated with backend validation in the next step.
+  const now=Date.now();
   state.lightningPickups = state.lightningPickups.filter(p => p.expiresAt > now && !p.collected);
 
   state.ballsOnBoard.forEach(b=>{
@@ -496,22 +515,10 @@ function animate(timestamp){
       }
     });
 
-    if(b.y>h-115){
-      const lane=Math.max(0,Math.min(8,Math.floor(b.x/(w/9))));
-      const mult=[0.5,1,1.5,1,0.5,1,1.5,1,0.5][lane];
-      if(!state.sessionToken){
-        // Visual-only fallback until the authoritative player-state row is readable.
-        state.score += Math.round(100*mult);
-      }
-      b.landed=true;
-      if(!b.pending && !b.rejected) state.balls++;
-      b.dead=true;
-    }
+    if(b.y>h-115) landBall(b,w);
   });
   state.ballsOnBoard=state.ballsOnBoard.filter(b=>!b.dead);
-  $("score").textContent=state.serverStateReadable
-    ? state.serverScore.toLocaleString()
-    : state.sessionToken ? "—" : state.score.toLocaleString();
+  displayScore();
   $("balls").textContent=state.balls;
   $("superBalls").textContent=`${state.superBalls} ⚡`;
   $("lightningStatus").textContent=`${state.lightningCharge} / 5 ⚡`;
@@ -536,7 +543,7 @@ function submitGameEvent(eventType,payload={}){
 async function sendGameEvent(eventType, payload={}){
   if(!state.sessionToken || !state.gameSessionId) throw new Error("Game session is not started.");
   const sessionId=state.gameSessionId,token=state.sessionToken;
-  const eventId = crypto.randomUUID();
+  const eventId = eventType==="ROUND_RESULT" ? (state.resultEventId ||= crypto.randomUUID()) : crypto.randomUUID();
   const sequence = state.clientSequence + 1;
 
   let data;
@@ -581,11 +588,21 @@ async function startGameSession(){
   state.serverStateReadable=false;
   state.ballsOnBoard=[];
   state.balls=0;
+  state.score=0;state.normalDrops=0;state.lastDropAt=-Infinity;
+  state.resultSubmitted=false;state.resultStatus=null;state.frozenResult=null;state.resultEventId=null;
+  state.rules=scoringRules(data.config_snapshot);state.startedAt=data.started_at;
   state.lightningCharge=0;
   state.superBalls=0;
 
   state.gameSessionId=data.game_session_id;
-  state.clientSequence=0; // Restored sessions resynchronize from a sequence rejection.
+  state.clientSequence=0; // Player-state read or a sequence rejection resynchronizes restores.
+  try{
+    const saved=JSON.parse(localStorage.getItem(`hpl-v3-score:${state.gameSessionId}`)||"null");
+    if(saved && Number.isSafeInteger(saved.score) && saved.score>=0 && Number.isSafeInteger(saved.normalDrops) && saved.normalDrops>=0){
+      Object.assign(state,{score:saved.score,normalDrops:saved.normalDrops,lastDropAt:saved.lastDropAt??-Infinity,
+        frozenResult:saved.frozenResult||null,resultEventId:saved.resultEventId||null,resultSubmitted:!!saved.resultSubmitted,resultStatus:saved.resultStatus||null});
+    }
+  }catch{}
   state.round={
     id:data.round_id,
     round_number:data.round_number,
@@ -597,7 +614,7 @@ async function startGameSession(){
   };
 
   $("roundNumber").textContent=data.round_number;
-  $("hint").textContent="Click anywhere on the board to drop a ball";
+  $("hint").textContent=state.rules?"Click anywhere on the board to drop a ball":"Round scoring rules unavailable";
   $("apiStatus").textContent=`Backend session: ACTIVE · Round ${data.round_number}`;
   $("statusDot").classList.add("live");
   $("connection").textContent=`Live · ${state.wallet.slice(0,6)}…${state.wallet.slice(-4)}`;
@@ -622,10 +639,13 @@ async function refreshServerState(){
     state.superBalls=Math.max(0,Number(row.super_balls_earned||0)-Number(row.super_balls_used||0));
     state.lightningCharge=state.lightningCollected % 5;
     $("serverDrops").textContent=state.serverAcceptedDrops;
-    $("score").textContent=state.serverScore.toLocaleString();
+    if(row.result_status){state.resultStatus=row.result_status;state.resultSubmitted=true;checkpoint();
+      if(row.result_status==="rejected") $("apiStatus").textContent=`Round score rejected: ${row.result_rejection_reason||"Validation failed"}`;}
+    if(Number.isInteger(data.last_accepted_sequence) && !state.eventBusy) state.clientSequence=data.last_accepted_sequence;
+    displayScore();
     $("superBalls").textContent=`${state.superBalls} ⚡`;
     $("lightningStatus").textContent=`${state.lightningCharge} / 5 ⚡`;
-    $("leaderboard").textContent=`Your server score: ${state.serverScore.toLocaleString()}`;
+    $("leaderboard").textContent=state.resultStatus==="accepted"?`Confirmed round score: ${state.serverScore.toLocaleString()}`:"Live standings will appear after round validation";
   }catch(error){
     if(sessionId===state.gameSessionId){
       state.serverStateReadable=false;
@@ -653,13 +673,29 @@ async function advanceRound(){
   if(!state.sessionToken || state.authBusy || state.eventBusy || state.lifecycleBusy || Date.now()<state.retryAt) return;
   if(state.gameSessionId && serverNow()<new Date(state.round?.gameplay_ends_at).getTime()) return;
   state.lifecycleBusy=true;
+  const lifecycleSession=state.gameSessionId,lifecycleToken=state.sessionToken;
   try{
     if(state.gameSessionId && !state.completed){
       const deadline=new Date(state.round.submission_deadline).getTime();
       if(serverNow()<=deadline){
+        if(!state.resultSubmitted){
+          const reserve=Math.min(3000,Math.max(0,(deadline-new Date(state.round.gameplay_ends_at).getTime())/2));
+          if(state.ballsOnBoard.length && serverNow()<deadline-reserve) return;
+          state.frozenResult ||= {normal_drops:state.normalDrops,score:state.score};
+          state.ballsOnBoard=[];checkpoint();
+          try{
+            await submitGameEvent("ROUND_RESULT",state.frozenResult);
+            state.resultSubmitted=true;state.resultStatus="accepted";state.serverScore=state.frozenResult.score;checkpoint();
+          }catch(error){
+            await refreshServerState();
+            if(!state.resultSubmitted) throw error;
+          }
+        }
         const result=await edgeRequest("ball-drop-complete-session",{session_token:state.sessionToken,game_session_id:state.gameSessionId});
+        if(state.gameSessionId!==lifecycleSession || state.sessionToken!==lifecycleToken) return;
         if(result.completed!==true) throw new Error(result.error||"Completion failed");
       }
+      if(serverNow()>deadline && !state.resultSubmitted) $("apiStatus").textContent="Round submission window closed before score confirmation.";
       state.completed=true;
       await refreshServerState();
     }
@@ -751,29 +787,24 @@ async function authenticateWallet(){
 
 function setPowerupButtons(enabled){
   document.querySelectorAll("[data-powerup]").forEach(btn=>{
-    btn.disabled=!enabled;
+    btn.disabled=true; // Inventory-consuming effects are not wired into this scoring build.
   });
 }
 
 function dropAt(chosenPosition){
-  if(!state.round || !state.sessionToken || !state.gameSessionId){
-    $("apiStatus").textContent="Connect wallet to play, then click anywhere on the board to drop.";
-    return;
+  if(!state.round || !state.sessionToken || !state.gameSessionId || !state.rules){
+    $("apiStatus").textContent="Connect wallet and load round rules before playing.";return;
   }
-  if(state.completed || state.lifecycleBusy || serverNow()>=new Date(state.round.gameplay_ends_at).getTime()) return;
-  const sessionId=state.gameSessionId,w=canvas.clientWidth;
-  const ball={x:20+chosenPosition*(w-40),y:70,vx:(Math.random()-.5)*24,vy:70,pending:true};
-  state.ballsOnBoard.push(ball);
-  $("apiStatus").textContent="Playing · confirming drops in the background";
-  return submitGameEvent("BALL_DROP",{drop_position:chosenPosition}).then(()=>{
-    if(state.gameSessionId!==sessionId) return;
-    ball.pending=false;
-    if(ball.landed) state.balls++;
-    $("apiStatus").textContent="Backend session: LIVE · drop confirmed";
-  }).catch(err=>{
-    ball.rejected=true;ball.dead=true;
-    if(state.gameSessionId===sessionId) $("apiStatus").textContent=`Drop not counted: ${err.message}`;
-  });
+  const now=serverNow(),end=new Date(state.round.gameplay_ends_at).getTime();
+  if(state.completed || state.frozenResult || state.lifecycleBusy || now>=end) return;
+  if(now-state.lastDropAt<1000/state.rules.rate) return;
+  const duration=Math.max(0,Math.floor((end-new Date(state.startedAt || state.round.starts_at).getTime())/1000));
+  if(state.normalDrops>=duration*state.rules.rate) return;
+  chosenPosition=Math.max(0,Math.min(1,chosenPosition));
+  state.lastDropAt=now;state.normalDrops++;
+  const w=canvas.clientWidth;
+  state.ballsOnBoard.push({x:20+chosenPosition*(w-40),y:70,vx:(Math.random()-.5)*24,vy:70,value:state.rules.base,paddleHit:false});
+  checkpoint();
 }
 
 document.querySelectorAll("[data-powerup]").forEach(btn=>{
@@ -894,7 +925,7 @@ async function connectBackend(){
 
 function resetWallet(){
   state.sessionToken=null;state.gameSessionId=null;state.wallet=null;state.round=null;
-  state.serverStateReadable=false;state.serverScore=null;state.ballsOnBoard=[];
+  state.serverStateReadable=false;state.serverScore=null;state.ballsOnBoard=[];state.score=0;state.rules=null;
   $("walletBtn").textContent="Connect Wallet";$("connection").textContent="Reconnect wallet";
   $("statusDot").classList.remove("live");setPowerupButtons(false);
 }
