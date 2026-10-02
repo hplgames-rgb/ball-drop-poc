@@ -101,6 +101,8 @@
   .mini{padding:12px;border:1px solid var(--line);border-radius:12px;background:rgba(5,14,25,.35)}
   .mini strong{display:block;font-size:19px;margin-top:3px}
   .leader-row{display:flex;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid rgba(36,64,94,.65)}
+  .leader-row.you{color:#ffe17d;background:#ffd34d0c;padding:10px 6px;border-radius:8px}
+  .result-summary{margin-top:12px;padding:10px;border:1px solid var(--line);border-radius:10px;color:var(--text);line-height:1.5}
   .leader-row:last-child{border-bottom:0}
   .leader-name{color:#dce8f5}.leader-score{font-weight:800}
   .powerups{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
@@ -188,7 +190,7 @@
         <div class="metric-label" id="scoreLabel">Live Score</div>
         <div class="metric" id="score">—</div>
         <div class="stat-grid">
-          <div class="mini"><div class="metric-label">Position</div><strong id="position">—</strong></div>
+          <div class="mini"><div class="metric-label" id="positionLabel">Last round position</div><strong id="position">—</strong></div>
           <div class="mini" hidden><div class="metric-label">Balls</div><strong id="balls">0</strong></div>
           <div class="mini" hidden><div class="metric-label">Server Accepted</div><strong id="serverDrops">0</strong></div>
         </div>
@@ -210,8 +212,10 @@
       </div>
 
       <div class="card">
-        <div class="metric-label">Leaderboard</div>
-        <div id="leaderboard" class="notice">Your authoritative server score will appear here after the V3 session is connected.</div>
+        <div class="metric-label" id="leaderboardTitle">Round results</div>
+        <div class="notice" id="resultsStatus">Connect your wallet to see round results.</div>
+        <div id="leaderboard" class="notice">Standings appear after submissions close.</div>
+        <div id="yourRoundResult" class="result-summary" hidden></div>
       </div>
 
       <div class="card">
@@ -227,7 +231,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.12 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.13 · Testnet only</div>
 </div>
 
 <script>
@@ -282,6 +286,7 @@ const state = {
   bucketFlashes: [],
   paddleFlashes: [],
   claimedPickups:new Set(),collectingPickups:new Set(),collectionBusy:0,superBusy:false,superUsed:0,
+  roundResults:null,standingsError:null,lastStandingsAt:0,standingsPhase:null,
   retryAt: 0,
   rules:null,normalDrops:0,lastDropAt:-Infinity,resultSubmitted:false,resultStatus:null,frozenResult:null,resultEventId:null,startedAt:null
 };
@@ -705,7 +710,7 @@ async function startGameSession(){
     throw new Error(data.error||"Start session failed");
   }
   if(data.server_time) state.serverOffset=new Date(data.server_time).getTime()-(requestStarted+Date.now())/2;
-  state.completed=false;
+  state.completed=false;state.lastStandingsAt=0;state.standingsPhase=null;
   state.serverScore=null;
   state.serverStateReadable=false;
   state.ballsOnBoard=[];
@@ -751,7 +756,10 @@ async function refreshServerState(){
   state.stateBusy=true;
   const sessionId=state.gameSessionId;
   try{
-    const data=await edgeRequest("ball-drop-player-state",{session_token:state.sessionToken,game_session_id:sessionId});
+    const phase=`${state.round?.id}:${serverNow()>new Date(state.round?.submission_deadline).getTime()?"closed":"open"}`;
+    const includeStandings=Date.now()-state.lastStandingsAt>=10000 || phase!==state.standingsPhase;
+    if(includeStandings){state.lastStandingsAt=Date.now();state.standingsPhase=phase;}
+    const data=await edgeRequest("ball-drop-player-state",{session_token:state.sessionToken,game_session_id:sessionId,include_standings:includeStandings});
     if(sessionId!==state.gameSessionId) return;
     const row=data.player_state;
     if(data.loaded!==true || !row) throw new Error("Player state unavailable");
@@ -773,7 +781,9 @@ async function refreshServerState(){
   if(!state.superBusy && !superBallReady()) state.superArmed=false;
   $("superBallBtn").textContent=state.superArmed?"Armed — click the board":"Arm Super Ball ×10";
   $("superBallBtn").disabled=!superBallReady() || state.superArmed;
-    $("leaderboard").textContent=state.resultStatus==="accepted"?`Confirmed round score: ${state.serverScore.toLocaleString()}`:"Live standings will appear after round validation";
+    if(includeStandings) state.standingsError=data.standings_error||null;
+    if(data.round_results) renderRoundResults(data.round_results);
+    updateResultsStatus();
   }catch(error){
     if(sessionId===state.gameSessionId){
       state.serverStateReadable=false;
@@ -783,6 +793,45 @@ async function refreshServerState(){
 }
 
 function serverNow(){return Date.now()+state.serverOffset;}
+function resultPoints(value){
+  const raw=String(value??"0");
+  return /^\d{1,80}$/.test(raw)?BigInt(raw).toLocaleString():"—";
+}
+function resultRank(result){return `${result.is_tied?"Tied ":""}#${Number(result.placement)}`;}
+function renderRoundResults(data){
+  if(!data.available){if(!state.roundResults) $("leaderboard").textContent="Standings appear after submissions close.";updateResultsStatus();return;}
+  if(state.roundResults && Number(data.round_number)<Number(state.roundResults.round_number)) return;
+  state.roundResults=data;
+  $("leaderboardTitle").textContent=`Round ${Number(data.round_number)} results`;
+  const rows=(data.entries||[]).filter(row=>Number.isInteger(row.placement) && row.placement>0);
+  $("leaderboard").innerHTML=rows.length?rows.map(row=>{
+    const wallet=/^0x[0-9a-f]{40}$/i.test(row.wallet_address||"")?row.wallet_address.toLowerCase():null;
+    const me=wallet && wallet===state.wallet?.toLowerCase();
+    const name=me?"You":wallet?`${wallet.slice(0,6)}…${wallet.slice(-4)}`:"Player";
+    return `<div class="leader-row${me?" you":""}"><span>${resultRank(row)} · ${name}</span><span class="leader-score">${resultPoints(row.score)}</span></div>`;
+  }).join("") : "No accepted scores this round.";
+  const mine=data.your_result;
+  $("yourRoundResult").hidden=false;
+  if(mine){
+    $("yourRoundResult").textContent=`You placed ${resultRank(mine)} of ${Number(data.players)} · ${resultPoints(mine.score)} points`;
+    $("position").textContent=resultRank(mine);
+  }else{
+    const messages={rejected:"Your score was rejected and is not ranked.",not_submitted:"Your result was not submitted in time.",not_played:"You did not play this round."};
+    $("yourRoundResult").textContent=messages[data.your_status]||"Your result is not ranked.";
+    $("position").textContent="—";
+  }
+  $("positionLabel").textContent=`Round ${Number(data.round_number)} position`;
+  updateResultsStatus();
+}
+function updateResultsStatus(){
+  if(!state.sessionToken){$("resultsStatus").textContent="Connect your wallet to see round results.";return;}
+  if(state.standingsError){$("resultsStatus").textContent=state.standingsError;return;}
+  const now=serverNow(),end=new Date(state.round?.gameplay_ends_at).getTime(),deadline=new Date(state.round?.submission_deadline).getTime();
+  if(now>=end && now<=deadline) $("resultsStatus").textContent="Waiting for all round submissions…";
+  else if(now>deadline && state.roundResults?.round_id!==state.round?.id) $("resultsStatus").textContent="Finalizing round results…";
+  else $("resultsStatus").textContent=state.roundResults?`${Number(state.roundResults.players)} ranked players · Top 10 shown`:"Results appear after the round closes.";
+}
+
 async function edgeRequest(name,body){
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),15000);
@@ -959,6 +1008,7 @@ document.querySelectorAll("[data-powerup]").forEach(btn=>{
 $("walletBtn").addEventListener("click",authenticateWallet);
 
 function countdown(){
+  updateResultsStatus();
   if(!state.round){
     $("timer").textContent="—:—";
     $("timerLabel").textContent="Waiting for round";
@@ -1054,6 +1104,9 @@ async function connectBackend(){
 }
 
 function resetWallet(){
+  state.roundResults=null;state.standingsError=null;state.lastStandingsAt=0;state.standingsPhase=null;
+  $("leaderboardTitle").textContent="Round results";$("leaderboard").textContent="Standings appear after submissions close.";
+  $("yourRoundResult").hidden=true;$("position").textContent="—";$("positionLabel").textContent="Last round position";
   state.recentScores=[];state.landingSequence=0;renderBallHistory();
   state.sessionToken=null;state.gameSessionId=null;state.wallet=null;state.round=null;
   state.lightningCharge=0;state.superBalls=0;state.superArmed=false;state.superBusy=false;state.serverStateReadable=false;state.serverScore=null;state.ballsOnBoard=[];state.score=0;state.rules=null;state.claimedPickups=new Set();state.collectingPickups=new Set();$("superBallBtn").disabled=true;
