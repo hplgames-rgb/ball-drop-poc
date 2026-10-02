@@ -209,7 +209,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.5 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.6 · Testnet only</div>
 </div>
 
 <script>
@@ -258,6 +258,7 @@ const state = {
   completed: false,
   serverOffset: 0,
   stateBusy: false,
+  bucketFlashes: [],
   retryAt: 0,
   rules:null,normalDrops:0,lastDropAt:-Infinity,resultSubmitted:false,resultStatus:null,frozenResult:null,resultEventId:null,startedAt:null
 };
@@ -332,7 +333,7 @@ function scoringRules(snapshot){
   if(!Number.isFinite(min)||!Number.isFinite(max)||min<1||max<min) return null;
   return {base:scoring.base_ball_points,buckets,rate,min,max,paddles:paddle?.enabled!==false};
 }
-function bucketValues(){return state.rules?.buckets || [0.5,1,1.5,1,0.5];}
+function bucketValues(){return state.rules?.buckets || [1.5,1,0.5,1,1.5,1,0.5,1,1.5];}
 function roundSeconds(){return Math.max(0,(serverNow()-new Date(state.round?.starts_at || state.startedAt || Date.now()).getTime())/1000);}
 function paddlesAt(w,time=roundSeconds()){
   const offsets=[-.32,-.16,0,.16,.32],rules=state.rules||{min:2,max:4};
@@ -354,6 +355,7 @@ function checkpoint(){
 function landBall(b,w){
   if(b.dead || state.frozenResult) return;
   const buckets=bucketValues(),lane=Math.max(0,Math.min(buckets.length-1,Math.floor(b.x/(w/buckets.length))));
+  state.bucketFlashes[lane]={at:Date.now()};
   b.finalPoints=Math.floor((b.value || state.rules?.base || 100)*buckets[lane]);
   state.score+=b.finalPoints;state.balls++;b.dead=true;checkpoint();
 }
@@ -463,6 +465,12 @@ function drawBoard(){
     const mult=bucketMultipliers[i];
     ctx.fillStyle=mult===1.5?"#294f70":"#18344e";
     ctx.fillRect(x+1,bucketTop,bucketW-2,bucketHeight);
+    const flash=state.bucketFlashes[i],glow=flash?Math.max(0,1-(Date.now()-flash.at)/750):0;
+    if(glow>0){
+      ctx.save();ctx.shadowColor="#ffd34d";ctx.shadowBlur=20*glow;
+      ctx.fillStyle=`rgba(255,211,77,${glow*.55})`;
+      ctx.fillRect(x+1,bucketTop,bucketW-2,bucketHeight);ctx.restore();
+    }
 
     ctx.strokeStyle="#3d6486";
     ctx.lineWidth=1;
@@ -587,7 +595,7 @@ async function startGameSession(){
   state.serverScore=null;
   state.serverStateReadable=false;
   state.ballsOnBoard=[];
-  state.balls=0;
+  state.balls=0;state.bucketFlashes=[];
   state.score=0;state.normalDrops=0;state.lastDropAt=-Infinity;
   state.resultSubmitted=false;state.resultStatus=null;state.frozenResult=null;state.resultEventId=null;
   state.rules=scoringRules(data.config_snapshot);state.startedAt=data.started_at;
