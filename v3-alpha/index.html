@@ -110,6 +110,14 @@
   }
   .power:disabled{opacity:.4;cursor:not-allowed}
   .power b{display:block;font-size:12px}.power span{font-size:11px;color:var(--muted)}
+  .score-history{margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:12px;background:#081625}
+  .score-history-list{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px;min-height:32px;align-items:center}
+  .score-chip{padding:6px 10px;border-radius:8px;background:#182b40;color:#ffe17d;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums}
+  .score-chip.super{color:#e4d2ff;background:#412760;border:1px solid #a477e0}
+  .score-chip.fresh{animation:score-pop .65s ease-out}
+  .history-empty{color:var(--muted);font-size:12px}
+  @keyframes score-pop{0%{box-shadow:0 0 18px #ffd34d88;transform:scale(1.12)}100%{box-shadow:0 0 0 transparent;transform:scale(1)}}
+  @media(prefers-reduced-motion:reduce){.score-chip.fresh{animation:none}}
   .notice{margin-top:12px;color:var(--muted);font-size:12px;line-height:1.45}
   .notice strong{color:#dce8f5}
   .config{
@@ -168,6 +176,10 @@
         <div class="hint" id="hint">Connect your wallet, then click the board to drop</div>
       </div>
 
+      <div class="score-history">
+        <div class="metric-label">Recent ball scores</div>
+        <div id="ballScoreHistory" class="score-history-list" role="list" aria-label="Latest 12 ball scores"><span class="history-empty">Scores appear as balls land</span></div>
+      </div>
       <div id="apiStatus" class="notice" role="status" aria-live="polite">Connecting…</div>
     </section>
 
@@ -215,7 +227,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.11 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.12 · Testnet only</div>
 </div>
 
 <script>
@@ -238,6 +250,8 @@ const state = {
   pool: 0,
   score: 0,
   balls: 0,
+  recentScores: [],
+  landingSequence: 0,
   lastRefresh: 0,
   running: true,
   ballsOnBoard: [],
@@ -407,7 +421,7 @@ async function launchSuperBall(position=aimPosition){
   function confirm(){
     ball.pendingApproval=false;
     if(ball.dead && ball.finalPoints!==undefined && !ball.credited && !state.frozenResult){
-      state.score+=ball.finalPoints;state.balls++;ball.credited=true;checkpoint();
+      state.score+=ball.finalPoints;state.balls++;ball.credited=true;recordBallScore(ball);checkpoint();
     }
   }
   try{
@@ -442,12 +456,26 @@ function checkpoint(){
   try{localStorage.setItem(`hpl-v3-score:${state.gameSessionId}`,JSON.stringify({score:state.score,normalDrops:state.normalDrops,lastDropAt:state.lastDropAt,
     frozenResult:state.frozenResult,resultEventId:state.resultEventId,resultSubmitted:state.resultSubmitted,resultStatus:state.resultStatus}));}catch{}
 }
+function renderBallHistory(freshOrder=null){
+  $("ballScoreHistory").innerHTML=state.recentScores.length ? state.recentScores.map(entry=>
+    `<span role="listitem" class="score-chip${entry.superBall?" super":""}${entry.order===freshOrder?" fresh":""}" aria-label="${entry.superBall?"Super Ball: ":""}${entry.points.toLocaleString()} points">${entry.superBall?"🟣 ":""}${entry.points.toLocaleString()}${entry.superBall?"!":""}</span>`
+  ).join("") : '<span class="history-empty">Scores appear as balls land</span>';
+}
+function recordBallScore(ball){
+  if(ball.historyRecorded || !ball.credited) return;
+  ball.historyRecorded=true;
+  state.recentScores.push({points:ball.finalPoints,superBall:!!ball.superBall,order:ball.historyOrder});
+  state.recentScores.sort((a,b)=>a.order-b.order);
+  state.recentScores=state.recentScores.slice(-12);
+  renderBallHistory(ball.historyOrder);
+}
 function landBall(b,w){
   if(b.dead || state.frozenResult) return;
   const buckets=bucketValues(),lane=Math.max(0,Math.min(buckets.length-1,Math.floor(b.x/(w/buckets.length))));
   state.bucketFlashes[lane]={at:Date.now()};
+  b.historyOrder=++state.landingSequence;
   b.finalPoints=Math.floor((b.value || state.rules?.base || 100)*buckets[lane]);
-  if(!b.pendingApproval){state.score+=b.finalPoints;state.balls++;b.credited=true;}
+  if(!b.pendingApproval){state.score+=b.finalPoints;state.balls++;b.credited=true;recordBallScore(b);}
   b.dead=true;checkpoint();
 }
 function displayScore(){
@@ -681,6 +709,7 @@ async function startGameSession(){
   state.serverScore=null;
   state.serverStateReadable=false;
   state.ballsOnBoard=[];
+  state.recentScores=[];state.landingSequence=0;renderBallHistory();
   state.balls=0;state.bucketFlashes=[];state.paddleFlashes=[];state.claimedPickups=new Set();state.collectingPickups=new Set();state.superUsed=0;
   state.score=0;state.normalDrops=0;state.lastDropAt=-Infinity;
   state.resultSubmitted=false;state.resultStatus=null;state.frozenResult=null;state.resultEventId=null;
@@ -1025,6 +1054,7 @@ async function connectBackend(){
 }
 
 function resetWallet(){
+  state.recentScores=[];state.landingSequence=0;renderBallHistory();
   state.sessionToken=null;state.gameSessionId=null;state.wallet=null;state.round=null;
   state.lightningCharge=0;state.superBalls=0;state.superArmed=false;state.superBusy=false;state.serverStateReadable=false;state.serverScore=null;state.ballsOnBoard=[];state.score=0;state.rules=null;state.claimedPickups=new Set();state.collectingPickups=new Set();$("superBallBtn").disabled=true;
   $("walletBtn").textContent="Connect Wallet";$("connection").textContent="Reconnect wallet";
