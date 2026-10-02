@@ -63,6 +63,7 @@
   .round{font-weight:800}.round span{color:var(--gold)}
   .phase{text-align:center;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.12em}
   .timer{text-align:right;font-variant-numeric:tabular-nums;font-weight:800;font-size:18px}
+  .timer-caption{display:block;color:var(--muted);font-size:11px;font-weight:500;margin-bottom:3px}
   .board-wrap{
     position:relative;overflow:hidden;border-radius:14px;border:1px solid #1e3853;
     background:
@@ -155,7 +156,7 @@
       <div class="roundbar">
         <div class="round">ROUND <span id="roundNumber">—</span></div>
         <div class="phase" id="phase">Waiting for active round</div>
-        <div class="timer" id="timer">—:—</div>
+        <div class="timer"><small class="timer-caption" id="timerLabel">Round ends in</small><span id="timer">—:—</span></div>
       </div>
 
       <div class="board-wrap">
@@ -214,7 +215,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.10 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.11 · Testnet only</div>
 </div>
 
 <script>
@@ -376,7 +377,7 @@ async function collectLightning(p){
   finally{if(state.gameSessionId===sessionId) state.collectingPickups.delete(p.index);state.collectionBusy=Math.max(0,state.collectionBusy-1);}
 }
 function superBallReady(){
-  return !!state.rules?.lightning?.enabled && state.superBalls>0 && !state.superBusy && !state.eventBusy && !state.completed && !state.frozenResult
+  return state.serverStateReadable && !!state.rules?.lightning?.enabled && state.superBalls>0 && !state.superBusy && !state.eventBusy && !state.completed && !state.frozenResult
     && state.superUsed<state.rules.lightning.max_super_balls_used_per_round
     && serverNow()<new Date(state.round?.gameplay_ends_at).getTime();
 }
@@ -684,8 +685,8 @@ async function startGameSession(){
   state.score=0;state.normalDrops=0;state.lastDropAt=-Infinity;
   state.resultSubmitted=false;state.resultStatus=null;state.frozenResult=null;state.resultEventId=null;
   state.rules=scoringRules(data.config_snapshot);state.startedAt=data.started_at;
-  state.lightningCharge=0;
-  state.superBalls=0;state.superArmed=false;
+  // Wallet-owned charge and inventory stay visible across the round transition.
+  state.superArmed=false;
 
   state.gameSessionId=data.game_session_id;
   state.clientSequence=0; // Player-state read or a sequence rejection resynchronizes restores.
@@ -931,20 +932,22 @@ $("walletBtn").addEventListener("click",authenticateWallet);
 function countdown(){
   if(!state.round){
     $("timer").textContent="—:—";
+    $("timerLabel").textContent="Waiting for round";
     setPowerupButtons(false);
     return;
   }
-  const end=new Date(state.round.gameplay_ends_at).getTime();
-  const ms=Math.max(0,end-serverNow());
-  const sec=Math.floor(ms/1000);
+  const now=serverNow(),end=new Date(state.round.gameplay_ends_at).getTime();
+  const inBreak=now>=end;
+  const next=new Date(state.round.next_round_at).getTime();
+  const target=inBreak && Number.isFinite(next)?next:end;
+  const sec=Math.ceil(Math.max(0,target-now)/1000);
+  $("timerLabel").textContent=inBreak?"Next round begins in":"Round ends in";
   $("timer").textContent=`${String(Math.floor(sec/60)).padStart(2,"0")}:${String(sec%60).padStart(2,"0")}`;
-  if(ms<=0){
-    $("phase").textContent="Round transition";
-    
+  if(inBreak){
+    $("phase").textContent=Number.isFinite(next) && now>=next?"Starting next round…":"Intermission";
     setPowerupButtons(false);
   } else {
     $("phase").textContent=state.gameSessionId ? "Gameplay active" : "Connect wallet";
-    
     setPowerupButtons(!state.gameSessionId ? false : !state.eventBusy && !state.completed);
   }
 }
@@ -1023,7 +1026,7 @@ async function connectBackend(){
 
 function resetWallet(){
   state.sessionToken=null;state.gameSessionId=null;state.wallet=null;state.round=null;
-  state.superArmed=false;state.superBusy=false;state.serverStateReadable=false;state.serverScore=null;state.ballsOnBoard=[];state.score=0;state.rules=null;state.claimedPickups=new Set();state.collectingPickups=new Set();$("superBallBtn").disabled=true;
+  state.lightningCharge=0;state.superBalls=0;state.superArmed=false;state.superBusy=false;state.serverStateReadable=false;state.serverScore=null;state.ballsOnBoard=[];state.score=0;state.rules=null;state.claimedPickups=new Set();state.collectingPickups=new Set();$("superBallBtn").disabled=true;
   $("walletBtn").textContent="Connect Wallet";$("connection").textContent="Reconnect wallet";
   $("statusDot").classList.remove("live");setPowerupButtons(false);
 }
