@@ -123,6 +123,7 @@
   .score-history{margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:12px;background:#081625}
   .score-history-list{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px;min-height:32px;align-items:center}
   .score-chip{padding:6px 10px;border-radius:8px;background:#182b40;color:#ffe17d;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums}
+  .score-chip.bonus{color:#9affcf;background:#153c2e;border:1px solid #38e39b}
   .score-chip.super{color:#e4d2ff;background:#412760;border:1px solid #a477e0}
   .score-chip.fresh{animation:score-pop .65s ease-out}
   .history-empty{color:var(--muted);font-size:12px}
@@ -240,7 +241,7 @@
       <div class="card">
         <div class="metric-label">Power-Ups</div>
         <div class="powerups">
-          <button class="power" data-powerup="DOUBLE_DROP" disabled><b>Double Drop · 10s</b><span id="doubleDropLabel">Loading inventory…</span></button>
+          <button class="power" data-powerup="DOUBLE_DROP" disabled><b id="doubleDropTitle">Double Drop · 15s</b><span id="doubleDropLabel">Loading inventory…</span></button>
           <button class="power" data-powerup="WIDE_BALL" disabled><b>Wide Ball</b><span>Server-authorized</span></button>
           <button class="power" data-powerup="PADDLE_EXTENDER" disabled><b>Paddle Extender</b><span>Server-authorized</span></button>
           <button class="power" data-powerup="LIGHTNING_MAGNET" disabled><b>Lightning Magnet</b><span>Server-authorized</span></button>
@@ -250,7 +251,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.16 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.17 · Testnet only</div>
 </div>
 
 <script>
@@ -485,13 +486,13 @@ function checkpoint(){
 }
 function renderBallHistory(freshOrder=null){
   $("ballScoreHistory").innerHTML=state.recentScores.length ? state.recentScores.map(entry=>
-    `<span role="listitem" class="score-chip${entry.superBall?" super":""}${entry.order===freshOrder?" fresh":""}" aria-label="${entry.superBall?"Super Ball: ":""}${entry.points.toLocaleString()} points">${entry.superBall?"🟣 ":""}${entry.points.toLocaleString()}${entry.superBall?"!":""}</span>`
+    `<span role="listitem" class="score-chip${entry.superBall?" super":entry.doubleDropBonus?" bonus":""}${entry.order===freshOrder?" fresh":""}" aria-label="${entry.superBall?"Super Ball: ":entry.doubleDropBonus?"Double Drop bonus: ":""}${entry.points.toLocaleString()} points">${entry.superBall?"🟣 ":entry.doubleDropBonus?"🟢 ":""}${entry.points.toLocaleString()}${entry.superBall?"!":""}</span>`
   ).join("") : '<span class="history-empty">Scores appear as balls land</span>';
 }
 function recordBallScore(ball){
   if(ball.historyRecorded || !ball.credited) return;
   ball.historyRecorded=true;
-  state.recentScores.push({points:ball.finalPoints,superBall:!!ball.superBall,order:ball.historyOrder});
+  state.recentScores.push({points:ball.finalPoints,superBall:!!ball.superBall,doubleDropBonus:!!ball.doubleDropBonus,order:ball.historyOrder});
   state.recentScores.sort((a,b)=>a.order-b.order);
   state.recentScores=state.recentScores.slice(-12);
   renderBallHistory(ball.historyOrder);
@@ -618,9 +619,9 @@ function drawBoard(){
   // Balls
   state.ballsOnBoard.forEach(b=>{
     ctx.beginPath();ctx.arc(b.x,b.y,7,0,Math.PI*2);
-    ctx.fillStyle=b.superBall?"#bfa2ff":"#ffd34d";ctx.shadowColor=b.superBall?"#bfa2ff":"#ffd34d";ctx.shadowBlur=14;ctx.fill();
+    ctx.fillStyle=ballColor(b);ctx.shadowColor=ballColor(b);ctx.shadowBlur=14;ctx.fill();
     ctx.shadowBlur=0;
-    ctx.fillStyle="#fff0a3";ctx.font="bold 12px Segoe UI";ctx.textAlign="left";
+    ctx.fillStyle=b.doubleDropBonus?"#9affcf":"#fff0a3";ctx.font="bold 12px Segoe UI";ctx.textAlign="left";
     ctx.fillText(Math.floor(b.value||state.rules?.base||100).toLocaleString(),b.x+11,b.y-8);
   });
 }
@@ -1002,6 +1003,7 @@ async function authenticateWallet(){
   }
 }
 
+function ballColor(ball){return ball.superBall?"#bfa2ff":ball.doubleDropBonus?"#38e39b":"#ffd34d";}
 function doubleDropActive(){
   return !!state.gameSessionId && !state.completed && !state.frozenResult &&
     serverNow()<state.doubleDropUntil && serverNow()<new Date(state.round?.gameplay_ends_at).getTime();
@@ -1016,6 +1018,7 @@ function applyDoubleDropState(data){
 }
 function setPowerupButtons(enabled){
   const config=state.rules?.powerups,dd=config?.double_drop;
+  $("doubleDropTitle").textContent=`Double Drop · ${dd?.duration_seconds||15}s`;
   const active=doubleDropActive();
   $("doubleDropStatus").hidden=!active;
   if(active) $("doubleDropStatus").textContent=`Double Drop · ${Math.ceil((state.doubleDropUntil-serverNow())/1000)}s`;
