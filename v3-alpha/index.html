@@ -56,6 +56,12 @@
     border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)
   }
   .game-card{padding:16px}
+  [hidden]{display:none!important}
+  .game-controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+  .game-controls .mini{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .game-controls .metric-label{margin:0}
+  .game-controls #superBallBtn{margin:0}
+  .game-controls strong{white-space:nowrap;color:var(--gold)}
   .roundbar{
     display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;
     padding:5px 3px 14px
@@ -169,6 +175,18 @@
         <div class="timer"><small class="timer-caption" id="timerLabel">Round ends in</small><span id="timer">—:—</span></div>
       </div>
 
+      <div class="game-controls" aria-label="Lightning and Super Ball controls">
+        <div class="mini">
+          <div class="metric-label">Super Balls</div>
+          <strong id="superBalls">0 ⚡</strong>
+          <button id="superBallBtn" class="config button" disabled>Arm Super Ball ×10</button>
+        </div>
+        <div class="mini">
+          <div class="metric-label">Lightning</div>
+          <strong id="lightningStatus">0 / 5 ⚡</strong>
+        </div>
+      </div>
+
       <div class="board-wrap">
         <canvas id="board"></canvas>
         <div class="pool-chip">
@@ -194,21 +212,7 @@
           <div class="mini" hidden><div class="metric-label">Balls</div><strong id="balls">0</strong></div>
           <div class="mini" hidden><div class="metric-label">Server Accepted</div><strong id="serverDrops">0</strong></div>
         </div>
-        <div class="mini" style="margin-top:10px">
-          <div class="metric-label">Super Balls</div>
-          <strong id="superBalls">0 ⚡</strong>
-          <button id="superBallBtn" class="config button" disabled>Arm Super Ball ×10</button>
-        </div>
-        <div class="mini" style="margin-top:10px">
-          <div class="metric-label">Lightning</div>
-          <strong id="lightningStatus">0 / 5 ⚡</strong>
-        </div>
-      </div>
 
-      <div class="card">
-        <div class="metric-label">Round Rewards</div>
-        <div class="metric gold" id="rewardPool">— HPL</div>
-        <div class="notice">The number above is read from the live round funding record — no seeded reward value.</div>
       </div>
 
       <div class="card">
@@ -218,6 +222,12 @@
         <div id="yourLiveResult" class="result-summary" hidden></div>
       </div>
       <div class="card">
+        <div class="metric-label">Round Rewards</div>
+        <div class="metric gold" id="rewardPool">— HPL</div>
+        <div class="notice">The number above is read from the live round funding record — no seeded reward value.</div>
+      </div>
+
+      <div class="card" hidden>
         <div class="metric-label" id="leaderboardTitle">Round results</div>
         <div class="notice" id="resultsStatus">Connect your wallet to see round results.</div>
         <div id="leaderboard" class="notice">Standings appear after submissions close.</div>
@@ -237,7 +247,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.14 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.15 · Testnet only</div>
 </div>
 
 <script>
@@ -564,24 +574,6 @@ function drawBoard(){
     ctx.fillText(paddleNames[i],x,paddleY+20);
   });
 
-  // Lightning charge indicators.
-  const boltStartX = w/2 - 62;
-  for(let i=0;i<5;i++){
-    const x = boltStartX + i*31;
-    const active = i < state.lightningCharge;
-    ctx.fillStyle = active ? "#ffd34d" : "#294762";
-    ctx.strokeStyle = active ? "#fff0a3" : "#476782";
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(x+4,235); ctx.lineTo(x-3,249); ctx.lineTo(x+3,249);
-    ctx.lineTo(x-3,264); ctx.lineTo(x+12,245); ctx.lineTo(x+5,245); ctx.closePath();
-    ctx.fill(); ctx.stroke();
-  }
-  ctx.fillStyle="#8ea4bd";
-  ctx.font="700 10px Segoe UI";
-  ctx.textAlign="center";
-  ctx.fillText(`LIGHTNING ${state.lightningCharge}/5`,w/2,280);
-
   // Active Lightning pickups.
   state.lightningPickups.forEach(p=>{
     drawLightningBolt(p.x,p.y,1.05,true);
@@ -769,7 +761,7 @@ async function refreshServerState(){
   const sessionId=state.gameSessionId;
   try{
     const phase=`${state.round?.id}:${serverNow()>new Date(state.round?.submission_deadline).getTime()?"closed":"open"}`;
-    const includeStandings=Date.now()-state.lastStandingsAt>=10000 || phase!==state.standingsPhase;
+    const includeStandings=false; // Previous results are no longer requested.
     if(includeStandings){state.lastStandingsAt=Date.now();state.standingsPhase=phase;}
     const includeLive=Date.now()-state.lastLiveAt>=LIVE_REFRESH_MS || state.liveSessionId!==sessionId;
     const snapshot={};
