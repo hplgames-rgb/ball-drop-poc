@@ -62,6 +62,8 @@
   .game-controls .metric-label{margin:0}
   .game-controls #superBallBtn{margin:0}
   .game-controls strong{white-space:nowrap;color:var(--gold)}
+  #doubleDropStatus{color:var(--green);border-color:var(--green);box-shadow:0 0 15px #38e39b33}
+  .power[data-powerup="DOUBLE_DROP"]:not(:disabled){border-color:var(--green);color:var(--text);cursor:pointer}
   .roundbar{
     display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;
     padding:5px 3px 14px
@@ -176,6 +178,7 @@
       </div>
 
       <div class="game-controls" aria-label="Lightning and Super Ball controls">
+        <div id="doubleDropStatus" class="mini" hidden></div>
         <div class="mini">
           <div class="metric-label">Super Balls</div>
           <strong id="superBalls">0 ⚡</strong>
@@ -237,7 +240,7 @@
       <div class="card">
         <div class="metric-label">Power-Ups</div>
         <div class="powerups">
-          <button class="power" data-powerup="DOUBLE_DROP" disabled><b>Double Drop</b><span>Server-authorized</span></button>
+          <button class="power" data-powerup="DOUBLE_DROP" disabled><b>Double Drop · 10s</b><span id="doubleDropLabel">Loading inventory…</span></button>
           <button class="power" data-powerup="WIDE_BALL" disabled><b>Wide Ball</b><span>Server-authorized</span></button>
           <button class="power" data-powerup="PADDLE_EXTENDER" disabled><b>Paddle Extender</b><span>Server-authorized</span></button>
           <button class="power" data-powerup="LIGHTNING_MAGNET" disabled><b>Lightning Magnet</b><span>Server-authorized</span></button>
@@ -247,7 +250,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.15 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.16 · Testnet only</div>
 </div>
 
 <script>
@@ -296,6 +299,7 @@ const state = {
   provider: null,
   timersStarted: false,
   eventBusy: false,
+  doubleDropUntil:0,doubleDropInventory:null,doubleDropActivations:0,powerupsActivated:0,powerupBusy:false,
   lifecycleBusy: false,
   completed: false,
   serverOffset: 0,
@@ -377,7 +381,7 @@ function scoringRules(snapshot){
   const paddle=scoring.bonus_paddle;
   const min=paddle?.enabled===false?1:Number(paddle?.min_multiplier),max=paddle?.enabled===false?1:Number(paddle?.max_multiplier);
   if(!Number.isFinite(min)||!Number.isFinite(max)||min<1||max<min) return null;
-  return {base:scoring.base_ball_points,buckets,rate,min,max,paddles:paddle?.enabled!==false,lightning:c.lightning};
+  return {base:scoring.base_ball_points,buckets,rate,min,max,paddles:paddle?.enabled!==false,lightning:c.lightning,powerups:c.powerups};
 }
 function bucketValues(){return state.rules?.buckets || [1.5,1,0.5,1,1.5,1,0.5,1,1.5];}
 function roundSeconds(){return Math.max(0,(serverNow()-new Date(state.round?.starts_at || state.startedAt || Date.now()).getTime())/1000);}
@@ -715,6 +719,7 @@ async function startGameSession(){
   $("liveLeaderboard").textContent="Loading current standings…";$("yourLiveResult").hidden=true;
   $("liveStatus").textContent="Provisional · syncing scores";
   state.completed=false;state.lastStandingsAt=0;state.standingsPhase=null;
+  state.doubleDropUntil=0;state.doubleDropActivations=0;state.powerupsActivated=0;state.doubleDropInventory=null;
   state.serverScore=null;
   state.serverStateReadable=false;
   state.ballsOnBoard=[];
@@ -775,6 +780,7 @@ async function refreshServerState(){
       include_standings:includeStandings,include_live:includeLive,...snapshot});
     if(sessionId!==state.gameSessionId) return;
     const row=data.player_state;
+    applyDoubleDropState(data);
     if(data.loaded!==true || !row) throw new Error("Player state unavailable");
     state.serverStateReadable=true;
     state.serverAcceptedDrops=Number(row.accepted_drops||0);
@@ -881,7 +887,7 @@ async function edgeRequest(name,body){
   }finally{clearTimeout(timeout);}
 }
 async function advanceRound(){
-  if(!state.sessionToken || state.authBusy || state.eventBusy || state.collectionBusy || state.superBusy || state.lifecycleBusy || Date.now()<state.retryAt) return;
+  if(!state.sessionToken || state.authBusy || state.eventBusy || state.collectionBusy || state.superBusy || state.powerupBusy || state.lifecycleBusy || Date.now()<state.retryAt) return;
   if(state.gameSessionId && serverNow()<new Date(state.round?.gameplay_ends_at).getTime()) return;
   state.lifecycleBusy=true;
   const lifecycleSession=state.gameSessionId,lifecycleToken=state.sessionToken;
@@ -996,10 +1002,58 @@ async function authenticateWallet(){
   }
 }
 
+function doubleDropActive(){
+  return !!state.gameSessionId && !state.completed && !state.frozenResult &&
+    serverNow()<state.doubleDropUntil && serverNow()<new Date(state.round?.gameplay_ends_at).getTime();
+}
+function applyDoubleDropState(data){
+  const row=data.player_state||{};
+  state.doubleDropUntil=new Date(row.double_drop_until||0).getTime();
+  state.doubleDropActivations=Number(row.double_drop_activations||0);
+  state.powerupsActivated=Number(row.powerups_activated||0);
+  state.doubleDropInventory=Number.isSafeInteger(data.double_drop_inventory)?data.double_drop_inventory:null;
+  setPowerupButtons(!state.completed && !state.frozenResult);
+}
 function setPowerupButtons(enabled){
+  const config=state.rules?.powerups,dd=config?.double_drop;
+  const active=doubleDropActive();
+  $("doubleDropStatus").hidden=!active;
+  if(active) $("doubleDropStatus").textContent=`Double Drop · ${Math.ceil((state.doubleDropUntil-serverNow())/1000)}s`;
+  let label=state.powerupBusy?"Confirming activation…":active?"Active · two balls per click":
+    state.doubleDropInventory===null?"Inventory unavailable":`${state.doubleDropInventory} owned · Activate`;
+  if(!active && state.doubleDropActivations>=1) label="Used this round";
+  else if(!active && state.rules && !dd?.duration_seconds) label="Available next round";
+  $("doubleDropLabel").textContent=label;
   document.querySelectorAll("[data-powerup]").forEach(btn=>{
-    btn.disabled=true; // Inventory-consuming effects are not wired into this scoring build.
+    btn.disabled=btn.dataset.powerup!=="DOUBLE_DROP" || !enabled || !state.serverStateReadable ||
+      !state.gameSessionId || !state.sessionToken || state.eventBusy || state.powerupBusy ||
+      state.lifecycleBusy || state.completed || !!state.frozenResult || !dd?.enabled || !(dd.duration_seconds>0) ||
+      !(state.doubleDropInventory>0) || state.doubleDropActivations>=Math.min(1,dd.max_activations_per_round||0) ||
+      state.powerupsActivated>=(config?.max_activated_per_round||0) ||
+      !(serverNow()<new Date(state.round?.gameplay_ends_at).getTime());
   });
+}
+async function activateDoubleDrop(){
+  const config=state.rules?.powerups;
+  if(!state.sessionToken || !state.gameSessionId || state.eventBusy || state.powerupBusy ||
+     state.completed || state.frozenResult || !state.serverStateReadable || !(state.doubleDropInventory>0) ||
+     state.doubleDropActivations>=1 || !config?.double_drop?.enabled || !(config.double_drop.duration_seconds>0) ||
+     state.powerupsActivated>=config.max_activated_per_round || serverNow()>=new Date(state.round?.gameplay_ends_at).getTime()) return;
+  const sessionId=state.gameSessionId;
+  state.powerupBusy=true;setPowerupButtons(false);
+  let error;
+  try{await submitGameEvent("POWERUP_ACTIVATE",{powerup_id:"DOUBLE_DROP"},crypto.randomUUID());}
+  catch(err){error=err;}
+  // Read confirmed timing even when the event response was lost. Never auto-respend.
+  try{
+    const data=await edgeRequest("ball-drop-player-state",{session_token:state.sessionToken,game_session_id:sessionId});
+    if(state.gameSessionId!==sessionId) return;
+    applyDoubleDropState(data);
+    state.clientSequence=Math.max(state.clientSequence,Number(data.last_accepted_sequence||0));
+    $("apiStatus").textContent=doubleDropActive()?"Double Drop active — two balls per normal click!":
+      error?`Double Drop not activated: ${error.message}`:"Double Drop activation confirmed; effect has ended.";
+  }catch(err){if(state.gameSessionId===sessionId) $("apiStatus").textContent="Checking Double Drop activation…";}
+  finally{if(state.gameSessionId===sessionId){state.powerupBusy=false;countdown();}}
 }
 
 function dropAt(chosenPosition){
@@ -1015,28 +1069,16 @@ function dropAt(chosenPosition){
   state.lastDropAt=now;state.normalDrops++;
   const w=canvas.clientWidth;
   state.ballsOnBoard.push({x:20+chosenPosition*(w-40),y:70,vx:(Math.random()-.5)*24,vy:70,value:state.rules.base,paddleHit:false});
+  if(doubleDropActive()){
+    const first=state.ballsOnBoard[state.ballsOnBoard.length-1];
+    first.x=Math.max(20,first.x-7);
+    state.ballsOnBoard.push({x:Math.min(w-20,20+chosenPosition*(w-40)+7),y:70,vx:(Math.random()-.5)*24,vy:70,value:state.rules.base,paddleHit:false,doubleDropBonus:true});
+  }
   checkpoint();
 }
 
 document.querySelectorAll("[data-powerup]").forEach(btn=>{
-  btn.addEventListener("click",async()=>{
-    if(!state.sessionToken || !state.gameSessionId || state.eventBusy) return;
-    state.eventBusy=true;
-    setPowerupButtons(false);
-    
-    try{
-      const data=await submitGameEvent("POWERUP_ACTIVATE",{powerup_id:btn.dataset.powerup});
-      $("apiStatus").textContent=`Power-up accepted: ${btn.dataset.powerup}`;
-      await refreshServerState();
-    }catch(err){
-      $("apiStatus").textContent=`Power-up rejected: ${err.message}`;
-      console.error(err);
-
-    }finally{
-      state.eventBusy=pendingEvents>0;
-      countdown();
-    }
-  });
+  btn.addEventListener("click",()=>{if(btn.dataset.powerup==="DOUBLE_DROP") void activateDoubleDrop();});
 });
 
 $("walletBtn").addEventListener("click",authenticateWallet);
@@ -1146,6 +1188,7 @@ function resetWallet(){
   $("yourRoundResult").hidden=true;$("position").textContent="—";$("positionLabel").textContent="Current position";
   state.recentScores=[];state.landingSequence=0;renderBallHistory();
   state.sessionToken=null;state.gameSessionId=null;state.wallet=null;state.round=null;
+  state.doubleDropUntil=0;state.doubleDropInventory=null;state.doubleDropActivations=0;state.powerupsActivated=0;state.powerupBusy=false;
   state.lightningCharge=0;state.superBalls=0;state.superArmed=false;state.superBusy=false;state.serverStateReadable=false;state.serverScore=null;state.ballsOnBoard=[];state.score=0;state.rules=null;state.claimedPickups=new Set();state.collectingPickups=new Set();$("superBallBtn").disabled=true;
   $("walletBtn").textContent="Connect Wallet";$("connection").textContent="Reconnect wallet";
   $("statusDot").classList.remove("live");setPowerupButtons(false);
