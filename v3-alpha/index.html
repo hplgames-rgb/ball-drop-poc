@@ -62,7 +62,8 @@
   .game-controls .metric-label{margin:0}
   .game-controls #superBallBtn{margin:0}
   .game-controls strong{white-space:nowrap;color:var(--gold)}
-  #paddleExtenderStatus{color:#8be9ff;border-color:#8be9ff}#purchaseItem{width:100%;padding:8px;background:#122942;color:var(--text);border:1px solid var(--line);border-radius:8px;margin:6px 0 10px}
+  #paddleExtenderStatus{color:#8be9ff;border-color:#8be9ff}
+  .marketplace-panel{margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:12px}.marketplace-panel>summary{cursor:pointer;font-weight:800}.marketplace-panel summary span{display:block;font-size:12px;color:var(--muted);margin-top:5px}.marketplace-panel p{font-size:12px;color:var(--muted)}.shop-grid{display:grid;gap:8px}.shop-item{padding:12px;border:1px solid var(--line);border-radius:10px;background:#0a1727}.shop-item.coming{opacity:.5}.shop-item output{min-width:36px;text-align:center;font-weight:800}.shop-item .quantity-controls{justify-content:center;margin-top:10px}
   #doubleDropStatus{color:var(--green);border-color:var(--green);box-shadow:0 0 15px #38e39b33}
   .power[data-powerup="DOUBLE_DROP"]:not(:disabled),.power[data-powerup="PADDLE_EXTENDER"]:not(:disabled){border-color:var(--green);color:var(--text);cursor:pointer}
   .roundbar{
@@ -283,22 +284,24 @@
 
       <div class="card">
         <div class="metric-label">Power-Ups</div>
-        <div class="mini" style="margin-bottom:10px">
-          <div class="checkout-item"><label for="purchaseItem">Item</label><select id="purchaseItem"><option value="1">Double Drop · 15s</option><option value="2">Paddle Extender · 8s</option></select><span id="purchaseUnitPrice">250 TEST-HPL each</span></div>
-          <label for="purchaseQuantity">Quantity</label>
-          <div class="quantity-controls">
-            <button id="purchaseMinus" type="button" aria-label="Decrease quantity">−</button>
-            <input id="purchaseQuantity" type="number" min="1" max="100" step="1" value="1">
-            <button id="purchasePlus" type="button" aria-label="Increase quantity">+</button>
+        <details id="marketplacePanel" class="marketplace-panel">
+          <summary>🛒 Marketplace <span id="cartSummary">Add powerups</span></summary>
+          <p>Stock up anytime. Activate owned powerups below during gameplay.</p>
+          <div class="shop-grid">
+            <article class="shop-item"><b>🟢 Double Drop</b><p>Two balls per normal click for 15 seconds.</p><div id="shopPrice1">250 TEST-HPL each</div><div class="quantity-controls"><button data-cart-id="1" data-cart-step="-1" aria-label="Remove one Double Drop">−</button><output id="cartQuantity1">0</output><button data-cart-id="1" data-cart-step="1" aria-label="Add one Double Drop">+</button></div></article>
+            <article class="shop-item"><b>↔ Paddle Extender</b><p>Double the paddle width for 8 seconds.</p><div id="shopPrice2">175 TEST-HPL each</div><div class="quantity-controls"><button data-cart-id="2" data-cart-step="-1" aria-label="Remove one Paddle Extender">−</button><output id="cartQuantity2">0</output><button data-cart-id="2" data-cart-step="1" aria-label="Add one Paddle Extender">+</button></div></article>
+            <article class="shop-item coming"><b>Wide Ball</b><p>Coming soon</p></article>
+            <article class="shop-item coming"><b>Lightning Magnet</b><p>Coming soon</p></article>
+            <article class="shop-item coming"><b>Extra Super Ball</b><p>Coming soon</p></article>
           </div>
-          <div id="purchaseTotal" class="checkout-total" aria-live="polite">Total: 250 TEST-HPL</div>
+          <div id="purchaseTotal" class="checkout-total" aria-live="polite">Total: 0 TEST-HPL</div>
           <div id="purchaseBalance" class="mini">Balance: connect your wallet</div>
           <div class="mini">Network fee shown in MetaMask.</div>
-          <button id="refreshPurchaseQuoteBtn" type="button" disabled>Refresh balance</button>
-          <button id="buyDoubleDropBtn" class="checkout-buy" disabled>Buy during intermission</button>
-          <div id="purchaseStatus" role="status" aria-live="polite">Purchases open between rounds.</div>
-
-        </div>
+          <button id="refreshPurchaseQuoteBtn" type="button" disabled>Refresh prices & balance</button>
+          <button id="buyDoubleDropBtn" class="checkout-buy" disabled>Checkout</button>
+          <div id="purchaseStatus" role="status" aria-live="polite">Add powerups to your cart.</div>
+        </details>
+        <div class="metric-label" style="margin-top:16px">Owned powerups · Activate</div>
         <div class="powerups">
           <button class="power" data-powerup="DOUBLE_DROP" disabled><b id="doubleDropTitle">Double Drop · 15s</b><span id="doubleDropLabel">Loading inventory…</span></button>
           <button class="power" data-powerup="WIDE_BALL" disabled><b>Wide Ball</b><span>Server-authorized</span></button>
@@ -310,7 +313,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.23 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.24 · Testnet only</div>
 </div>
 
 <script>
@@ -319,7 +322,7 @@ const MARKET={address:"0xc92c2f7359e20b336dfe14d6785f307194a14c4a",token:"0x7e8e
 const REFLECTIONS={address:"0x073741dfa10cab0d5f02f8dd4d8dbc817046df9a",claimTopic:"0xcaa03033c11df8560eb1a698ca7632211dfb8d82def73ba95db35495cd6a671b"};
 const reflectionState={loaded:false,readBusy:false,claimBusy:false,amount:null,balance:null,feeExempt:false,paused:false,excluded:false,pending:null,error:"",notice:"",lastRefresh:0,balanceGeneration:0};
 const SHOP={1:{name:"Double Drop",price:250000000000000000000n},2:{name:"Paddle Extender",price:175000000000000000000n}};
-const purchaseState={itemId:1,busy:false,pending:null,epoch:0,unitPrice:250000000000000000000n,balance:null,balanceError:false,quoteBusy:false,refreshAfterCredit:false};
+const purchaseState={cart:{1:0,2:0},prices:{1:250000000000000000000n,2:175000000000000000000n},itemId:1,busy:false,pending:null,epoch:0,unitPrice:250000000000000000000n,balance:null,balanceError:false,quoteBusy:false,refreshAfterCredit:false};
 const LIVE_REFRESH_MS=2000; // Alpha setting: increase this interval when scaling.
 const walletProviders=new Map();
 window.addEventListener("eip6963:announceProvider",event=>{
@@ -1276,49 +1279,47 @@ function restorePendingPurchase(){
   if(purchaseState.pending) $("purchaseStatus").textContent="Purchase receipt saved. Retry confirmation to recover your inventory.";
   updatePurchaseButton();
 }
-function purchaseBreak(){
-  const now=serverNow();return !!state.round && now>=new Date(state.round.gameplay_ends_at).getTime() && now<new Date(state.round.next_round_at).getTime();
-}
 function formatTestHpl(units){
   const n=BigInt(units),whole=n/1000000000000000000n;
   const fraction=(n%1000000000000000000n).toString().padStart(18,"0").replace(/0+$/,"");
   return `${whole.toLocaleString()}${fraction?"."+fraction:""}`;
 }
-function purchaseQuantity(){const n=Number($("purchaseQuantity").value);return Number.isSafeInteger(n)&&n>=1&&n<=100?n:null;}
+function formatBalance(units){const cents=BigInt(units)/10000000000000000n;return `${(cents/100n).toLocaleString()}.${(cents%100n).toString().padStart(2,"0")}`;}
+function cartItems(){return [1,2].filter(id=>purchaseState.cart[id]>0).map(id=>({power_up_id:id,quantity:purchaseState.cart[id]}));}
+function cartTotal(){return cartItems().reduce((sum,row)=>sum+purchaseState.prices[row.power_up_id]*BigInt(row.quantity),0n);}
+function changeCart(id,step){if(purchaseState.busy || purchaseState.quoteBusy || purchaseState.pending || !SHOP[id]) return;purchaseState.cart[id]=Math.max(0,Math.min(100,purchaseState.cart[id]+step));updatePurchaseButton();}
 function renderPurchaseCost(){
-  const quantity=purchaseQuantity();
-  $("purchaseUnitPrice").textContent=`${formatTestHpl(purchaseState.unitPrice)} TEST-HPL each`;
-  $("purchaseTotal").textContent=quantity?`Total: ${formatTestHpl(purchaseState.unitPrice*BigInt(quantity))} TEST-HPL`:"Choose a quantity from 1 to 100";
-  $("purchaseBalance").textContent=purchaseState.balance===null?state.wallet?purchaseState.balanceError?"Balance unavailable · try Refresh balance":"Balance: not loaded":"Balance: connect your wallet":`Balance: ${formatTestHpl(purchaseState.balance)} TEST-HPL`;
+  for(const id of [1,2]){$(`cartQuantity${id}`).textContent=String(purchaseState.cart[id]);$(`shopPrice${id}`).textContent=`${formatTestHpl(purchaseState.prices[id])} TEST-HPL each`;}
+  $("purchaseTotal").textContent=`Total: ${formatTestHpl(cartTotal())} TEST-HPL`;
+  const count=cartItems().reduce((sum,row)=>sum+row.quantity,0);$("cartSummary").textContent=count?`${count} item${count===1?"":"s"} · ${formatTestHpl(cartTotal())} TEST-HPL`:"Add powerups";
+  $("purchaseBalance").textContent=purchaseState.balance===null?state.wallet?purchaseState.balanceError?"Balance unavailable · try Refresh":"Balance: not loaded":"Balance: connect your wallet":`Balance: ${formatBalance(purchaseState.balance)} TEST-HPL`;
 }
-function applyPurchaseQuote(quote,quantity){
-  if(quote.marketplace!==MARKET.address || quote.token!==MARKET.token || quote.chain_id!==84532 || quote.power_up_id!==purchaseState.itemId || quote.quantity!==quantity) throw new Error("Unexpected marketplace configuration.");
-  const price=BigInt(quote.unit_price),balance=BigInt(quote.balance);
-  if(price<=0n || balance<0n || BigInt(quote.total_cost)!==price*BigInt(quantity)) throw new Error("Invalid purchase quote.");
-  purchaseState.unitPrice=price;purchaseState.balance=balance;purchaseState.balanceError=false;reflectionState.balance=balance;renderPurchaseCost();renderReflections();
+function applyCartQuote(quote,items){
+  if(quote.marketplace!==MARKET.address || quote.token!==MARKET.token || quote.chain_id!==84532 || !Array.isArray(quote.items) || quote.items.length!==items.length) throw new Error("Unexpected marketplace configuration.");
+  let total=0n;const prices={};
+  quote.items.forEach((row,i)=>{const expected=items[i],price=BigInt(row.unit_price);if(row.power_up_id!==expected.power_up_id || row.quantity!==expected.quantity || price<=0n) throw new Error("Invalid cart quote.");prices[row.power_up_id]=price;total+=price*BigInt(row.quantity);});
+  const balance=BigInt(quote.balance);if(BigInt(quote.total_cost)!==total || balance<0n) throw new Error("Invalid cart total.");
+  Object.assign(purchaseState.prices,prices);purchaseState.balance=balance;purchaseState.balanceError=false;reflectionState.balance=balance;renderPurchaseCost();renderReflections();
 }
 async function refreshPurchaseQuote(){
   if(!state.sessionToken || !state.wallet || purchaseState.quoteBusy || purchaseState.busy) return;
   const wallet=state.wallet,token=state.sessionToken,epoch=purchaseState.epoch,generation=reflectionState.balanceGeneration;
   purchaseState.quoteBusy=true;updatePurchaseButton();
   try{
-    const quote=await edgeRequest("marketplace-purchase",{session_token:token,action:"quote",power_up_id:purchaseState.itemId,quantity:1});
+    const quote=await edgeRequest("marketplace-purchase",{session_token:token,action:"quote",items:[{power_up_id:1,quantity:1},{power_up_id:2,quantity:1}]});
     if(purchaseState.epoch!==epoch || state.wallet!==wallet || state.sessionToken!==token || purchaseState.busy || reflectionState.claimBusy || generation!==reflectionState.balanceGeneration) return;
-    applyPurchaseQuote(quote,1);
+    applyCartQuote(quote,[{power_up_id:1,quantity:1},{power_up_id:2,quantity:1}]);
   }catch(error){if(purchaseState.epoch===epoch && state.sessionToken===token) purchaseState.balanceError=true;}
   finally{if(purchaseState.epoch===epoch){purchaseState.quoteBusy=false;updatePurchaseButton();}}
 }
 function updatePurchaseButton(){
   renderPurchaseCost();
   const btn=$("buyDoubleDropBtn");
-  btn.disabled=purchaseState.busy || reflectionState.claimBusy || !state.sessionToken || !state.wallet || !state.provider || (!purchaseState.pending && (!purchaseBreak() || !purchaseQuantity()));
-  btn.textContent=purchaseState.busy?"Confirming…":purchaseState.pending?"Retry purchase confirmation":purchaseBreak()?`Buy ${purchaseQuantity()||""} ${SHOP[purchaseState.itemId].name}${purchaseQuantity()===1?"":"s"}`:"Buy during intermission";
-  $("purchaseItem").disabled=purchaseState.busy || purchaseState.quoteBusy || !!purchaseState.pending;
-  $("purchaseQuantity").disabled=purchaseState.busy || !!purchaseState.pending;
-  $("purchaseMinus").disabled=$("purchaseQuantity").disabled || (purchaseQuantity()||1)<=1;
-  $("purchasePlus").disabled=$("purchaseQuantity").disabled || (purchaseQuantity()||100)>=100;
+  btn.disabled=purchaseState.busy || purchaseState.quoteBusy || reflectionState.claimBusy || !state.sessionToken || !state.wallet || !state.provider || (!purchaseState.pending && !cartItems().length);
+  btn.textContent=purchaseState.busy?"Confirming…":purchaseState.pending?"Retry purchase confirmation":"Checkout";
+  document.querySelectorAll("[data-cart-id]").forEach(btn=>{const id=Number(btn.dataset.cartId),step=Number(btn.dataset.cartStep);btn.disabled=purchaseState.busy || purchaseState.quoteBusy || !!purchaseState.pending || (step<0?purchaseState.cart[id]===0:purchaseState.cart[id]===100);});
   $("refreshPurchaseQuoteBtn").disabled=!state.sessionToken || purchaseState.busy || purchaseState.quoteBusy;
-  $("refreshPurchaseQuoteBtn").textContent=purchaseState.quoteBusy?"Refreshing…":"Refresh balance";
+  $("refreshPurchaseQuoteBtn").textContent=purchaseState.quoteBusy?"Refreshing…":"Refresh prices & balance";
   $("recoverPurchaseBtn").disabled=purchaseState.busy || !state.sessionToken || !state.wallet;
   $("recoverPurchaseBtn").textContent=purchaseState.busy?"Verifying…":purchaseState.pending?"Retry confirmation":"Verify receipt";
   $("purchaseReceiptHash").disabled=purchaseState.busy || !!purchaseState.pending;
@@ -1327,9 +1328,8 @@ function updatePurchaseButton(){
 }
 function uintWord(n){const value=BigInt(n);if(value<0n || value>=2n**256n) throw new Error("Invalid transaction amount");return value.toString(16).padStart(64,"0");}
 function approveData(total){return "0x095ea7b3"+MARKET.address.slice(2).padStart(64,"0")+uintWord(total);}
-function purchaseData(quantity,total,deadline,version,itemId=purchaseState.itemId){
-  return "0xdc84da91"+[160,224,total,deadline,version,1,itemId,1,quantity].map(uintWord).join("");
-}
+function purchaseData(quantity,total,deadline,version,itemId=purchaseState.itemId){return cartPurchaseData([{power_up_id:itemId,quantity}],total,deadline,version);}
+function cartPurchaseData(items,total,deadline,version){return "0xdc84da91"+[160,160+32*(items.length+1),total,deadline,version,items.length,...items.map(row=>row.power_up_id),items.length,...items.map(row=>row.quantity)].map(uintWord).join("");}
 async function assertPurchaseWallet(wallet,epoch){
   if(purchaseState.epoch!==epoch || state.wallet!==wallet || !state.sessionToken) throw new Error("Wallet changed. Reconnect the purchasing wallet.");
   const [chain,accounts]=await Promise.all([state.provider.request({method:"eth_chainId"}),state.provider.request({method:"eth_accounts"})]);
@@ -1358,10 +1358,10 @@ async function confirmPurchase(hash,wallet,token,epoch){
     if(purchaseState.epoch!==epoch || state.wallet!==wallet || state.sessionToken!==token) return;
     if(result.credited){
       localStorage.removeItem?.(purchaseStorageKey(wallet));purchaseState.pending=null;
-      if(result.item_id==="PADDLE_EXTENDER") state.paddleExtenderInventory=result.inventory;
-      else state.doubleDropInventory=result.inventory;
-      purchaseState.balance=null;purchaseState.refreshAfterCredit=true;reflectionState.balanceGeneration++;
-      $("purchaseStatus").textContent=`Purchased ${result.quantity_purchased} ${result.item_id==="PADDLE_EXTENDER"?"Paddle Extender":"Double Drop"} · ${result.inventory} owned`;
+      const credited=result.items||[result];
+      for(const row of credited){if(row.item_id==="PADDLE_EXTENDER") state.paddleExtenderInventory=row.inventory;else state.doubleDropInventory=row.inventory;}
+      purchaseState.cart={1:0,2:0};purchaseState.balance=null;purchaseState.refreshAfterCredit=true;reflectionState.balanceGeneration++;
+      $("purchaseStatus").textContent=`Purchase confirmed · ${credited.map(row=>`${row.quantity_purchased} ${row.item_id==="PADDLE_EXTENDER"?"Paddle Extender":"Double Drop"}`).join(" + ")}`;
       setPowerupButtons(!state.completed && !state.frozenResult);
       return;
     }
@@ -1373,27 +1373,25 @@ async function confirmPurchase(hash,wallet,token,epoch){
 }
 async function buyDoubleDrop(){
   if(purchaseState.busy || reflectionState.claimBusy || !state.sessionToken || !state.wallet || !state.provider) return;
-  if(!purchaseState.pending && !purchaseBreak()) return;
+
   const wallet=state.wallet,token=state.sessionToken,epoch=purchaseState.epoch;
   purchaseState.busy=true;updatePurchaseButton();
   try{
     if(purchaseState.pending){await confirmPurchase(purchaseState.pending,wallet,token,epoch);return;}
-    const quantity=purchaseQuantity();
-    if(!Number.isSafeInteger(quantity) || quantity<1 || quantity>100) throw new Error("Choose 1–100 items.");
+    const items=cartItems();
+    if(!items.length) throw new Error("Add a powerup to your cart.");
     // Ensure the browser can persist a receipt before spending tokens.
     const key=purchaseStorageKey(wallet);localStorage.setItem(key,"");localStorage.removeItem?.(key);
     await assertPurchaseWallet(wallet,epoch);
     $("purchaseStatus").textContent="Checking price and TEST-HPL balance…";
-    const displayedPrice=purchaseState.unitPrice;
-    const quote=await edgeRequest("marketplace-purchase",{session_token:token,action:"quote",power_up_id:purchaseState.itemId,quantity});
+    const displayedTotal=cartTotal();
+    const quote=await edgeRequest("marketplace-purchase",{session_token:token,action:"quote",items});
     if(purchaseState.epoch!==epoch || state.wallet!==wallet || state.sessionToken!==token) return;
-    applyPurchaseQuote(quote,quantity);
-    if(purchaseState.unitPrice!==displayedPrice) throw new Error("Price updated. Review the new total and click Buy again.");
-    if(quote.marketplace!==MARKET.address || quote.token!==MARKET.token || quote.chain_id!==84532 || quote.power_up_id!==purchaseState.itemId || quote.quantity!==quantity) throw new Error("Unexpected marketplace configuration.");
-    if(quote.paused) throw new Error("Marketplace is paused while setup is completed.");
-    if(!quote.active) throw new Error("This powerup is unavailable.");
+    applyCartQuote(quote,items);
     const total=BigInt(quote.total_cost);
-    if(total<=0n || total!==BigInt(quote.unit_price)*BigInt(quantity)) throw new Error("Invalid purchase quote.");
+    if(total!==displayedTotal) throw new Error("Price updated. Review the new total and click Checkout again.");
+    if(quote.paused) throw new Error("Marketplace is paused.");
+    if(quote.items.some(row=>!row.active)) throw new Error("A selected powerup is unavailable.");
     if(BigInt(quote.balance)<total) throw new Error("Not enough TEST-HPL for this purchase.");
     if(BigInt(quote.allowance)<total){
       $("purchaseStatus").textContent="Approve this purchase amount in MetaMask, then confirm the purchase.";
@@ -1402,11 +1400,10 @@ async function buyDoubleDrop(){
       await waitApproval(approval,wallet,epoch);
     }
     await assertPurchaseWallet(wallet,epoch);
-    if(!purchaseBreak()) throw new Error("The next round started. Your approval is saved; buy during the next intermission.");
     const deadline=Math.floor(serverNow()/1000)+120;
-    $("purchaseStatus").textContent=`Confirm ${quantity} ${SHOP[purchaseState.itemId].name} purchase in MetaMask.`;
+    $("purchaseStatus").textContent="Confirm your cart purchase in MetaMask.";
     const hash=await state.provider.request({method:"eth_sendTransaction",params:[{from:wallet,to:MARKET.address,
-      data:purchaseData(quantity,total,deadline,quote.revenue_version),value:"0x0"}]});
+      data:cartPurchaseData(items,total,deadline,quote.revenue_version),value:"0x0"}]});
     // Persist for the ORIGINAL wallet even if an account-change event just occurred.
     if(!/^0x[0-9a-f]{64}$/i.test(hash)) throw new Error("Wallet returned an invalid transaction hash.");
     if(purchaseState.epoch===epoch && state.wallet===wallet){purchaseState.pending=hash;$("purchaseReceiptHash").value=hash;}
@@ -1418,14 +1415,7 @@ async function buyDoubleDrop(){
     if(purchaseState.epoch===epoch) $("purchaseStatus").textContent=error.code===4001?"Transaction cancelled.":`${error.message}${purchaseState.pending?" Receipt saved; retry confirmation.":""}`;
   }finally{if(purchaseState.epoch===epoch){purchaseState.busy=false;updatePurchaseButton();if(purchaseState.refreshAfterCredit){purchaseState.refreshAfterCredit=false;void refreshPurchaseQuote();}}}
 }
-$("purchaseItem").addEventListener("change",()=>{
-  if(purchaseState.busy || purchaseState.quoteBusy || purchaseState.pending) return;
-  const item=Number($("purchaseItem").value);if(!SHOP[item]) return;
-  purchaseState.itemId=item;purchaseState.unitPrice=SHOP[item].price;updatePurchaseButton();void refreshPurchaseQuote();
-});
-$("purchaseQuantity").addEventListener("input",updatePurchaseButton);
-$("purchaseMinus").addEventListener("click",()=>{if($("purchaseQuantity").disabled)return;$("purchaseQuantity").value=String(Math.max(1,(purchaseQuantity()||1)-1));updatePurchaseButton();});
-$("purchasePlus").addEventListener("click",()=>{if($("purchaseQuantity").disabled)return;$("purchaseQuantity").value=String(Math.min(100,(purchaseQuantity()||1)+1));updatePurchaseButton();});
+document.querySelectorAll("[data-cart-id]").forEach(btn=>btn.addEventListener("click",()=>changeCart(Number(btn.dataset.cartId),Number(btn.dataset.cartStep))));
 $("refreshPurchaseQuoteBtn").addEventListener("click",()=>void refreshPurchaseQuote());
 $("buyDoubleDropBtn").addEventListener("click",()=>void buyDoubleDrop());
 $("recoverPurchaseBtn").addEventListener("click",()=>{
@@ -1445,7 +1435,7 @@ function restoreReflectionClaim(){
   renderReflections();
 }
 function renderReflections(){
-  $("reflectionWalletBalance").textContent=reflectionState.balance===null?state.wallet?"Loading…":"Connect your wallet":`${formatTestHpl(reflectionState.balance)} TEST-HPL`;
+  $("reflectionWalletBalance").textContent=reflectionState.balance===null?state.wallet?"Loading…":"Connect your wallet":`${formatBalance(reflectionState.balance)} TEST-HPL`;
   $("reflectionAmount").textContent=reflectionState.amount===null?"— TEST-HPL":`${formatTestHpl(reflectionState.amount)} TEST-HPL`;
   $("claimReflectionsBtn").disabled=!state.sessionToken || !state.provider || reflectionState.claimBusy || reflectionState.readBusy || purchaseState.busy ||
     (!reflectionState.pending && (!reflectionState.loaded || !reflectionState.feeExempt || reflectionState.paused || reflectionState.excluded || !(reflectionState.amount>0n)));
@@ -1539,8 +1529,9 @@ $("refreshReflectionsBtn").addEventListener("click",()=>{reflectionState.notice=
 setInterval(()=>{if(state.sessionToken && document.visibilityState!=="hidden" && Date.now()-reflectionState.lastRefresh>=30000) void refreshReflections();},30000);
 
 function resetWallet(){
+  purchaseState.cart={1:0,2:0};
   Object.assign(reflectionState,{loaded:false,readBusy:false,claimBusy:false,amount:null,balance:null,feeExempt:false,paused:false,excluded:false,pending:null,error:"",notice:"",lastRefresh:0,balanceGeneration:0});
-  purchaseState.epoch++;purchaseState.busy=false;purchaseState.pending=null;purchaseState.balance=null;purchaseState.balanceError=false;purchaseState.refreshAfterCredit=false;purchaseState.unitPrice=250000000000000000000n;purchaseState.quoteBusy=false;$("purchaseReceiptHash").value="";$("purchaseStatus").textContent="Purchases open between rounds.";updatePurchaseButton();
+  purchaseState.epoch++;purchaseState.busy=false;purchaseState.pending=null;purchaseState.balance=null;purchaseState.balanceError=false;purchaseState.refreshAfterCredit=false;purchaseState.unitPrice=250000000000000000000n;purchaseState.quoteBusy=false;$("purchaseReceiptHash").value="";$("purchaseStatus").textContent="Add powerups to your cart.";updatePurchaseButton();
   state.liveResults=null;state.lastLiveAt=0;state.liveSessionId=null;
   $("liveLeaderboardTitle").textContent="Current round leaderboard";$("liveLeaderboard").textContent="Waiting for players.";
   $("liveStatus").textContent="Connect your wallet to see current standings.";$("yourLiveResult").hidden=true;
