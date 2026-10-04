@@ -152,6 +152,12 @@
   .receipt-help p{color:var(--muted);line-height:1.5}
   .receipt-help button{margin-top:10px;padding:9px 12px;background:#122942;color:var(--text);border:1px solid var(--line);border-radius:8px;cursor:pointer}
   .receipt-help button:disabled{opacity:.5;cursor:default}
+  .checkout-item{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}.checkout-item strong{font-size:16px;color:var(--text)}
+  .quantity-controls{display:flex;gap:8px;align-items:center;margin:7px 0 12px}.quantity-controls input{width:76px;text-align:center}
+  .quantity-controls button,#refreshPurchaseQuoteBtn{border:1px solid var(--line);border-radius:8px;background:#122942;color:var(--text);padding:8px 12px;cursor:pointer}
+  .quantity-controls button{font-size:18px;min-width:38px}.checkout-total{color:#ffd34d;font-size:17px;font-weight:700;margin-bottom:9px}
+  #refreshPurchaseQuoteBtn{font-size:11px;margin:6px 0 10px}.checkout-buy{display:block;width:100%;padding:12px;background:#28b582;color:#051d16;font-weight:700;border:0;border-radius:10px;cursor:pointer;margin-bottom:10px}
+  .checkout-buy:disabled,.quantity-controls button:disabled,#refreshPurchaseQuoteBtn:disabled{opacity:.5;cursor:default}
   .footer{color:#607993;text-align:center;font-size:11px;padding:16px}
   @media(max-width:900px){
     .layout{grid-template-columns:1fr}.side{display:grid;grid-template-columns:1fr 1fr}
@@ -264,10 +270,19 @@
       <div class="card">
         <div class="metric-label">Power-Ups</div>
         <div class="mini" style="margin-bottom:10px">
-          <label for="purchaseQuantity">Buy Double Drop · quantity</label>
-          <input id="purchaseQuantity" type="number" min="1" max="100" step="1" value="1" style="width:60px">
-          <button id="buyDoubleDropBtn" disabled>Buy during intermission</button>
-          <div id="purchaseStatus" role="status" aria-live="polite">250 TEST-HPL each · Base Sepolia</div>
+          <div class="checkout-item"><strong>Double Drop</strong><span id="purchaseUnitPrice">250 TEST-HPL each</span></div>
+          <label for="purchaseQuantity">Quantity</label>
+          <div class="quantity-controls">
+            <button id="purchaseMinus" type="button" aria-label="Decrease Double Drop quantity">−</button>
+            <input id="purchaseQuantity" type="number" min="1" max="100" step="1" value="1">
+            <button id="purchasePlus" type="button" aria-label="Increase Double Drop quantity">+</button>
+          </div>
+          <div id="purchaseTotal" class="checkout-total" aria-live="polite">Total: 250 TEST-HPL</div>
+          <div id="purchaseBalance" class="mini">Balance: connect your wallet</div>
+          <div class="mini">Network fee shown in MetaMask.</div>
+          <button id="refreshPurchaseQuoteBtn" type="button" disabled>Refresh balance</button>
+          <button id="buyDoubleDropBtn" class="checkout-buy" disabled>Buy during intermission</button>
+          <div id="purchaseStatus" role="status" aria-live="polite">Purchases open between rounds.</div>
 
         </div>
         <div class="powerups">
@@ -281,13 +296,13 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.20 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.21 · Testnet only</div>
 </div>
 
 <script>
 const CONFIG={url:"https://brvnzzkatyxfxpevukzt.supabase.co",key:"sb_publishable_N7wjJGUvFGcNznaPN_aFZQ_nnSVYmZ0"};
 const MARKET={address:"0xc92c2f7359e20b336dfe14d6785f307194a14c4a",token:"0x7e8e2fbfdfc4337b926329dcceeb82440f51735c",chain:"0x14a34"};
-const purchaseState={busy:false,pending:null,epoch:0};
+const purchaseState={busy:false,pending:null,epoch:0,unitPrice:250000000000000000000n,balance:null,balanceError:false,quoteBusy:false,refreshAfterCredit:false};
 const LIVE_REFRESH_MS=2000; // Alpha setting: increase this interval when scaling.
 const walletProviders=new Map();
 window.addEventListener("eip6963:announceProvider",event=>{
@@ -1022,6 +1037,7 @@ async function authenticateWallet(){
     stage="Starting your round";
     await startGameSession();
     await refreshServerState();
+    void refreshPurchaseQuote();
 
   }catch(err){
     console.error(err);
@@ -1227,11 +1243,45 @@ function restorePendingPurchase(){
 function purchaseBreak(){
   const now=serverNow();return !!state.round && now>=new Date(state.round.gameplay_ends_at).getTime() && now<new Date(state.round.next_round_at).getTime();
 }
+function formatTestHpl(units){
+  const n=BigInt(units),whole=n/1000000000000000000n;
+  const fraction=(n%1000000000000000000n).toString().padStart(18,"0").replace(/0+$/,"");
+  return `${whole.toLocaleString()}${fraction?"."+fraction:""}`;
+}
+function purchaseQuantity(){const n=Number($("purchaseQuantity").value);return Number.isSafeInteger(n)&&n>=1&&n<=100?n:null;}
+function renderPurchaseCost(){
+  const quantity=purchaseQuantity();
+  $("purchaseUnitPrice").textContent=`${formatTestHpl(purchaseState.unitPrice)} TEST-HPL each`;
+  $("purchaseTotal").textContent=quantity?`Total: ${formatTestHpl(purchaseState.unitPrice*BigInt(quantity))} TEST-HPL`:"Choose a quantity from 1 to 100";
+  $("purchaseBalance").textContent=purchaseState.balance===null?state.wallet?purchaseState.balanceError?"Balance unavailable · try Refresh balance":"Balance: not loaded":"Balance: connect your wallet":`Balance: ${formatTestHpl(purchaseState.balance)} TEST-HPL`;
+}
+function applyPurchaseQuote(quote,quantity){
+  if(quote.marketplace!==MARKET.address || quote.token!==MARKET.token || quote.chain_id!==84532 || quote.power_up_id!==1 || quote.quantity!==quantity) throw new Error("Unexpected marketplace configuration.");
+  const price=BigInt(quote.unit_price),balance=BigInt(quote.balance);
+  if(price<=0n || balance<0n || BigInt(quote.total_cost)!==price*BigInt(quantity)) throw new Error("Invalid purchase quote.");
+  purchaseState.unitPrice=price;purchaseState.balance=balance;purchaseState.balanceError=false;renderPurchaseCost();
+}
+async function refreshPurchaseQuote(){
+  if(!state.sessionToken || !state.wallet || purchaseState.quoteBusy || purchaseState.busy) return;
+  const wallet=state.wallet,token=state.sessionToken,epoch=purchaseState.epoch;
+  purchaseState.quoteBusy=true;updatePurchaseButton();
+  try{
+    const quote=await edgeRequest("marketplace-purchase",{session_token:token,action:"quote",quantity:1});
+    if(purchaseState.epoch!==epoch || state.wallet!==wallet || state.sessionToken!==token || purchaseState.busy) return;
+    applyPurchaseQuote(quote,1);
+  }catch(error){if(purchaseState.epoch===epoch && state.sessionToken===token) purchaseState.balanceError=true;}
+  finally{if(purchaseState.epoch===epoch){purchaseState.quoteBusy=false;updatePurchaseButton();}}
+}
 function updatePurchaseButton(){
+  renderPurchaseCost();
   const btn=$("buyDoubleDropBtn");
-  btn.disabled=purchaseState.busy || !state.sessionToken || !state.wallet || !state.provider || (!purchaseState.pending && !purchaseBreak());
-  btn.textContent=purchaseState.busy?"Confirming…":purchaseState.pending?"Retry purchase confirmation":purchaseBreak()?"Buy Double Drop":"Buy during intermission";
+  btn.disabled=purchaseState.busy || !state.sessionToken || !state.wallet || !state.provider || (!purchaseState.pending && (!purchaseBreak() || !purchaseQuantity()));
+  btn.textContent=purchaseState.busy?"Confirming…":purchaseState.pending?"Retry purchase confirmation":purchaseBreak()?`Buy ${purchaseQuantity()||""} Double Drop${purchaseQuantity()===1?"":"s"}`:"Buy during intermission";
   $("purchaseQuantity").disabled=purchaseState.busy || !!purchaseState.pending;
+  $("purchaseMinus").disabled=$("purchaseQuantity").disabled || (purchaseQuantity()||1)<=1;
+  $("purchasePlus").disabled=$("purchaseQuantity").disabled || (purchaseQuantity()||100)>=100;
+  $("refreshPurchaseQuoteBtn").disabled=!state.sessionToken || purchaseState.busy || purchaseState.quoteBusy;
+  $("refreshPurchaseQuoteBtn").textContent=purchaseState.quoteBusy?"Refreshing…":"Refresh balance";
   $("recoverPurchaseBtn").disabled=purchaseState.busy || !state.sessionToken || !state.wallet;
   $("recoverPurchaseBtn").textContent=purchaseState.busy?"Verifying…":purchaseState.pending?"Retry confirmation":"Verify receipt";
   $("purchaseReceiptHash").disabled=purchaseState.busy || !!purchaseState.pending;
@@ -1272,6 +1322,7 @@ async function confirmPurchase(hash,wallet,token,epoch){
     if(result.credited){
       localStorage.removeItem?.(purchaseStorageKey(wallet));purchaseState.pending=null;
       state.doubleDropInventory=result.inventory;
+      purchaseState.balance=null;purchaseState.refreshAfterCredit=true;
       $("purchaseStatus").textContent=`Purchased ${result.quantity_purchased} Double Drop · ${result.inventory} owned`;
       setPowerupButtons(!state.completed && !state.frozenResult);
       return;
@@ -1289,13 +1340,17 @@ async function buyDoubleDrop(){
   purchaseState.busy=true;updatePurchaseButton();
   try{
     if(purchaseState.pending){await confirmPurchase(purchaseState.pending,wallet,token,epoch);return;}
-    const quantity=Number($("purchaseQuantity").value);
+    const quantity=purchaseQuantity();
     if(!Number.isSafeInteger(quantity) || quantity<1 || quantity>100) throw new Error("Choose 1–100 Double Drops.");
     // Ensure the browser can persist a receipt before spending tokens.
     const key=purchaseStorageKey(wallet);localStorage.setItem(key,"");localStorage.removeItem?.(key);
     await assertPurchaseWallet(wallet,epoch);
     $("purchaseStatus").textContent="Checking price and TEST-HPL balance…";
+    const displayedPrice=purchaseState.unitPrice;
     const quote=await edgeRequest("marketplace-purchase",{session_token:token,action:"quote",quantity});
+    if(purchaseState.epoch!==epoch || state.wallet!==wallet || state.sessionToken!==token) return;
+    applyPurchaseQuote(quote,quantity);
+    if(purchaseState.unitPrice!==displayedPrice) throw new Error("Price updated. Review the new total and click Buy again.");
     if(quote.marketplace!==MARKET.address || quote.token!==MARKET.token || quote.chain_id!==84532 || quote.power_up_id!==1 || quote.quantity!==quantity) throw new Error("Unexpected marketplace configuration.");
     if(quote.paused) throw new Error("Marketplace is paused while setup is completed.");
     if(!quote.active) throw new Error("Double Drop is unavailable.");
@@ -1323,8 +1378,12 @@ async function buyDoubleDrop(){
     await confirmPurchase(hash,wallet,token,epoch);
   }catch(error){
     if(purchaseState.epoch===epoch) $("purchaseStatus").textContent=error.code===4001?"Transaction cancelled.":`${error.message}${purchaseState.pending?" Receipt saved; retry confirmation.":""}`;
-  }finally{if(purchaseState.epoch===epoch){purchaseState.busy=false;updatePurchaseButton();}}
+  }finally{if(purchaseState.epoch===epoch){purchaseState.busy=false;updatePurchaseButton();if(purchaseState.refreshAfterCredit){purchaseState.refreshAfterCredit=false;void refreshPurchaseQuote();}}}
 }
+$("purchaseQuantity").addEventListener("input",updatePurchaseButton);
+$("purchaseMinus").addEventListener("click",()=>{if($("purchaseQuantity").disabled)return;$("purchaseQuantity").value=String(Math.max(1,(purchaseQuantity()||1)-1));updatePurchaseButton();});
+$("purchasePlus").addEventListener("click",()=>{if($("purchaseQuantity").disabled)return;$("purchaseQuantity").value=String(Math.min(100,(purchaseQuantity()||1)+1));updatePurchaseButton();});
+$("refreshPurchaseQuoteBtn").addEventListener("click",()=>void refreshPurchaseQuote());
 $("buyDoubleDropBtn").addEventListener("click",()=>void buyDoubleDrop());
 $("recoverPurchaseBtn").addEventListener("click",()=>{
   if(purchaseState.busy || !state.wallet || !state.sessionToken) return;
@@ -1337,7 +1396,7 @@ $("recoverPurchaseBtn").addEventListener("click",()=>{
 });
 
 function resetWallet(){
-  purchaseState.epoch++;purchaseState.busy=false;purchaseState.pending=null;$("purchaseReceiptHash").value="";$("purchaseStatus").textContent="250 TEST-HPL each · Base Sepolia";updatePurchaseButton();
+  purchaseState.epoch++;purchaseState.busy=false;purchaseState.pending=null;purchaseState.balance=null;purchaseState.balanceError=false;purchaseState.refreshAfterCredit=false;purchaseState.unitPrice=250000000000000000000n;purchaseState.quoteBusy=false;$("purchaseReceiptHash").value="";$("purchaseStatus").textContent="Purchases open between rounds.";updatePurchaseButton();
   state.liveResults=null;state.lastLiveAt=0;state.liveSessionId=null;
   $("liveLeaderboardTitle").textContent="Current round leaderboard";$("liveLeaderboard").textContent="Waiting for players.";
   $("liveStatus").textContent="Connect your wallet to see current standings.";$("yourLiveResult").hidden=true;
