@@ -185,6 +185,7 @@
             <label for="purchaseReceiptHash">Purchase transaction hash</label>
             <input id="purchaseReceiptHash" type="text" placeholder="0x…">
             <button id="recoverPurchaseBtn" disabled>Verify receipt</button>
+            <p id="receiptHelpStatus" role="status" aria-live="polite"></p>
           </details>
         </div>
       </details>
@@ -280,7 +281,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.19 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.20 · Testnet only</div>
 </div>
 
 <script>
@@ -1231,7 +1232,11 @@ function updatePurchaseButton(){
   btn.disabled=purchaseState.busy || !state.sessionToken || !state.wallet || !state.provider || (!purchaseState.pending && !purchaseBreak());
   btn.textContent=purchaseState.busy?"Confirming…":purchaseState.pending?"Retry purchase confirmation":purchaseBreak()?"Buy Double Drop":"Buy during intermission";
   $("purchaseQuantity").disabled=purchaseState.busy || !!purchaseState.pending;
-  $("recoverPurchaseBtn").disabled=purchaseState.busy || !state.sessionToken || !state.wallet || !!purchaseState.pending;
+  $("recoverPurchaseBtn").disabled=purchaseState.busy || !state.sessionToken || !state.wallet;
+  $("recoverPurchaseBtn").textContent=purchaseState.busy?"Verifying…":purchaseState.pending?"Retry confirmation":"Verify receipt";
+  $("purchaseReceiptHash").disabled=purchaseState.busy || !!purchaseState.pending;
+  if(purchaseState.pending) $("purchaseReceiptHash").value=purchaseState.pending;
+  $("receiptHelpStatus").textContent=$("purchaseStatus").textContent;
 }
 function uintWord(n){const value=BigInt(n);if(value<0n || value>=2n**256n) throw new Error("Invalid transaction amount");return value.toString(16).padStart(64,"0");}
 function approveData(total){return "0x095ea7b3"+MARKET.address.slice(2).padStart(64,"0")+uintWord(total);}
@@ -1253,6 +1258,8 @@ async function waitApproval(hash,wallet,epoch){
   throw new Error("Approval is still pending. Wait for MetaMask confirmation, then try Buy again.");
 }
 async function confirmPurchase(hash,wallet,token,epoch){
+  $("purchaseStatus").textContent="Verifying your saved purchase receipt…";
+  updatePurchaseButton();
   for(let n=0;n<12;n++){
     if(purchaseState.epoch!==epoch || state.wallet!==wallet || state.sessionToken!==token) return;
     let result;
@@ -1320,7 +1327,8 @@ async function buyDoubleDrop(){
 }
 $("buyDoubleDropBtn").addEventListener("click",()=>void buyDoubleDrop());
 $("recoverPurchaseBtn").addEventListener("click",()=>{
-  if(purchaseState.busy || purchaseState.pending || !state.wallet || !state.sessionToken) return;
+  if(purchaseState.busy || !state.wallet || !state.sessionToken) return;
+  if(purchaseState.pending){void buyDoubleDrop();return;}
   const hash=$("purchaseReceiptHash").value.trim();
   if(!/^0x[0-9a-f]{64}$/i.test(hash)){$("purchaseStatus").textContent="Enter the full purchase transaction hash.";return;}
   purchaseState.pending=hash;
