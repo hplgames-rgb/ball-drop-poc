@@ -62,8 +62,9 @@
   .game-controls .metric-label{margin:0}
   .game-controls #superBallBtn{margin:0}
   .game-controls strong{white-space:nowrap;color:var(--gold)}
+  #paddleExtenderStatus{color:#8be9ff;border-color:#8be9ff}#purchaseItem{width:100%;padding:8px;background:#122942;color:var(--text);border:1px solid var(--line);border-radius:8px;margin:6px 0 10px}
   #doubleDropStatus{color:var(--green);border-color:var(--green);box-shadow:0 0 15px #38e39b33}
-  .power[data-powerup="DOUBLE_DROP"]:not(:disabled){border-color:var(--green);color:var(--text);cursor:pointer}
+  .power[data-powerup="DOUBLE_DROP"]:not(:disabled),.power[data-powerup="PADDLE_EXTENDER"]:not(:disabled){border-color:var(--green);color:var(--text);cursor:pointer}
   .roundbar{
     display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;
     padding:5px 3px 14px
@@ -210,6 +211,7 @@
       </div>
 
       <div class="game-controls" aria-label="Lightning and Super Ball controls">
+        <div id="paddleExtenderStatus" class="mini" hidden></div>
         <div id="doubleDropStatus" class="mini" hidden></div>
         <div class="mini">
           <div class="metric-label">Super Balls</div>
@@ -282,12 +284,12 @@
       <div class="card">
         <div class="metric-label">Power-Ups</div>
         <div class="mini" style="margin-bottom:10px">
-          <div class="checkout-item"><strong>Double Drop</strong><span id="purchaseUnitPrice">250 TEST-HPL each</span></div>
+          <div class="checkout-item"><label for="purchaseItem">Item</label><select id="purchaseItem"><option value="1">Double Drop · 15s</option><option value="2">Paddle Extender · 8s</option></select><span id="purchaseUnitPrice">250 TEST-HPL each</span></div>
           <label for="purchaseQuantity">Quantity</label>
           <div class="quantity-controls">
-            <button id="purchaseMinus" type="button" aria-label="Decrease Double Drop quantity">−</button>
+            <button id="purchaseMinus" type="button" aria-label="Decrease quantity">−</button>
             <input id="purchaseQuantity" type="number" min="1" max="100" step="1" value="1">
-            <button id="purchasePlus" type="button" aria-label="Increase Double Drop quantity">+</button>
+            <button id="purchasePlus" type="button" aria-label="Increase quantity">+</button>
           </div>
           <div id="purchaseTotal" class="checkout-total" aria-live="polite">Total: 250 TEST-HPL</div>
           <div id="purchaseBalance" class="mini">Balance: connect your wallet</div>
@@ -300,7 +302,7 @@
         <div class="powerups">
           <button class="power" data-powerup="DOUBLE_DROP" disabled><b id="doubleDropTitle">Double Drop · 15s</b><span id="doubleDropLabel">Loading inventory…</span></button>
           <button class="power" data-powerup="WIDE_BALL" disabled><b>Wide Ball</b><span>Server-authorized</span></button>
-          <button class="power" data-powerup="PADDLE_EXTENDER" disabled><b>Paddle Extender</b><span>Server-authorized</span></button>
+          <button class="power" data-powerup="PADDLE_EXTENDER" disabled><b id="paddleExtenderTitle">Paddle Extender · 8s</b><span id="paddleExtenderLabel">Loading inventory…</span></button>
           <button class="power" data-powerup="LIGHTNING_MAGNET" disabled><b>Lightning Magnet</b><span>Server-authorized</span></button>
           <button class="power" data-powerup="EXTRA_SUPER_BALL" disabled><b>Extra Super Ball</b><span>Server-authorized</span></button>
         </div>
@@ -308,7 +310,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.22 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.23 · Testnet only</div>
 </div>
 
 <script>
@@ -316,7 +318,8 @@ const CONFIG={url:"https://brvnzzkatyxfxpevukzt.supabase.co",key:"sb_publishable
 const MARKET={address:"0xc92c2f7359e20b336dfe14d6785f307194a14c4a",token:"0x7e8e2fbfdfc4337b926329dcceeb82440f51735c",chain:"0x14a34"};
 const REFLECTIONS={address:"0x073741dfa10cab0d5f02f8dd4d8dbc817046df9a",claimTopic:"0xcaa03033c11df8560eb1a698ca7632211dfb8d82def73ba95db35495cd6a671b"};
 const reflectionState={loaded:false,readBusy:false,claimBusy:false,amount:null,balance:null,feeExempt:false,paused:false,excluded:false,pending:null,error:"",notice:"",lastRefresh:0,balanceGeneration:0};
-const purchaseState={busy:false,pending:null,epoch:0,unitPrice:250000000000000000000n,balance:null,balanceError:false,quoteBusy:false,refreshAfterCredit:false};
+const SHOP={1:{name:"Double Drop",price:250000000000000000000n},2:{name:"Paddle Extender",price:175000000000000000000n}};
+const purchaseState={itemId:1,busy:false,pending:null,epoch:0,unitPrice:250000000000000000000n,balance:null,balanceError:false,quoteBusy:false,refreshAfterCredit:false};
 const LIVE_REFRESH_MS=2000; // Alpha setting: increase this interval when scaling.
 const walletProviders=new Map();
 window.addEventListener("eip6963:announceProvider",event=>{
@@ -361,7 +364,7 @@ const state = {
   provider: null,
   timersStarted: false,
   eventBusy: false,
-  doubleDropUntil:0,doubleDropInventory:null,doubleDropActivations:0,powerupsActivated:0,powerupBusy:false,
+  paddleExtenderUntil:0,paddleExtenderInventory:null,paddleExtenderActivations:0,doubleDropUntil:0,doubleDropInventory:null,doubleDropActivations:0,powerupsActivated:0,powerupBusy:false,
   lifecycleBusy: false,
   completed: false,
   serverOffset: 0,
@@ -537,7 +540,7 @@ $("superBallBtn").addEventListener("click",armSuperBall);
 function applyPaddle(b,previousX,previousY,w){
   if(!state.rules?.paddles || b.paddleHit || previousY>185 || b.y<185 || b.y===previousY) return;
   const x=previousX+(b.x-previousX)*(185-previousY)/(b.y-previousY);
-  const paddle=paddlesAt(w).find(p=>Math.abs(x-p.x)<=37);
+  const paddle=paddlesAt(w).find(p=>Math.abs(x-p.x)<=paddleHalfWidth()+7);
   if(paddle){b.value*=paddle.mult;b.paddleHit=true;state.paddleFlashes[paddle.index]=Date.now();}
 }
 function checkpoint(){
@@ -622,11 +625,12 @@ function drawBoard(){
     // Paddle.
     ctx.save();
     const hitGlow=Math.max(0,1-(Date.now()-(state.paddleFlashes[i]||0))/600);
+    if(paddleExtenderActive()){ctx.shadowColor="#8be9ff";ctx.shadowBlur=12;}
     if(hitGlow>0){ctx.shadowColor="#ffd34d";ctx.shadowBlur=24*hitGlow;}
-    ctx.strokeStyle=hitGlow>0||mult>=4?"#ffd34d":"#6ea6d3";
+    ctx.strokeStyle=hitGlow>0||mult>=4?"#ffd34d":paddleExtenderActive()?"#8be9ff":"#6ea6d3";
     ctx.lineWidth=7;
     ctx.lineCap="round";
-    ctx.beginPath();ctx.moveTo(x-30,paddleY);ctx.lineTo(x+30,paddleY);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x-paddleHalfWidth(),paddleY);ctx.lineTo(x+paddleHalfWidth(),paddleY);ctx.stroke();
     ctx.lineCap="butt";
     ctx.restore();
 
@@ -781,7 +785,7 @@ async function startGameSession(){
   $("liveLeaderboard").textContent="Loading current standings…";$("yourLiveResult").hidden=true;
   $("liveStatus").textContent="Provisional · syncing scores";
   state.completed=false;state.lastStandingsAt=0;state.standingsPhase=null;
-  state.doubleDropUntil=0;state.doubleDropActivations=0;state.powerupsActivated=0;state.doubleDropInventory=null;
+  state.paddleExtenderUntil=0;state.paddleExtenderInventory=null;state.paddleExtenderActivations=0;state.doubleDropUntil=0;state.doubleDropActivations=0;state.powerupsActivated=0;state.doubleDropInventory=null;
   state.serverScore=null;
   state.serverStateReadable=false;
   state.ballsOnBoard=[];
@@ -1069,12 +1073,17 @@ async function authenticateWallet(){
 }
 
 function ballColor(ball){return ball.superBall?"#bfa2ff":ball.doubleDropBonus?"#38e39b":"#ffd34d";}
+function paddleExtenderActive(){return !!state.gameSessionId && !state.completed && !state.frozenResult && serverNow()<state.paddleExtenderUntil && serverNow()<new Date(state.round?.gameplay_ends_at).getTime();}
+function paddleHalfWidth(){return paddleExtenderActive()?60:30;}
 function doubleDropActive(){
   return !!state.gameSessionId && !state.completed && !state.frozenResult &&
     serverNow()<state.doubleDropUntil && serverNow()<new Date(state.round?.gameplay_ends_at).getTime();
 }
 function applyDoubleDropState(data){
   const row=data.player_state||{};
+  state.paddleExtenderUntil=new Date(row.paddle_extender_until||0).getTime();
+  state.paddleExtenderActivations=Number(row.paddle_extender_activations||0);
+  state.paddleExtenderInventory=Number.isSafeInteger(data.paddle_extender_inventory)?data.paddle_extender_inventory:null;
   state.doubleDropUntil=new Date(row.double_drop_until||0).getTime();
   state.doubleDropActivations=Number(row.double_drop_activations||0);
   state.powerupsActivated=Number(row.powerups_activated||0);
@@ -1092,7 +1101,16 @@ function setPowerupButtons(enabled){
   if(!active && state.doubleDropActivations>=1) label="Used this round";
   else if(!active && state.rules && !dd?.duration_seconds) label="Available next round";
   $("doubleDropLabel").textContent=label;
+  const pe=config?.paddle_extender,peActive=paddleExtenderActive();
+  $("paddleExtenderTitle").textContent=`Paddle Extender · ${pe?.duration_seconds||8}s`;
+  $("paddleExtenderStatus").hidden=!peActive;
+  if(peActive) $("paddleExtenderStatus").textContent=`Paddles ×2 width · ${Math.ceil((state.paddleExtenderUntil-serverNow())/1000)}s`;
+  $("paddleExtenderLabel").textContent=peActive?"Active · paddles twice as wide":state.paddleExtenderActivations>=1?"Used this round":state.paddleExtenderInventory===null?"Inventory unavailable":`${state.paddleExtenderInventory} owned · Activate`;
   document.querySelectorAll("[data-powerup]").forEach(btn=>{
+    if(btn.dataset.powerup==="PADDLE_EXTENDER"){
+      btn.disabled=!enabled || !state.serverStateReadable || !state.gameSessionId || !state.sessionToken || state.eventBusy || state.powerupBusy || state.lifecycleBusy || state.completed || !!state.frozenResult || !pe?.enabled || !(pe.duration_seconds>0) || !(state.paddleExtenderInventory>0) || state.paddleExtenderActivations>=Math.min(1,pe.max_activations_per_round||0) || state.powerupsActivated>=(config?.max_activated_per_round||0) || serverNow()>=new Date(state.round?.gameplay_ends_at).getTime();
+      return;
+    }
     btn.disabled=btn.dataset.powerup!=="DOUBLE_DROP" || !enabled || !state.serverStateReadable ||
       !state.gameSessionId || !state.sessionToken || state.eventBusy || state.powerupBusy ||
       state.lifecycleBusy || state.completed || !!state.frozenResult || !dd?.enabled || !(dd.duration_seconds>0) ||
@@ -1101,16 +1119,18 @@ function setPowerupButtons(enabled){
       !(serverNow()<new Date(state.round?.gameplay_ends_at).getTime());
   });
 }
-async function activateDoubleDrop(){
+async function activateDoubleDrop(){return activateTimedPowerup("DOUBLE_DROP");}
+async function activateTimedPowerup(item){
+  const extender=item==="PADDLE_EXTENDER",name=extender?"Paddle Extender":"Double Drop";
   const config=state.rules?.powerups;
   if(!state.sessionToken || !state.gameSessionId || state.eventBusy || state.powerupBusy ||
-     state.completed || state.frozenResult || !state.serverStateReadable || !(state.doubleDropInventory>0) ||
-     state.doubleDropActivations>=1 || !config?.double_drop?.enabled || !(config.double_drop.duration_seconds>0) ||
+     state.completed || state.frozenResult || !state.serverStateReadable || !(extender?state.paddleExtenderInventory>0:state.doubleDropInventory>0) ||
+     (extender?state.paddleExtenderActivations:state.doubleDropActivations)>=1 || !(extender?config?.paddle_extender?.enabled:config?.double_drop?.enabled) || !((extender?config.paddle_extender:config.double_drop).duration_seconds>0) ||
      state.powerupsActivated>=config.max_activated_per_round || serverNow()>=new Date(state.round?.gameplay_ends_at).getTime()) return;
   const sessionId=state.gameSessionId;
   state.powerupBusy=true;setPowerupButtons(false);
   let error;
-  try{await submitGameEvent("POWERUP_ACTIVATE",{powerup_id:"DOUBLE_DROP"},crypto.randomUUID());}
+  try{await submitGameEvent("POWERUP_ACTIVATE",{powerup_id:item},crypto.randomUUID());}
   catch(err){error=err;}
   // Read confirmed timing even when the event response was lost. Never auto-respend.
   try{
@@ -1118,9 +1138,8 @@ async function activateDoubleDrop(){
     if(state.gameSessionId!==sessionId) return;
     applyDoubleDropState(data);
     state.clientSequence=Math.max(state.clientSequence,Number(data.last_accepted_sequence||0));
-    $("apiStatus").textContent=doubleDropActive()?"Double Drop active — two balls per normal click!":
-      error?`Double Drop not activated: ${error.message}`:"Double Drop activation confirmed; effect has ended.";
-  }catch(err){if(state.gameSessionId===sessionId) $("apiStatus").textContent="Checking Double Drop activation…";}
+    $("apiStatus").textContent=(extender?paddleExtenderActive():doubleDropActive())?`${name} active!`:error?`${name} not activated: ${error.message}`:`${name} activation confirmed; effect has ended.`;
+  }catch(err){if(state.gameSessionId===sessionId) $("apiStatus").textContent=`Checking ${name} activation…`;}
   finally{if(state.gameSessionId===sessionId){state.powerupBusy=false;countdown();}}
 }
 
@@ -1146,7 +1165,7 @@ function dropAt(chosenPosition){
 }
 
 document.querySelectorAll("[data-powerup]").forEach(btn=>{
-  btn.addEventListener("click",()=>{if(btn.dataset.powerup==="DOUBLE_DROP") void activateDoubleDrop();});
+  btn.addEventListener("click",()=>{if(["DOUBLE_DROP","PADDLE_EXTENDER"].includes(btn.dataset.powerup)) void activateTimedPowerup(btn.dataset.powerup);});
 });
 
 $("walletBtn").addEventListener("click",authenticateWallet);
@@ -1273,7 +1292,7 @@ function renderPurchaseCost(){
   $("purchaseBalance").textContent=purchaseState.balance===null?state.wallet?purchaseState.balanceError?"Balance unavailable · try Refresh balance":"Balance: not loaded":"Balance: connect your wallet":`Balance: ${formatTestHpl(purchaseState.balance)} TEST-HPL`;
 }
 function applyPurchaseQuote(quote,quantity){
-  if(quote.marketplace!==MARKET.address || quote.token!==MARKET.token || quote.chain_id!==84532 || quote.power_up_id!==1 || quote.quantity!==quantity) throw new Error("Unexpected marketplace configuration.");
+  if(quote.marketplace!==MARKET.address || quote.token!==MARKET.token || quote.chain_id!==84532 || quote.power_up_id!==purchaseState.itemId || quote.quantity!==quantity) throw new Error("Unexpected marketplace configuration.");
   const price=BigInt(quote.unit_price),balance=BigInt(quote.balance);
   if(price<=0n || balance<0n || BigInt(quote.total_cost)!==price*BigInt(quantity)) throw new Error("Invalid purchase quote.");
   purchaseState.unitPrice=price;purchaseState.balance=balance;purchaseState.balanceError=false;reflectionState.balance=balance;renderPurchaseCost();renderReflections();
@@ -1283,8 +1302,8 @@ async function refreshPurchaseQuote(){
   const wallet=state.wallet,token=state.sessionToken,epoch=purchaseState.epoch,generation=reflectionState.balanceGeneration;
   purchaseState.quoteBusy=true;updatePurchaseButton();
   try{
-    const quote=await edgeRequest("marketplace-purchase",{session_token:token,action:"quote",quantity:1});
-    if(purchaseState.epoch!==epoch || state.wallet!==wallet || state.sessionToken!==token || purchaseState.busy) return;
+    const quote=await edgeRequest("marketplace-purchase",{session_token:token,action:"quote",power_up_id:purchaseState.itemId,quantity:1});
+    if(purchaseState.epoch!==epoch || state.wallet!==wallet || state.sessionToken!==token || purchaseState.busy || reflectionState.claimBusy || generation!==reflectionState.balanceGeneration) return;
     applyPurchaseQuote(quote,1);
   }catch(error){if(purchaseState.epoch===epoch && state.sessionToken===token) purchaseState.balanceError=true;}
   finally{if(purchaseState.epoch===epoch){purchaseState.quoteBusy=false;updatePurchaseButton();}}
@@ -1293,7 +1312,8 @@ function updatePurchaseButton(){
   renderPurchaseCost();
   const btn=$("buyDoubleDropBtn");
   btn.disabled=purchaseState.busy || reflectionState.claimBusy || !state.sessionToken || !state.wallet || !state.provider || (!purchaseState.pending && (!purchaseBreak() || !purchaseQuantity()));
-  btn.textContent=purchaseState.busy?"Confirming…":purchaseState.pending?"Retry purchase confirmation":purchaseBreak()?`Buy ${purchaseQuantity()||""} Double Drop${purchaseQuantity()===1?"":"s"}`:"Buy during intermission";
+  btn.textContent=purchaseState.busy?"Confirming…":purchaseState.pending?"Retry purchase confirmation":purchaseBreak()?`Buy ${purchaseQuantity()||""} ${SHOP[purchaseState.itemId].name}${purchaseQuantity()===1?"":"s"}`:"Buy during intermission";
+  $("purchaseItem").disabled=purchaseState.busy || purchaseState.quoteBusy || !!purchaseState.pending;
   $("purchaseQuantity").disabled=purchaseState.busy || !!purchaseState.pending;
   $("purchaseMinus").disabled=$("purchaseQuantity").disabled || (purchaseQuantity()||1)<=1;
   $("purchasePlus").disabled=$("purchaseQuantity").disabled || (purchaseQuantity()||100)>=100;
@@ -1307,8 +1327,8 @@ function updatePurchaseButton(){
 }
 function uintWord(n){const value=BigInt(n);if(value<0n || value>=2n**256n) throw new Error("Invalid transaction amount");return value.toString(16).padStart(64,"0");}
 function approveData(total){return "0x095ea7b3"+MARKET.address.slice(2).padStart(64,"0")+uintWord(total);}
-function purchaseData(quantity,total,deadline,version){
-  return "0xdc84da91"+[160,224,total,deadline,version,1,1,1,quantity].map(uintWord).join("");
+function purchaseData(quantity,total,deadline,version,itemId=purchaseState.itemId){
+  return "0xdc84da91"+[160,224,total,deadline,version,1,itemId,1,quantity].map(uintWord).join("");
 }
 async function assertPurchaseWallet(wallet,epoch){
   if(purchaseState.epoch!==epoch || state.wallet!==wallet || !state.sessionToken) throw new Error("Wallet changed. Reconnect the purchasing wallet.");
@@ -1338,9 +1358,10 @@ async function confirmPurchase(hash,wallet,token,epoch){
     if(purchaseState.epoch!==epoch || state.wallet!==wallet || state.sessionToken!==token) return;
     if(result.credited){
       localStorage.removeItem?.(purchaseStorageKey(wallet));purchaseState.pending=null;
-      state.doubleDropInventory=result.inventory;
+      if(result.item_id==="PADDLE_EXTENDER") state.paddleExtenderInventory=result.inventory;
+      else state.doubleDropInventory=result.inventory;
       purchaseState.balance=null;purchaseState.refreshAfterCredit=true;reflectionState.balanceGeneration++;
-      $("purchaseStatus").textContent=`Purchased ${result.quantity_purchased} Double Drop · ${result.inventory} owned`;
+      $("purchaseStatus").textContent=`Purchased ${result.quantity_purchased} ${result.item_id==="PADDLE_EXTENDER"?"Paddle Extender":"Double Drop"} · ${result.inventory} owned`;
       setPowerupButtons(!state.completed && !state.frozenResult);
       return;
     }
@@ -1358,19 +1379,19 @@ async function buyDoubleDrop(){
   try{
     if(purchaseState.pending){await confirmPurchase(purchaseState.pending,wallet,token,epoch);return;}
     const quantity=purchaseQuantity();
-    if(!Number.isSafeInteger(quantity) || quantity<1 || quantity>100) throw new Error("Choose 1–100 Double Drops.");
+    if(!Number.isSafeInteger(quantity) || quantity<1 || quantity>100) throw new Error("Choose 1–100 items.");
     // Ensure the browser can persist a receipt before spending tokens.
     const key=purchaseStorageKey(wallet);localStorage.setItem(key,"");localStorage.removeItem?.(key);
     await assertPurchaseWallet(wallet,epoch);
     $("purchaseStatus").textContent="Checking price and TEST-HPL balance…";
     const displayedPrice=purchaseState.unitPrice;
-    const quote=await edgeRequest("marketplace-purchase",{session_token:token,action:"quote",quantity});
+    const quote=await edgeRequest("marketplace-purchase",{session_token:token,action:"quote",power_up_id:purchaseState.itemId,quantity});
     if(purchaseState.epoch!==epoch || state.wallet!==wallet || state.sessionToken!==token) return;
     applyPurchaseQuote(quote,quantity);
     if(purchaseState.unitPrice!==displayedPrice) throw new Error("Price updated. Review the new total and click Buy again.");
-    if(quote.marketplace!==MARKET.address || quote.token!==MARKET.token || quote.chain_id!==84532 || quote.power_up_id!==1 || quote.quantity!==quantity) throw new Error("Unexpected marketplace configuration.");
+    if(quote.marketplace!==MARKET.address || quote.token!==MARKET.token || quote.chain_id!==84532 || quote.power_up_id!==purchaseState.itemId || quote.quantity!==quantity) throw new Error("Unexpected marketplace configuration.");
     if(quote.paused) throw new Error("Marketplace is paused while setup is completed.");
-    if(!quote.active) throw new Error("Double Drop is unavailable.");
+    if(!quote.active) throw new Error("This powerup is unavailable.");
     const total=BigInt(quote.total_cost);
     if(total<=0n || total!==BigInt(quote.unit_price)*BigInt(quantity)) throw new Error("Invalid purchase quote.");
     if(BigInt(quote.balance)<total) throw new Error("Not enough TEST-HPL for this purchase.");
@@ -1383,7 +1404,7 @@ async function buyDoubleDrop(){
     await assertPurchaseWallet(wallet,epoch);
     if(!purchaseBreak()) throw new Error("The next round started. Your approval is saved; buy during the next intermission.");
     const deadline=Math.floor(serverNow()/1000)+120;
-    $("purchaseStatus").textContent=`Confirm ${quantity} Double Drop purchase in MetaMask.`;
+    $("purchaseStatus").textContent=`Confirm ${quantity} ${SHOP[purchaseState.itemId].name} purchase in MetaMask.`;
     const hash=await state.provider.request({method:"eth_sendTransaction",params:[{from:wallet,to:MARKET.address,
       data:purchaseData(quantity,total,deadline,quote.revenue_version),value:"0x0"}]});
     // Persist for the ORIGINAL wallet even if an account-change event just occurred.
@@ -1397,6 +1418,11 @@ async function buyDoubleDrop(){
     if(purchaseState.epoch===epoch) $("purchaseStatus").textContent=error.code===4001?"Transaction cancelled.":`${error.message}${purchaseState.pending?" Receipt saved; retry confirmation.":""}`;
   }finally{if(purchaseState.epoch===epoch){purchaseState.busy=false;updatePurchaseButton();if(purchaseState.refreshAfterCredit){purchaseState.refreshAfterCredit=false;void refreshPurchaseQuote();}}}
 }
+$("purchaseItem").addEventListener("change",()=>{
+  if(purchaseState.busy || purchaseState.quoteBusy || purchaseState.pending) return;
+  const item=Number($("purchaseItem").value);if(!SHOP[item]) return;
+  purchaseState.itemId=item;purchaseState.unitPrice=SHOP[item].price;updatePurchaseButton();void refreshPurchaseQuote();
+});
 $("purchaseQuantity").addEventListener("input",updatePurchaseButton);
 $("purchaseMinus").addEventListener("click",()=>{if($("purchaseQuantity").disabled)return;$("purchaseQuantity").value=String(Math.max(1,(purchaseQuantity()||1)-1));updatePurchaseButton();});
 $("purchasePlus").addEventListener("click",()=>{if($("purchaseQuantity").disabled)return;$("purchaseQuantity").value=String(Math.min(100,(purchaseQuantity()||1)+1));updatePurchaseButton();});
@@ -1523,7 +1549,7 @@ function resetWallet(){
   $("yourRoundResult").hidden=true;$("position").textContent="—";$("positionLabel").textContent="Current position";
   state.recentScores=[];state.landingSequence=0;renderBallHistory();
   state.sessionToken=null;state.gameSessionId=null;state.wallet=null;state.round=null;
-  state.doubleDropUntil=0;state.doubleDropInventory=null;state.doubleDropActivations=0;state.powerupsActivated=0;state.powerupBusy=false;
+  state.paddleExtenderUntil=0;state.paddleExtenderInventory=null;state.paddleExtenderActivations=0;state.doubleDropUntil=0;state.doubleDropInventory=null;state.doubleDropActivations=0;state.powerupsActivated=0;state.powerupBusy=false;
   state.lightningCharge=0;state.superBalls=0;state.superArmed=false;state.superBusy=false;state.serverStateReadable=false;state.serverScore=null;state.ballsOnBoard=[];state.score=0;state.rules=null;state.claimedPickups=new Set();state.collectingPickups=new Set();$("superBallBtn").disabled=true;
   $("walletBtn").textContent="Connect Wallet";$("connection").textContent="Reconnect wallet";
   $("statusDot").classList.remove("live");setPowerupButtons(false);updatePurchaseButton();renderReflections();
