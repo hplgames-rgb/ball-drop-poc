@@ -292,7 +292,7 @@
             <article class="shop-item"><b>🟢 Double Drop</b><p>Two balls per normal click for 15 seconds.</p><div id="shopPrice1">250 TEST-HPL each</div><div class="quantity-controls"><button data-cart-id="1" data-cart-step="-1" aria-label="Remove one Double Drop">−</button><output id="cartQuantity1">0</output><button data-cart-id="1" data-cart-step="1" aria-label="Add one Double Drop">+</button></div></article>
             <article class="shop-item"><b>↔ Paddle Extender</b><p>Double the paddle width for 8 seconds.</p><div id="shopPrice2">175 TEST-HPL each</div><div class="quantity-controls"><button data-cart-id="2" data-cart-step="-1" aria-label="Remove one Paddle Extender">−</button><output id="cartQuantity2">0</output><button data-cart-id="2" data-cart-step="1" aria-label="Add one Paddle Extender">+</button></div></article>
             <article class="shop-item coming"><b>Wide Ball</b><p>Coming soon</p></article>
-            <article class="shop-item"><b>🧲 Lightning Magnet</b><p>Pull nearby balls toward lightning bolts for 10 seconds.</p><div id="shopPrice3">200 TEST-HPL each</div><div class="quantity-controls"><button data-cart-id="3" data-cart-step="-1" aria-label="Remove one Lightning Magnet">−</button><output id="cartQuantity3">0</output><button data-cart-id="3" data-cart-step="1" aria-label="Add one Lightning Magnet">+</button></div></article>
+            <article class="shop-item"><b>🧲 Lightning Magnet</b><p>Pull nearby balls toward lightning bolts for 25 seconds.</p><div id="shopPrice3">200 TEST-HPL each</div><div class="quantity-controls"><button data-cart-id="3" data-cart-step="-1" aria-label="Remove one Lightning Magnet">−</button><output id="cartQuantity3">0</output><button data-cart-id="3" data-cart-step="1" aria-label="Add one Lightning Magnet">+</button></div></article>
             <article class="shop-item coming"><b>Extra Super Ball</b><p>Coming soon</p></article>
           </div>
           <div id="purchaseTotal" class="checkout-total" aria-live="polite">Total: 0 TEST-HPL</div>
@@ -307,14 +307,14 @@
           <button class="power" data-powerup="DOUBLE_DROP" disabled><b id="doubleDropTitle">Double Drop · 15s</b><span id="doubleDropLabel">Loading inventory…</span></button>
           <button class="power" data-powerup="WIDE_BALL" disabled><b>Wide Ball</b><span>Server-authorized</span></button>
           <button class="power" data-powerup="PADDLE_EXTENDER" disabled><b id="paddleExtenderTitle">Paddle Extender · 8s</b><span id="paddleExtenderLabel">Loading inventory…</span></button>
-          <button class="power" data-powerup="LIGHTNING_MAGNET" disabled><b id="lightningMagnetTitle">Lightning Magnet · 10s</b><span id="lightningMagnetLabel">Loading inventory…</span></button>
+          <button class="power" data-powerup="LIGHTNING_MAGNET" disabled><b id="lightningMagnetTitle">Lightning Magnet · 25s</b><span id="lightningMagnetLabel">Loading inventory…</span></button>
           <button class="power" data-powerup="EXTRA_SUPER_BALL" disabled><b>Extra Super Ball</b><span>Server-authorized</span></button>
         </div>
       </div>
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.25 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.26 · Testnet only</div>
 </div>
 
 <script>
@@ -1118,7 +1118,7 @@ function setPowerupButtons(enabled){
   if(peActive) $("paddleExtenderStatus").textContent=`Paddles ×2 width · ${Math.ceil((state.paddleExtenderUntil-serverNow())/1000)}s`;
   $("paddleExtenderLabel").textContent=peActive?"Active · paddles twice as wide":state.paddleExtenderActivations>=1?"Used this round":state.paddleExtenderInventory===null?"Inventory unavailable":`${state.paddleExtenderInventory} owned · Activate`;
   const lm=config?.lightning_magnet,lmActive=lightningMagnetActive();
-  $("lightningMagnetTitle").textContent=`Lightning Magnet · ${lm?.duration_seconds||10}s`;
+  $("lightningMagnetTitle").textContent=`Lightning Magnet · ${lm?.duration_seconds||25}s`;
   $("lightningMagnetStatus").hidden=!lmActive;
   if(lmActive) $("lightningMagnetStatus").textContent=`🧲 Lightning Magnet · ${Math.ceil((state.lightningMagnetUntil-serverNow())/1000)}s`;
   $("lightningMagnetLabel").textContent=lmActive?"Active · nearby balls chase lightning":state.lightningMagnetActivations>=1?"Used this round":state.lightningMagnetInventory===null?"Inventory unavailable":`${state.lightningMagnetInventory} owned · Activate`;
