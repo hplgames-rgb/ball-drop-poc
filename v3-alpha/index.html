@@ -240,6 +240,17 @@
 
       <div class="card">
         <div class="metric-label">Power-Ups</div>
+        <div class="mini" style="margin-bottom:10px">
+          <label for="purchaseQuantity">Buy Double Drop · quantity</label>
+          <input id="purchaseQuantity" type="number" min="1" max="100" step="1" value="1" style="width:60px">
+          <button id="buyDoubleDropBtn" disabled>Buy during intermission</button>
+          <div id="purchaseStatus" role="status" aria-live="polite">250 TEST-HPL each · Base Sepolia</div>
+          <details><summary>Recover a purchase receipt</summary>
+            <label for="purchaseReceiptHash">Purchase transaction hash</label>
+            <input id="purchaseReceiptHash" type="text" placeholder="0x…" style="width:100%">
+            <button id="recoverPurchaseBtn" disabled>Verify receipt</button>
+          </details>
+        </div>
         <div class="powerups">
           <button class="power" data-powerup="DOUBLE_DROP" disabled><b id="doubleDropTitle">Double Drop · 15s</b><span id="doubleDropLabel">Loading inventory…</span></button>
           <button class="power" data-powerup="WIDE_BALL" disabled><b>Wide Ball</b><span>Server-authorized</span></button>
@@ -251,11 +262,13 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.17 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.18 · Testnet only</div>
 </div>
 
 <script>
 const CONFIG={url:"https://brvnzzkatyxfxpevukzt.supabase.co",key:"sb_publishable_N7wjJGUvFGcNznaPN_aFZQ_nnSVYmZ0"};
+const MARKET={address:"0xc92c2f7359e20b336dfe14d6785f307194a14c4a",token:"0x7e8e2fbfdfc4337b926329dcceeb82440f51735c",chain:"0x14a34"};
+const purchaseState={busy:false,pending:null,epoch:0};
 const LIVE_REFRESH_MS=2000; // Alpha setting: increase this interval when scaling.
 const walletProviders=new Map();
 window.addEventListener("eip6963:announceProvider",event=>{
@@ -930,7 +943,7 @@ async function advanceRound(){
 }
 
 async function authenticateWallet(){
-  if(state.authBusy) return;
+  if(state.authBusy || purchaseState.busy) return;
   state.authBusy=true;
   $("walletBtn").disabled=true;
   $("walletBtn").textContent="Connecting…";
@@ -982,6 +995,7 @@ async function authenticateWallet(){
     if(verified.authenticated!==true) throw new Error(verified.error||"Wallet verification failed");
 
     state.sessionToken=verified.session_token;
+    restorePendingPurchase();
     $("walletBtn").textContent=`${state.wallet.slice(0,6)}…${state.wallet.slice(-4)}`;
     $("connection").textContent="Wallet authenticated";
     $("statusDot").classList.add("live");
@@ -1087,6 +1101,7 @@ document.querySelectorAll("[data-powerup]").forEach(btn=>{
 $("walletBtn").addEventListener("click",authenticateWallet);
 
 function countdown(){
+  updatePurchaseButton();
   updateResultsStatus();
   if(!state.round){
     $("timer").textContent="—:—";
@@ -1182,7 +1197,121 @@ async function connectBackend(){
   else $("apiStatus").textContent="Connect your wallet to join. Public round preview is unavailable.";
 }
 
+
+function purchaseStorageKey(wallet){return `hpl-v3-purchase:${MARKET.chain}:${MARKET.address}:${wallet}`;}
+function restorePendingPurchase(){
+  try{const hash=localStorage.getItem(purchaseStorageKey(state.wallet));purchaseState.pending=/^0x[0-9a-f]{64}$/i.test(hash||"")?hash:null;}
+  catch{purchaseState.pending=null;}
+  if(purchaseState.pending) $("purchaseStatus").textContent="Purchase receipt saved. Retry confirmation to recover your inventory.";
+  updatePurchaseButton();
+}
+function purchaseBreak(){
+  const now=serverNow();return !!state.round && now>=new Date(state.round.gameplay_ends_at).getTime() && now<new Date(state.round.next_round_at).getTime();
+}
+function updatePurchaseButton(){
+  const btn=$("buyDoubleDropBtn");
+  btn.disabled=purchaseState.busy || !state.sessionToken || !state.wallet || !state.provider || (!purchaseState.pending && !purchaseBreak());
+  btn.textContent=purchaseState.busy?"Confirming…":purchaseState.pending?"Retry purchase confirmation":purchaseBreak()?"Buy Double Drop":"Buy during intermission";
+  $("purchaseQuantity").disabled=purchaseState.busy || !!purchaseState.pending;
+  $("recoverPurchaseBtn").disabled=purchaseState.busy || !state.sessionToken || !state.wallet || !!purchaseState.pending;
+}
+function uintWord(n){const value=BigInt(n);if(value<0n || value>=2n**256n) throw new Error("Invalid transaction amount");return value.toString(16).padStart(64,"0");}
+function approveData(total){return "0x095ea7b3"+MARKET.address.slice(2).padStart(64,"0")+uintWord(total);}
+function purchaseData(quantity,total,deadline,version){
+  return "0xdc84da91"+[160,224,total,deadline,version,1,1,1,quantity].map(uintWord).join("");
+}
+async function assertPurchaseWallet(wallet,epoch){
+  if(purchaseState.epoch!==epoch || state.wallet!==wallet || !state.sessionToken) throw new Error("Wallet changed. Reconnect the purchasing wallet.");
+  const [chain,accounts]=await Promise.all([state.provider.request({method:"eth_chainId"}),state.provider.request({method:"eth_accounts"})]);
+  if(chain!==MARKET.chain || accounts[0]?.toLowerCase()!==wallet) throw new Error("Use the authenticated wallet on Base Sepolia.");
+}
+async function waitApproval(hash,wallet,epoch){
+  for(let n=0;n<30;n++){
+    await assertPurchaseWallet(wallet,epoch);
+    const receipt=await state.provider.request({method:"eth_getTransactionReceipt",params:[hash]});
+    if(receipt){if(BigInt(receipt.status)!==1n) throw new Error("Token approval reverted.");return;}
+    await new Promise(resolve=>setTimeout(resolve,2000));
+  }
+  throw new Error("Approval is still pending. Wait for MetaMask confirmation, then try Buy again.");
+}
+async function confirmPurchase(hash,wallet,token,epoch){
+  for(let n=0;n<12;n++){
+    if(purchaseState.epoch!==epoch || state.wallet!==wallet || state.sessionToken!==token) return;
+    let result;
+    try{result=await edgeRequest("marketplace-purchase",{session_token:token,action:"confirm",transaction_hash:hash});}
+    catch(error){
+      if(error.data?.reverted===true || error.data?.invalid_receipt===true){localStorage.removeItem?.(purchaseStorageKey(wallet));purchaseState.pending=null;}
+      throw error;
+    }
+    if(purchaseState.epoch!==epoch || state.wallet!==wallet || state.sessionToken!==token) return;
+    if(result.credited){
+      localStorage.removeItem?.(purchaseStorageKey(wallet));purchaseState.pending=null;
+      state.doubleDropInventory=result.inventory;
+      $("purchaseStatus").textContent=`Purchased ${result.quantity_purchased} Double Drop · ${result.inventory} owned`;
+      setPowerupButtons(!state.completed && !state.frozenResult);
+      return;
+    }
+    if(!result.pending) throw new Error("Receipt not credited. Retry confirmation.");
+    $("purchaseStatus").textContent="Purchase sent · waiting for chain confirmations…";
+    await new Promise(resolve=>setTimeout(resolve,5000));
+  }
+  $("purchaseStatus").textContent="Still confirming. Your receipt is saved; click Retry confirmation later.";
+}
+async function buyDoubleDrop(){
+  if(purchaseState.busy || !state.sessionToken || !state.wallet || !state.provider) return;
+  if(!purchaseState.pending && !purchaseBreak()) return;
+  const wallet=state.wallet,token=state.sessionToken,epoch=purchaseState.epoch;
+  purchaseState.busy=true;updatePurchaseButton();
+  try{
+    if(purchaseState.pending){await confirmPurchase(purchaseState.pending,wallet,token,epoch);return;}
+    const quantity=Number($("purchaseQuantity").value);
+    if(!Number.isSafeInteger(quantity) || quantity<1 || quantity>100) throw new Error("Choose 1–100 Double Drops.");
+    // Ensure the browser can persist a receipt before spending tokens.
+    const key=purchaseStorageKey(wallet);localStorage.setItem(key,"");localStorage.removeItem?.(key);
+    await assertPurchaseWallet(wallet,epoch);
+    $("purchaseStatus").textContent="Checking price and TEST-HPL balance…";
+    const quote=await edgeRequest("marketplace-purchase",{session_token:token,action:"quote",quantity});
+    if(quote.marketplace!==MARKET.address || quote.token!==MARKET.token || quote.chain_id!==84532 || quote.power_up_id!==1 || quote.quantity!==quantity) throw new Error("Unexpected marketplace configuration.");
+    if(quote.paused) throw new Error("Marketplace is paused while setup is completed.");
+    if(!quote.active) throw new Error("Double Drop is unavailable.");
+    const total=BigInt(quote.total_cost);
+    if(total<=0n || total!==BigInt(quote.unit_price)*BigInt(quantity)) throw new Error("Invalid purchase quote.");
+    if(BigInt(quote.balance)<total) throw new Error("Not enough TEST-HPL for this purchase.");
+    if(BigInt(quote.allowance)<total){
+      $("purchaseStatus").textContent="Approve this purchase amount in MetaMask, then confirm the purchase.";
+      await assertPurchaseWallet(wallet,epoch);
+      const approval=await state.provider.request({method:"eth_sendTransaction",params:[{from:wallet,to:MARKET.token,data:approveData(total),value:"0x0"}]});
+      await waitApproval(approval,wallet,epoch);
+    }
+    await assertPurchaseWallet(wallet,epoch);
+    if(!purchaseBreak()) throw new Error("The next round started. Your approval is saved; buy during the next intermission.");
+    const deadline=Math.floor(serverNow()/1000)+120;
+    $("purchaseStatus").textContent=`Confirm ${quantity} Double Drop purchase in MetaMask.`;
+    const hash=await state.provider.request({method:"eth_sendTransaction",params:[{from:wallet,to:MARKET.address,
+      data:purchaseData(quantity,total,deadline,quote.revenue_version),value:"0x0"}]});
+    // Persist for the ORIGINAL wallet even if an account-change event just occurred.
+    if(!/^0x[0-9a-f]{64}$/i.test(hash)) throw new Error("Wallet returned an invalid transaction hash.");
+    if(purchaseState.epoch===epoch && state.wallet===wallet){purchaseState.pending=hash;$("purchaseReceiptHash").value=hash;}
+    try{localStorage.setItem(key,hash);}catch{if(purchaseState.epoch===epoch) $("purchaseStatus").textContent=`Copy your purchase transaction hash for recovery: ${hash}`;}
+    if(purchaseState.epoch!==epoch || state.wallet!==wallet || state.sessionToken!==token) return;
+    purchaseState.pending=hash;
+    await confirmPurchase(hash,wallet,token,epoch);
+  }catch(error){
+    if(purchaseState.epoch===epoch) $("purchaseStatus").textContent=error.code===4001?"Transaction cancelled.":`${error.message}${purchaseState.pending?" Receipt saved; retry confirmation.":""}`;
+  }finally{if(purchaseState.epoch===epoch){purchaseState.busy=false;updatePurchaseButton();}}
+}
+$("buyDoubleDropBtn").addEventListener("click",()=>void buyDoubleDrop());
+$("recoverPurchaseBtn").addEventListener("click",()=>{
+  if(purchaseState.busy || purchaseState.pending || !state.wallet || !state.sessionToken) return;
+  const hash=$("purchaseReceiptHash").value.trim();
+  if(!/^0x[0-9a-f]{64}$/i.test(hash)){$("purchaseStatus").textContent="Enter the full purchase transaction hash.";return;}
+  purchaseState.pending=hash;
+  try{localStorage.setItem(purchaseStorageKey(state.wallet),hash);}catch{}
+  void buyDoubleDrop();
+});
+
 function resetWallet(){
+  purchaseState.epoch++;purchaseState.busy=false;purchaseState.pending=null;$("purchaseReceiptHash").value="";$("purchaseStatus").textContent="250 TEST-HPL each · Base Sepolia";updatePurchaseButton();
   state.liveResults=null;state.lastLiveAt=0;state.liveSessionId=null;
   $("liveLeaderboardTitle").textContent="Current round leaderboard";$("liveLeaderboard").textContent="Waiting for players.";
   $("liveStatus").textContent="Connect your wallet to see current standings.";$("yourLiveResult").hidden=true;
@@ -1194,7 +1323,7 @@ function resetWallet(){
   state.doubleDropUntil=0;state.doubleDropInventory=null;state.doubleDropActivations=0;state.powerupsActivated=0;state.powerupBusy=false;
   state.lightningCharge=0;state.superBalls=0;state.superArmed=false;state.superBusy=false;state.serverStateReadable=false;state.serverScore=null;state.ballsOnBoard=[];state.score=0;state.rules=null;state.claimedPickups=new Set();state.collectingPickups=new Set();$("superBallBtn").disabled=true;
   $("walletBtn").textContent="Connect Wallet";$("connection").textContent="Reconnect wallet";
-  $("statusDot").classList.remove("live");setPowerupButtons(false);
+  $("statusDot").classList.remove("live");setPowerupButtons(false);updatePurchaseButton();
 }
 connectBackend().catch(error=>{$("apiStatus").textContent=`Round preview unavailable: ${error.message}. Connect your wallet to join.`;});
 drawBoard();
