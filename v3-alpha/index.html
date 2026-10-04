@@ -144,6 +144,14 @@
     margin-top:9px;padding:10px 14px;border:1px solid var(--line);border-radius:9px;
     background:#122942;color:var(--text);cursor:pointer
   }
+  .help-menu{position:relative;color:var(--text)}
+  .help-menu>summary{list-style:none;cursor:pointer;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:#122942;white-space:nowrap}
+  .help-menu>summary::-webkit-details-marker{display:none}
+  .help-panel{position:absolute;right:0;top:calc(100% + 8px);width:min(320px,calc(100vw - 30px));padding:16px;background:#081524;border:1px solid var(--line);border-radius:12px;z-index:50;box-shadow:0 12px 30px #0008;font-size:13px}
+  .receipt-help{margin-top:12px}.receipt-help summary{cursor:pointer;color:#d2e6ff}
+  .receipt-help p{color:var(--muted);line-height:1.5}
+  .receipt-help button{margin-top:10px;padding:9px 12px;background:#122942;color:var(--text);border:1px solid var(--line);border-radius:8px;cursor:pointer}
+  .receipt-help button:disabled{opacity:.5;cursor:default}
   .footer{color:#607993;text-align:center;font-size:11px;padding:16px}
   @media(max-width:900px){
     .layout{grid-template-columns:1fr}.side{display:grid;grid-template-columns:1fr 1fr}
@@ -166,6 +174,20 @@
       <button id="walletBtn" class="config button" style="margin:0;padding:9px 14px;border:1px solid var(--line);border-radius:10px;background:#122942;color:var(--text);cursor:pointer">
         Connect Wallet
       </button>
+      <details class="help-menu" id="helpMenu">
+        <summary aria-label="Open Help menu">☰ Help</summary>
+        <div class="help-panel">
+          <strong>Help</strong>
+          <details class="receipt-help">
+            <summary>Missing a powerup purchase?</summary>
+            <p>If your purchase succeeded but inventory is missing, first use Retry purchase confirmation beside the shop. You can also paste the purchase transaction hash from MetaMask below.</p>
+            <p>Verification does not charge you again or credit the same purchase twice.</p>
+            <label for="purchaseReceiptHash">Purchase transaction hash</label>
+            <input id="purchaseReceiptHash" type="text" placeholder="0x…">
+            <button id="recoverPurchaseBtn" disabled>Verify receipt</button>
+          </details>
+        </div>
+      </details>
       <div class="status"><span id="statusDot" class="dot"></span><span id="connection">Not connected</span></div>
     </div>
   </header>
@@ -245,11 +267,7 @@
           <input id="purchaseQuantity" type="number" min="1" max="100" step="1" value="1" style="width:60px">
           <button id="buyDoubleDropBtn" disabled>Buy during intermission</button>
           <div id="purchaseStatus" role="status" aria-live="polite">250 TEST-HPL each · Base Sepolia</div>
-          <details><summary>Recover a purchase receipt</summary>
-            <label for="purchaseReceiptHash">Purchase transaction hash</label>
-            <input id="purchaseReceiptHash" type="text" placeholder="0x…" style="width:100%">
-            <button id="recoverPurchaseBtn" disabled>Verify receipt</button>
-          </details>
+
         </div>
         <div class="powerups">
           <button class="power" data-powerup="DOUBLE_DROP" disabled><b id="doubleDropTitle">Double Drop · 15s</b><span id="doubleDropLabel">Loading inventory…</span></button>
@@ -262,7 +280,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.18 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.19 · Testnet only</div>
 </div>
 
 <script>
