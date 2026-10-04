@@ -158,6 +158,8 @@
   .quantity-controls button{font-size:18px;min-width:38px}.checkout-total{color:#ffd34d;font-size:17px;font-weight:700;margin-bottom:9px}
   #refreshPurchaseQuoteBtn{font-size:11px;margin:6px 0 10px}.checkout-buy{display:block;width:100%;padding:12px;background:#28b582;color:#051d16;font-weight:700;border:0;border-radius:10px;cursor:pointer;margin-bottom:10px}
   .checkout-buy:disabled,.quantity-controls button:disabled,#refreshPurchaseQuoteBtn:disabled{opacity:.5;cursor:default}
+  .wallet-refresh{padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:#122942;color:var(--text);cursor:pointer;margin-bottom:10px}.wallet-refresh:disabled{opacity:.5;cursor:default}
+  #reflectionWalletBalance,#reflectionAmount{overflow-wrap:anywhere}
   .footer{color:#607993;text-align:center;font-size:11px;padding:16px}
   @media(max-width:900px){
     .layout{grid-template-columns:1fr}.side{display:grid;grid-template-columns:1fr 1fr}
@@ -255,6 +257,16 @@
         <div id="yourLiveResult" class="result-summary" hidden></div>
       </div>
       <div class="card">
+        <div class="metric-label">Wallet &amp; Reflections</div>
+        <div class="mini">TEST-HPL balance</div>
+        <strong id="reflectionWalletBalance">Connect your wallet</strong>
+        <div class="mini" style="margin-top:12px">Claimable reflections</div>
+        <div id="reflectionAmount" class="checkout-total" style="margin-top:6px">— TEST-HPL</div>
+        <button id="claimReflectionsBtn" class="checkout-buy" disabled>Claim reflections</button>
+        <button id="refreshReflectionsBtn" type="button" class="wallet-refresh" disabled>Refresh wallet</button>
+        <div id="reflectionStatus" class="mini" role="status" aria-live="polite">Connect your wallet to view reflections.</div>
+      </div>
+      <div class="card">
         <div class="metric-label">Round Rewards</div>
         <div class="metric gold" id="rewardPool">— HPL</div>
         <div class="notice">The number above is read from the live round funding record — no seeded reward value.</div>
@@ -296,12 +308,14 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.21 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.22 · Testnet only</div>
 </div>
 
 <script>
 const CONFIG={url:"https://brvnzzkatyxfxpevukzt.supabase.co",key:"sb_publishable_N7wjJGUvFGcNznaPN_aFZQ_nnSVYmZ0"};
 const MARKET={address:"0xc92c2f7359e20b336dfe14d6785f307194a14c4a",token:"0x7e8e2fbfdfc4337b926329dcceeb82440f51735c",chain:"0x14a34"};
+const REFLECTIONS={address:"0x073741dfa10cab0d5f02f8dd4d8dbc817046df9a",claimTopic:"0xcaa03033c11df8560eb1a698ca7632211dfb8d82def73ba95db35495cd6a671b"};
+const reflectionState={loaded:false,readBusy:false,claimBusy:false,amount:null,balance:null,feeExempt:false,paused:false,excluded:false,pending:null,error:"",notice:"",lastRefresh:0,balanceGeneration:0};
 const purchaseState={busy:false,pending:null,epoch:0,unitPrice:250000000000000000000n,balance:null,balanceError:false,quoteBusy:false,refreshAfterCredit:false};
 const LIVE_REFRESH_MS=2000; // Alpha setting: increase this interval when scaling.
 const walletProviders=new Map();
@@ -977,7 +991,7 @@ async function advanceRound(){
 }
 
 async function authenticateWallet(){
-  if(state.authBusy || purchaseState.busy) return;
+  if(state.authBusy || purchaseState.busy || reflectionState.claimBusy) return;
   state.authBusy=true;
   $("walletBtn").disabled=true;
   $("walletBtn").textContent="Connecting…";
@@ -1030,6 +1044,7 @@ async function authenticateWallet(){
 
     state.sessionToken=verified.session_token;
     restorePendingPurchase();
+    restoreReflectionClaim();
     $("walletBtn").textContent=`${state.wallet.slice(0,6)}…${state.wallet.slice(-4)}`;
     $("connection").textContent="Wallet authenticated";
     $("statusDot").classList.add("live");
@@ -1038,6 +1053,7 @@ async function authenticateWallet(){
     await startGameSession();
     await refreshServerState();
     void refreshPurchaseQuote();
+    void refreshReflections();
 
   }catch(err){
     console.error(err);
@@ -1137,6 +1153,7 @@ $("walletBtn").addEventListener("click",authenticateWallet);
 
 function countdown(){
   updatePurchaseButton();
+  renderReflections();
   updateResultsStatus();
   if(!state.round){
     $("timer").textContent="—:—";
@@ -1259,11 +1276,11 @@ function applyPurchaseQuote(quote,quantity){
   if(quote.marketplace!==MARKET.address || quote.token!==MARKET.token || quote.chain_id!==84532 || quote.power_up_id!==1 || quote.quantity!==quantity) throw new Error("Unexpected marketplace configuration.");
   const price=BigInt(quote.unit_price),balance=BigInt(quote.balance);
   if(price<=0n || balance<0n || BigInt(quote.total_cost)!==price*BigInt(quantity)) throw new Error("Invalid purchase quote.");
-  purchaseState.unitPrice=price;purchaseState.balance=balance;purchaseState.balanceError=false;renderPurchaseCost();
+  purchaseState.unitPrice=price;purchaseState.balance=balance;purchaseState.balanceError=false;reflectionState.balance=balance;renderPurchaseCost();renderReflections();
 }
 async function refreshPurchaseQuote(){
   if(!state.sessionToken || !state.wallet || purchaseState.quoteBusy || purchaseState.busy) return;
-  const wallet=state.wallet,token=state.sessionToken,epoch=purchaseState.epoch;
+  const wallet=state.wallet,token=state.sessionToken,epoch=purchaseState.epoch,generation=reflectionState.balanceGeneration;
   purchaseState.quoteBusy=true;updatePurchaseButton();
   try{
     const quote=await edgeRequest("marketplace-purchase",{session_token:token,action:"quote",quantity:1});
@@ -1275,7 +1292,7 @@ async function refreshPurchaseQuote(){
 function updatePurchaseButton(){
   renderPurchaseCost();
   const btn=$("buyDoubleDropBtn");
-  btn.disabled=purchaseState.busy || !state.sessionToken || !state.wallet || !state.provider || (!purchaseState.pending && (!purchaseBreak() || !purchaseQuantity()));
+  btn.disabled=purchaseState.busy || reflectionState.claimBusy || !state.sessionToken || !state.wallet || !state.provider || (!purchaseState.pending && (!purchaseBreak() || !purchaseQuantity()));
   btn.textContent=purchaseState.busy?"Confirming…":purchaseState.pending?"Retry purchase confirmation":purchaseBreak()?`Buy ${purchaseQuantity()||""} Double Drop${purchaseQuantity()===1?"":"s"}`:"Buy during intermission";
   $("purchaseQuantity").disabled=purchaseState.busy || !!purchaseState.pending;
   $("purchaseMinus").disabled=$("purchaseQuantity").disabled || (purchaseQuantity()||1)<=1;
@@ -1322,7 +1339,7 @@ async function confirmPurchase(hash,wallet,token,epoch){
     if(result.credited){
       localStorage.removeItem?.(purchaseStorageKey(wallet));purchaseState.pending=null;
       state.doubleDropInventory=result.inventory;
-      purchaseState.balance=null;purchaseState.refreshAfterCredit=true;
+      purchaseState.balance=null;purchaseState.refreshAfterCredit=true;reflectionState.balanceGeneration++;
       $("purchaseStatus").textContent=`Purchased ${result.quantity_purchased} Double Drop · ${result.inventory} owned`;
       setPowerupButtons(!state.completed && !state.frozenResult);
       return;
@@ -1334,7 +1351,7 @@ async function confirmPurchase(hash,wallet,token,epoch){
   $("purchaseStatus").textContent="Still confirming. Your receipt is saved; click Retry confirmation later.";
 }
 async function buyDoubleDrop(){
-  if(purchaseState.busy || !state.sessionToken || !state.wallet || !state.provider) return;
+  if(purchaseState.busy || reflectionState.claimBusy || !state.sessionToken || !state.wallet || !state.provider) return;
   if(!purchaseState.pending && !purchaseBreak()) return;
   const wallet=state.wallet,token=state.sessionToken,epoch=purchaseState.epoch;
   purchaseState.busy=true;updatePurchaseButton();
@@ -1395,7 +1412,108 @@ $("recoverPurchaseBtn").addEventListener("click",()=>{
   void buyDoubleDrop();
 });
 
+
+function reflectionClaimKey(wallet){return `hpl-v3-reflection-claim:${MARKET.chain}:${REFLECTIONS.address}:${wallet}`;}
+function restoreReflectionClaim(){
+  try{const hash=localStorage.getItem(reflectionClaimKey(state.wallet));reflectionState.pending=/^0x[0-9a-f]{64}$/i.test(hash||"")?hash:null;}catch{reflectionState.pending=null;}
+  renderReflections();
+}
+function renderReflections(){
+  $("reflectionWalletBalance").textContent=reflectionState.balance===null?state.wallet?"Loading…":"Connect your wallet":`${formatTestHpl(reflectionState.balance)} TEST-HPL`;
+  $("reflectionAmount").textContent=reflectionState.amount===null?"— TEST-HPL":`${formatTestHpl(reflectionState.amount)} TEST-HPL`;
+  $("claimReflectionsBtn").disabled=!state.sessionToken || !state.provider || reflectionState.claimBusy || reflectionState.readBusy || purchaseState.busy ||
+    (!reflectionState.pending && (!reflectionState.loaded || !reflectionState.feeExempt || reflectionState.paused || reflectionState.excluded || !(reflectionState.amount>0n)));
+  $("claimReflectionsBtn").textContent=reflectionState.claimBusy?"Confirming claim…":reflectionState.pending?"Check claim confirmation":"Claim reflections";
+  $("refreshReflectionsBtn").disabled=!state.sessionToken || !state.provider || reflectionState.readBusy || reflectionState.claimBusy;
+  $("refreshReflectionsBtn").textContent=reflectionState.readBusy?"Refreshing…":"Refresh wallet";
+  $("reflectionStatus").textContent=!state.wallet?"Connect your wallet to view reflections.":reflectionState.error||reflectionState.notice||
+    (reflectionState.readBusy?"Refreshing wallet…":reflectionState.pending?"Claim receipt saved. Check confirmation before sending another claim.":
+    !reflectionState.loaded?"Reflections unavailable · try Refresh wallet":reflectionState.excluded?"This wallet is excluded from reflections.":
+    reflectionState.paused || !reflectionState.feeExempt?"Claims temporarily unavailable.":reflectionState.amount===0n?"No reflections to claim yet.":"Unclaimed reflections continue earning. Network fee shown in MetaMask.");
+}
+async function walletRpc(provider,method,params=[]){
+  let timer;try{return await Promise.race([provider.request({method,params}),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error("Wallet read timed out. Try Refresh wallet.")),12000);})]);}finally{clearTimeout(timer);}
+}
+async function reflectionSnapshot(wallet,provider){
+  if(!/^0x[0-9a-f]{40}$/i.test(wallet)) throw new Error("Invalid wallet address");
+  if(await walletRpc(provider,"eth_chainId")!==MARKET.chain) throw new Error("Switch to Base Sepolia to view reflections.");
+  const block=await walletRpc(provider,"eth_blockNumber");
+  const address=wallet.slice(2).padStart(64,"0"),ref=REFLECTIONS.address.slice(2).padStart(64,"0");
+  const specs=[
+    [REFLECTIONS.address,"0x720ec7cc"],[MARKET.token,"0xd1571e47"],
+    [REFLECTIONS.address,"0xf3f2432e"+address],[REFLECTIONS.address,"0x4a2ae305"],
+    [REFLECTIONS.address,"0xe6ba2648"+address],[MARKET.token,"0x4fbee193"+ref],
+    [MARKET.token,"0x70a08231"+address]
+  ];
+  const values=await Promise.all(specs.map(([to,data])=>walletRpc(provider,"eth_call",[{to,data},block])));
+  if("0x"+values[0].slice(-40).toLowerCase()!==MARKET.token || "0x"+values[1].slice(-40).toLowerCase()!==REFLECTIONS.address) throw new Error("Reflections configuration mismatch.");
+  return {amount:BigInt(values[2]),paused:BigInt(values[3])!==0n,excluded:BigInt(values[4])!==0n,feeExempt:BigInt(values[5])!==0n,balance:BigInt(values[6])};
+}
+async function refreshReflections(){
+  if(!state.sessionToken || !state.wallet || !state.provider || reflectionState.readBusy || reflectionState.claimBusy) return;
+  const wallet=state.wallet,token=state.sessionToken,epoch=purchaseState.epoch,provider=state.provider,generation=reflectionState.balanceGeneration;
+  reflectionState.readBusy=true;renderReflections();
+  try{
+    const snapshot=await reflectionSnapshot(wallet,provider);
+    if(epoch!==purchaseState.epoch || wallet!==state.wallet || token!==state.sessionToken || reflectionState.claimBusy || generation!==reflectionState.balanceGeneration) return;
+    Object.assign(reflectionState,snapshot,{loaded:true,error:"",lastRefresh:Date.now()});
+    purchaseState.balance=snapshot.balance;purchaseState.balanceError=false;renderPurchaseCost();
+  }catch(error){if(epoch===purchaseState.epoch && token===state.sessionToken){reflectionState.error=error.message;reflectionState.loaded=false;reflectionState.lastRefresh=Date.now();}}
+  finally{if(epoch===purchaseState.epoch){reflectionState.readBusy=false;renderReflections();}}
+}
+async function waitReflectionClaim(hash,wallet,token,epoch,provider){
+  for(let n=0;n<30;n++){
+    if(epoch!==purchaseState.epoch || wallet!==state.wallet || token!==state.sessionToken) return false;
+    if(await walletRpc(provider,"eth_chainId")!==MARKET.chain) throw new Error("Reconnect on Base Sepolia to check the saved claim.");
+    const receipt=await walletRpc(provider,"eth_getTransactionReceipt",[hash]);
+    if(receipt){
+      if(receipt.transactionHash?.toLowerCase()!==hash.toLowerCase()) throw new Error("Claim receipt mismatch.");
+      if(BigInt(receipt.status)!==1n){reflectionState.pending=null;localStorage.removeItem?.(reflectionClaimKey(wallet));throw new Error("Claim transaction reverted. Your reflections remain onchain.");}
+      // Smart-wallet relays change outer from/to. Trust only this distributor's event for this wallet.
+      const claimed=(receipt.logs||[]).find(log=>!log.removed && log.address?.toLowerCase()===REFLECTIONS.address &&
+        log.topics?.[0]?.toLowerCase()===REFLECTIONS.claimTopic && "0x"+log.topics?.[1]?.slice(-40).toLowerCase()===wallet);
+      if(!claimed) throw new Error("No reflection claim for this wallet in the receipt. Keep the hash for troubleshooting.");
+      reflectionState.pending=null;localStorage.removeItem?.(reflectionClaimKey(wallet));
+      reflectionState.notice="Claim confirmed. Your wallet balance is being refreshed.";
+      return true;
+    }
+    reflectionState.notice="Claim sent · waiting for confirmation…";renderReflections();
+    await new Promise(resolve=>setTimeout(resolve,2000));
+  }
+  reflectionState.notice="Claim still pending. Its receipt is saved; use Check claim confirmation later.";
+  return false;
+}
+async function claimReflections(){
+  if(!state.sessionToken || !state.wallet || !state.provider || reflectionState.claimBusy || reflectionState.readBusy || purchaseState.busy) return;
+  const wallet=state.wallet,token=state.sessionToken,epoch=purchaseState.epoch,provider=state.provider;
+  let confirmed=false;reflectionState.claimBusy=true;reflectionState.error="";reflectionState.notice="Checking your claim…";renderReflections();updatePurchaseButton();
+  try{
+    await assertPurchaseWallet(wallet,epoch);
+    if(reflectionState.pending){confirmed=await waitReflectionClaim(reflectionState.pending,wallet,token,epoch,provider);return;}
+    const snapshot=await reflectionSnapshot(wallet,provider);
+    if(epoch!==purchaseState.epoch || wallet!==state.wallet || token!==state.sessionToken) return;
+    Object.assign(reflectionState,snapshot,{loaded:true});
+    if(!snapshot.feeExempt || snapshot.paused) throw new Error("Claims temporarily unavailable.");
+    if(snapshot.excluded) throw new Error("This wallet is excluded from reflections.");
+    if(snapshot.amount<=0n) throw new Error("No reflections to claim yet.");
+    const key=reflectionClaimKey(wallet);localStorage.setItem(key,"");localStorage.removeItem?.(key);
+    await assertPurchaseWallet(wallet,epoch);
+    reflectionState.notice="Confirm the reflection claim in MetaMask.";renderReflections();
+    const hash=await provider.request({method:"eth_sendTransaction",params:[{from:wallet,to:REFLECTIONS.address,data:"0x82262808",value:"0x0"}]});
+    if(!/^0x[0-9a-f]{64}$/i.test(hash)) throw new Error("Wallet returned an invalid claim transaction hash.");
+    try{localStorage.setItem(key,hash);}catch{}
+    if(epoch!==purchaseState.epoch || wallet!==state.wallet || token!==state.sessionToken) return;
+    reflectionState.pending=hash;
+    confirmed=await waitReflectionClaim(hash,wallet,token,epoch,provider);
+  }catch(error){if(epoch===purchaseState.epoch && token===state.sessionToken) reflectionState.error=error.code===4001?"Claim cancelled.":error.message;}
+  finally{if(epoch===purchaseState.epoch){reflectionState.claimBusy=false;renderReflections();updatePurchaseButton();if(confirmed){reflectionState.balanceGeneration++;reflectionState.notice="Claim confirmed. Wallet balance updated.";await refreshReflections();}}}
+}
+$("claimReflectionsBtn").addEventListener("click",()=>void claimReflections());
+$("refreshReflectionsBtn").addEventListener("click",()=>{reflectionState.notice="";void refreshReflections();});
+setInterval(()=>{if(state.sessionToken && document.visibilityState!=="hidden" && Date.now()-reflectionState.lastRefresh>=30000) void refreshReflections();},30000);
+
 function resetWallet(){
+  Object.assign(reflectionState,{loaded:false,readBusy:false,claimBusy:false,amount:null,balance:null,feeExempt:false,paused:false,excluded:false,pending:null,error:"",notice:"",lastRefresh:0,balanceGeneration:0});
   purchaseState.epoch++;purchaseState.busy=false;purchaseState.pending=null;purchaseState.balance=null;purchaseState.balanceError=false;purchaseState.refreshAfterCredit=false;purchaseState.unitPrice=250000000000000000000n;purchaseState.quoteBusy=false;$("purchaseReceiptHash").value="";$("purchaseStatus").textContent="Purchases open between rounds.";updatePurchaseButton();
   state.liveResults=null;state.lastLiveAt=0;state.liveSessionId=null;
   $("liveLeaderboardTitle").textContent="Current round leaderboard";$("liveLeaderboard").textContent="Waiting for players.";
@@ -1408,7 +1526,7 @@ function resetWallet(){
   state.doubleDropUntil=0;state.doubleDropInventory=null;state.doubleDropActivations=0;state.powerupsActivated=0;state.powerupBusy=false;
   state.lightningCharge=0;state.superBalls=0;state.superArmed=false;state.superBusy=false;state.serverStateReadable=false;state.serverScore=null;state.ballsOnBoard=[];state.score=0;state.rules=null;state.claimedPickups=new Set();state.collectingPickups=new Set();$("superBallBtn").disabled=true;
   $("walletBtn").textContent="Connect Wallet";$("connection").textContent="Reconnect wallet";
-  $("statusDot").classList.remove("live");setPowerupButtons(false);updatePurchaseButton();
+  $("statusDot").classList.remove("live");setPowerupButtons(false);updatePurchaseButton();renderReflections();
 }
 connectBackend().catch(error=>{$("apiStatus").textContent=`Round preview unavailable: ${error.message}. Connect your wallet to join.`;});
 drawBoard();
