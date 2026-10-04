@@ -65,7 +65,7 @@
   #paddleExtenderStatus{color:#8be9ff;border-color:#8be9ff}
   .marketplace-panel{margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:12px}.marketplace-panel>summary{cursor:pointer;font-weight:800}.marketplace-panel summary span{display:block;font-size:12px;color:var(--muted);margin-top:5px}.marketplace-panel p{font-size:12px;color:var(--muted)}.shop-grid{display:grid;gap:8px}.shop-item{padding:12px;border:1px solid var(--line);border-radius:10px;background:#0a1727}.shop-item.coming{opacity:.5}.shop-item output{min-width:36px;text-align:center;font-weight:800}.shop-item .quantity-controls{justify-content:center;margin-top:10px}
   #doubleDropStatus{color:var(--green);border-color:var(--green);box-shadow:0 0 15px #38e39b33}
-  .power[data-powerup="DOUBLE_DROP"]:not(:disabled),.power[data-powerup="PADDLE_EXTENDER"]:not(:disabled){border-color:var(--green);color:var(--text);cursor:pointer}
+  .power[data-powerup="DOUBLE_DROP"]:not(:disabled),.power[data-powerup="PADDLE_EXTENDER"]:not(:disabled),.power[data-powerup="LIGHTNING_MAGNET"]:not(:disabled){border-color:var(--green);color:var(--text);cursor:pointer}
   .roundbar{
     display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;
     padding:5px 3px 14px
@@ -212,6 +212,7 @@
       </div>
 
       <div class="game-controls" aria-label="Lightning and Super Ball controls">
+        <div id="lightningMagnetStatus" class="mini" hidden></div>
         <div id="paddleExtenderStatus" class="mini" hidden></div>
         <div id="doubleDropStatus" class="mini" hidden></div>
         <div class="mini">
@@ -291,7 +292,7 @@
             <article class="shop-item"><b>🟢 Double Drop</b><p>Two balls per normal click for 15 seconds.</p><div id="shopPrice1">250 TEST-HPL each</div><div class="quantity-controls"><button data-cart-id="1" data-cart-step="-1" aria-label="Remove one Double Drop">−</button><output id="cartQuantity1">0</output><button data-cart-id="1" data-cart-step="1" aria-label="Add one Double Drop">+</button></div></article>
             <article class="shop-item"><b>↔ Paddle Extender</b><p>Double the paddle width for 8 seconds.</p><div id="shopPrice2">175 TEST-HPL each</div><div class="quantity-controls"><button data-cart-id="2" data-cart-step="-1" aria-label="Remove one Paddle Extender">−</button><output id="cartQuantity2">0</output><button data-cart-id="2" data-cart-step="1" aria-label="Add one Paddle Extender">+</button></div></article>
             <article class="shop-item coming"><b>Wide Ball</b><p>Coming soon</p></article>
-            <article class="shop-item coming"><b>Lightning Magnet</b><p>Coming soon</p></article>
+            <article class="shop-item"><b>🧲 Lightning Magnet</b><p>Pull nearby balls toward lightning bolts for 10 seconds.</p><div id="shopPrice3">200 TEST-HPL each</div><div class="quantity-controls"><button data-cart-id="3" data-cart-step="-1" aria-label="Remove one Lightning Magnet">−</button><output id="cartQuantity3">0</output><button data-cart-id="3" data-cart-step="1" aria-label="Add one Lightning Magnet">+</button></div></article>
             <article class="shop-item coming"><b>Extra Super Ball</b><p>Coming soon</p></article>
           </div>
           <div id="purchaseTotal" class="checkout-total" aria-live="polite">Total: 0 TEST-HPL</div>
@@ -306,14 +307,14 @@
           <button class="power" data-powerup="DOUBLE_DROP" disabled><b id="doubleDropTitle">Double Drop · 15s</b><span id="doubleDropLabel">Loading inventory…</span></button>
           <button class="power" data-powerup="WIDE_BALL" disabled><b>Wide Ball</b><span>Server-authorized</span></button>
           <button class="power" data-powerup="PADDLE_EXTENDER" disabled><b id="paddleExtenderTitle">Paddle Extender · 8s</b><span id="paddleExtenderLabel">Loading inventory…</span></button>
-          <button class="power" data-powerup="LIGHTNING_MAGNET" disabled><b>Lightning Magnet</b><span>Server-authorized</span></button>
+          <button class="power" data-powerup="LIGHTNING_MAGNET" disabled><b id="lightningMagnetTitle">Lightning Magnet · 10s</b><span id="lightningMagnetLabel">Loading inventory…</span></button>
           <button class="power" data-powerup="EXTRA_SUPER_BALL" disabled><b>Extra Super Ball</b><span>Server-authorized</span></button>
         </div>
       </div>
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.24 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.25 · Testnet only</div>
 </div>
 
 <script>
@@ -321,8 +322,8 @@ const CONFIG={url:"https://brvnzzkatyxfxpevukzt.supabase.co",key:"sb_publishable
 const MARKET={address:"0xc92c2f7359e20b336dfe14d6785f307194a14c4a",token:"0x7e8e2fbfdfc4337b926329dcceeb82440f51735c",chain:"0x14a34"};
 const REFLECTIONS={address:"0x073741dfa10cab0d5f02f8dd4d8dbc817046df9a",claimTopic:"0xcaa03033c11df8560eb1a698ca7632211dfb8d82def73ba95db35495cd6a671b"};
 const reflectionState={loaded:false,readBusy:false,claimBusy:false,amount:null,balance:null,feeExempt:false,paused:false,excluded:false,pending:null,error:"",notice:"",lastRefresh:0,balanceGeneration:0};
-const SHOP={1:{name:"Double Drop",price:250000000000000000000n},2:{name:"Paddle Extender",price:175000000000000000000n}};
-const purchaseState={cart:{1:0,2:0},prices:{1:250000000000000000000n,2:175000000000000000000n},itemId:1,busy:false,pending:null,epoch:0,unitPrice:250000000000000000000n,balance:null,balanceError:false,quoteBusy:false,refreshAfterCredit:false};
+const SHOP={1:{name:"Double Drop",price:250000000000000000000n},2:{name:"Paddle Extender",price:175000000000000000000n},3:{name:"Lightning Magnet",price:200000000000000000000n}};
+const purchaseState={cart:{1:0,2:0,3:0},prices:{1:250000000000000000000n,2:175000000000000000000n,3:200000000000000000000n},itemId:1,busy:false,pending:null,epoch:0,unitPrice:250000000000000000000n,balance:null,balanceError:false,quoteBusy:false,refreshAfterCredit:false};
 const LIVE_REFRESH_MS=2000; // Alpha setting: increase this interval when scaling.
 const walletProviders=new Map();
 window.addEventListener("eip6963:announceProvider",event=>{
@@ -367,7 +368,7 @@ const state = {
   provider: null,
   timersStarted: false,
   eventBusy: false,
-  paddleExtenderUntil:0,paddleExtenderInventory:null,paddleExtenderActivations:0,doubleDropUntil:0,doubleDropInventory:null,doubleDropActivations:0,powerupsActivated:0,powerupBusy:false,
+  lightningMagnetUntil:0,lightningMagnetInventory:null,lightningMagnetActivations:0,paddleExtenderUntil:0,paddleExtenderInventory:null,paddleExtenderActivations:0,doubleDropUntil:0,doubleDropInventory:null,doubleDropActivations:0,powerupsActivated:0,powerupBusy:false,
   lifecycleBusy: false,
   completed: false,
   serverOffset: 0,
@@ -649,6 +650,7 @@ function drawBoard(){
 
   // Active Lightning pickups.
   state.lightningPickups.forEach(p=>{
+    if(lightningMagnetActive()){ctx.save();ctx.strokeStyle="#8be9ff66";ctx.fillStyle="#8be9ff08";ctx.setLineDash([6,8]);ctx.beginPath();ctx.arc(p.x,p.y,150,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.restore();}
     drawLightningBolt(p.x,p.y,1.05,true);
     ctx.fillStyle="rgba(255,211,77,.18)";
     ctx.beginPath();
@@ -705,6 +707,7 @@ function animate(timestamp){
   state.lightningPickups=activeLightning(w,h);
   state.ballsOnBoard.forEach(b=>{
     const before={x:b.x,y:b.y};
+    attractToLightning(b,state.lightningPickups,dt);
     stepBall(b,w,h,dt);
     state.lightningPickups.forEach(p=>{
       // Swept segment check avoids missing a bolt between animation frames.
@@ -788,7 +791,7 @@ async function startGameSession(){
   $("liveLeaderboard").textContent="Loading current standings…";$("yourLiveResult").hidden=true;
   $("liveStatus").textContent="Provisional · syncing scores";
   state.completed=false;state.lastStandingsAt=0;state.standingsPhase=null;
-  state.paddleExtenderUntil=0;state.paddleExtenderInventory=null;state.paddleExtenderActivations=0;state.doubleDropUntil=0;state.doubleDropActivations=0;state.powerupsActivated=0;state.doubleDropInventory=null;
+  state.lightningMagnetUntil=0;state.lightningMagnetInventory=null;state.lightningMagnetActivations=0;state.paddleExtenderUntil=0;state.paddleExtenderInventory=null;state.paddleExtenderActivations=0;state.doubleDropUntil=0;state.doubleDropActivations=0;state.powerupsActivated=0;state.doubleDropInventory=null;
   state.serverScore=null;
   state.serverStateReadable=false;
   state.ballsOnBoard=[];
@@ -1076,6 +1079,8 @@ async function authenticateWallet(){
 }
 
 function ballColor(ball){return ball.superBall?"#bfa2ff":ball.doubleDropBonus?"#38e39b":"#ffd34d";}
+function lightningMagnetActive(){return !!state.gameSessionId && !state.completed && !state.frozenResult && serverNow()<state.lightningMagnetUntil && serverNow()<new Date(state.round?.gameplay_ends_at).getTime();}
+function attractToLightning(ball,pickups,dt){if(!lightningMagnetActive() || ball.pendingApproval || ball.dead) return;const p=pickups[0];if(!p) return;const dx=p.x-ball.x,dy=p.y-ball.y,d=Math.hypot(dx,dy);if(d<1 || d>150) return;const pull=2200*(1-d/150);ball.vx=Math.max(-380,Math.min(380,(ball.vx||0)+dx/d*pull*dt));ball.vy=Math.max(80,Math.min(650,(ball.vy||0)+dy/d*pull*.5*dt));}
 function paddleExtenderActive(){return !!state.gameSessionId && !state.completed && !state.frozenResult && serverNow()<state.paddleExtenderUntil && serverNow()<new Date(state.round?.gameplay_ends_at).getTime();}
 function paddleHalfWidth(){return paddleExtenderActive()?60:30;}
 function doubleDropActive(){
@@ -1084,6 +1089,9 @@ function doubleDropActive(){
 }
 function applyDoubleDropState(data){
   const row=data.player_state||{};
+  state.lightningMagnetUntil=new Date(row.lightning_magnet_until||0).getTime();
+  state.lightningMagnetActivations=Number(row.lightning_magnet_activations||0);
+  state.lightningMagnetInventory=Number.isSafeInteger(data.lightning_magnet_inventory)?data.lightning_magnet_inventory:null;
   state.paddleExtenderUntil=new Date(row.paddle_extender_until||0).getTime();
   state.paddleExtenderActivations=Number(row.paddle_extender_activations||0);
   state.paddleExtenderInventory=Number.isSafeInteger(data.paddle_extender_inventory)?data.paddle_extender_inventory:null;
@@ -1109,7 +1117,15 @@ function setPowerupButtons(enabled){
   $("paddleExtenderStatus").hidden=!peActive;
   if(peActive) $("paddleExtenderStatus").textContent=`Paddles ×2 width · ${Math.ceil((state.paddleExtenderUntil-serverNow())/1000)}s`;
   $("paddleExtenderLabel").textContent=peActive?"Active · paddles twice as wide":state.paddleExtenderActivations>=1?"Used this round":state.paddleExtenderInventory===null?"Inventory unavailable":`${state.paddleExtenderInventory} owned · Activate`;
+  const lm=config?.lightning_magnet,lmActive=lightningMagnetActive();
+  $("lightningMagnetTitle").textContent=`Lightning Magnet · ${lm?.duration_seconds||10}s`;
+  $("lightningMagnetStatus").hidden=!lmActive;
+  if(lmActive) $("lightningMagnetStatus").textContent=`🧲 Lightning Magnet · ${Math.ceil((state.lightningMagnetUntil-serverNow())/1000)}s`;
+  $("lightningMagnetLabel").textContent=lmActive?"Active · nearby balls chase lightning":state.lightningMagnetActivations>=1?"Used this round":state.lightningMagnetInventory===null?"Inventory unavailable":`${state.lightningMagnetInventory} owned · Activate`;
   document.querySelectorAll("[data-powerup]").forEach(btn=>{
+    if(btn.dataset.powerup==="LIGHTNING_MAGNET"){
+      btn.disabled=!enabled || !state.serverStateReadable || !state.gameSessionId || !state.sessionToken || state.eventBusy || state.powerupBusy || state.lifecycleBusy || state.completed || !!state.frozenResult || !lm?.enabled || !(lm.duration_seconds>0) || !(state.lightningMagnetInventory>0) || state.lightningMagnetActivations>=Math.min(1,lm.max_activations_per_round||0) || state.powerupsActivated>=(config?.max_activated_per_round||0) || serverNow()>=new Date(state.round?.gameplay_ends_at).getTime();return;
+    }
     if(btn.dataset.powerup==="PADDLE_EXTENDER"){
       btn.disabled=!enabled || !state.serverStateReadable || !state.gameSessionId || !state.sessionToken || state.eventBusy || state.powerupBusy || state.lifecycleBusy || state.completed || !!state.frozenResult || !pe?.enabled || !(pe.duration_seconds>0) || !(state.paddleExtenderInventory>0) || state.paddleExtenderActivations>=Math.min(1,pe.max_activations_per_round||0) || state.powerupsActivated>=(config?.max_activated_per_round||0) || serverNow()>=new Date(state.round?.gameplay_ends_at).getTime();
       return;
@@ -1124,12 +1140,9 @@ function setPowerupButtons(enabled){
 }
 async function activateDoubleDrop(){return activateTimedPowerup("DOUBLE_DROP");}
 async function activateTimedPowerup(item){
-  const extender=item==="PADDLE_EXTENDER",name=extender?"Paddle Extender":"Double Drop";
-  const config=state.rules?.powerups;
-  if(!state.sessionToken || !state.gameSessionId || state.eventBusy || state.powerupBusy ||
-     state.completed || state.frozenResult || !state.serverStateReadable || !(extender?state.paddleExtenderInventory>0:state.doubleDropInventory>0) ||
-     (extender?state.paddleExtenderActivations:state.doubleDropActivations)>=1 || !(extender?config?.paddle_extender?.enabled:config?.double_drop?.enabled) || !((extender?config.paddle_extender:config.double_drop).duration_seconds>0) ||
-     state.powerupsActivated>=config.max_activated_per_round || serverNow()>=new Date(state.round?.gameplay_ends_at).getTime()) return;
+  const meta={DOUBLE_DROP:{name:"Double Drop",key:"double_drop",inventory:state.doubleDropInventory,count:state.doubleDropActivations,active:doubleDropActive},PADDLE_EXTENDER:{name:"Paddle Extender",key:"paddle_extender",inventory:state.paddleExtenderInventory,count:state.paddleExtenderActivations,active:paddleExtenderActive},LIGHTNING_MAGNET:{name:"Lightning Magnet",key:"lightning_magnet",inventory:state.lightningMagnetInventory,count:state.lightningMagnetActivations,active:lightningMagnetActive}}[item];
+  if(!meta) return;const name=meta.name,config=state.rules?.powerups,power=config?.[meta.key];
+  if(!state.sessionToken || !state.gameSessionId || state.eventBusy || state.powerupBusy || state.completed || state.frozenResult || !state.serverStateReadable || !(meta.inventory>0) || meta.count>=1 || !power?.enabled || !(power.duration_seconds>0) || state.powerupsActivated>=config.max_activated_per_round || serverNow()>=new Date(state.round?.gameplay_ends_at).getTime()) return;
   const sessionId=state.gameSessionId;
   state.powerupBusy=true;setPowerupButtons(false);
   let error;
@@ -1141,7 +1154,7 @@ async function activateTimedPowerup(item){
     if(state.gameSessionId!==sessionId) return;
     applyDoubleDropState(data);
     state.clientSequence=Math.max(state.clientSequence,Number(data.last_accepted_sequence||0));
-    $("apiStatus").textContent=(extender?paddleExtenderActive():doubleDropActive())?`${name} active!`:error?`${name} not activated: ${error.message}`:`${name} activation confirmed; effect has ended.`;
+    $("apiStatus").textContent=meta.active()?`${name} active!`:error?`${name} not activated: ${error.message}`:`${name} activation confirmed; effect has ended.`;
   }catch(err){if(state.gameSessionId===sessionId) $("apiStatus").textContent=`Checking ${name} activation…`;}
   finally{if(state.gameSessionId===sessionId){state.powerupBusy=false;countdown();}}
 }
@@ -1168,7 +1181,7 @@ function dropAt(chosenPosition){
 }
 
 document.querySelectorAll("[data-powerup]").forEach(btn=>{
-  btn.addEventListener("click",()=>{if(["DOUBLE_DROP","PADDLE_EXTENDER"].includes(btn.dataset.powerup)) void activateTimedPowerup(btn.dataset.powerup);});
+  btn.addEventListener("click",()=>{if(["DOUBLE_DROP","PADDLE_EXTENDER","LIGHTNING_MAGNET"].includes(btn.dataset.powerup)) void activateTimedPowerup(btn.dataset.powerup);});
 });
 
 $("walletBtn").addEventListener("click",authenticateWallet);
@@ -1285,11 +1298,11 @@ function formatTestHpl(units){
   return `${whole.toLocaleString()}${fraction?"."+fraction:""}`;
 }
 function formatBalance(units){const cents=BigInt(units)/10000000000000000n;return `${(cents/100n).toLocaleString()}.${(cents%100n).toString().padStart(2,"0")}`;}
-function cartItems(){return [1,2].filter(id=>purchaseState.cart[id]>0).map(id=>({power_up_id:id,quantity:purchaseState.cart[id]}));}
+function cartItems(){return [1,2,3].filter(id=>purchaseState.cart[id]>0).map(id=>({power_up_id:id,quantity:purchaseState.cart[id]}));}
 function cartTotal(){return cartItems().reduce((sum,row)=>sum+purchaseState.prices[row.power_up_id]*BigInt(row.quantity),0n);}
 function changeCart(id,step){if(purchaseState.busy || purchaseState.quoteBusy || purchaseState.pending || !SHOP[id]) return;purchaseState.cart[id]=Math.max(0,Math.min(100,purchaseState.cart[id]+step));updatePurchaseButton();}
 function renderPurchaseCost(){
-  for(const id of [1,2]){$(`cartQuantity${id}`).textContent=String(purchaseState.cart[id]);$(`shopPrice${id}`).textContent=`${formatTestHpl(purchaseState.prices[id])} TEST-HPL each`;}
+  for(const id of [1,2,3]){$(`cartQuantity${id}`).textContent=String(purchaseState.cart[id]);$(`shopPrice${id}`).textContent=`${formatTestHpl(purchaseState.prices[id])} TEST-HPL each`;}
   $("purchaseTotal").textContent=`Total: ${formatTestHpl(cartTotal())} TEST-HPL`;
   const count=cartItems().reduce((sum,row)=>sum+row.quantity,0);$("cartSummary").textContent=count?`${count} item${count===1?"":"s"} · ${formatTestHpl(cartTotal())} TEST-HPL`:"Add powerups";
   $("purchaseBalance").textContent=purchaseState.balance===null?state.wallet?purchaseState.balanceError?"Balance unavailable · try Refresh":"Balance: not loaded":"Balance: connect your wallet":`Balance: ${formatBalance(purchaseState.balance)} TEST-HPL`;
@@ -1306,9 +1319,9 @@ async function refreshPurchaseQuote(){
   const wallet=state.wallet,token=state.sessionToken,epoch=purchaseState.epoch,generation=reflectionState.balanceGeneration;
   purchaseState.quoteBusy=true;updatePurchaseButton();
   try{
-    const quote=await edgeRequest("marketplace-purchase",{session_token:token,action:"quote",items:[{power_up_id:1,quantity:1},{power_up_id:2,quantity:1}]});
+    const quote=await edgeRequest("marketplace-purchase",{session_token:token,action:"quote",items:[{power_up_id:1,quantity:1},{power_up_id:2,quantity:1},{power_up_id:3,quantity:1}]});
     if(purchaseState.epoch!==epoch || state.wallet!==wallet || state.sessionToken!==token || purchaseState.busy || reflectionState.claimBusy || generation!==reflectionState.balanceGeneration) return;
-    applyCartQuote(quote,[{power_up_id:1,quantity:1},{power_up_id:2,quantity:1}]);
+    applyCartQuote(quote,[{power_up_id:1,quantity:1},{power_up_id:2,quantity:1},{power_up_id:3,quantity:1}]);
   }catch(error){if(purchaseState.epoch===epoch && state.sessionToken===token) purchaseState.balanceError=true;}
   finally{if(purchaseState.epoch===epoch){purchaseState.quoteBusy=false;updatePurchaseButton();}}
 }
@@ -1359,9 +1372,9 @@ async function confirmPurchase(hash,wallet,token,epoch){
     if(result.credited){
       localStorage.removeItem?.(purchaseStorageKey(wallet));purchaseState.pending=null;
       const credited=result.items||[result];
-      for(const row of credited){if(row.item_id==="PADDLE_EXTENDER") state.paddleExtenderInventory=row.inventory;else state.doubleDropInventory=row.inventory;}
-      purchaseState.cart={1:0,2:0};purchaseState.balance=null;purchaseState.refreshAfterCredit=true;reflectionState.balanceGeneration++;
-      $("purchaseStatus").textContent=`Purchase confirmed · ${credited.map(row=>`${row.quantity_purchased} ${row.item_id==="PADDLE_EXTENDER"?"Paddle Extender":"Double Drop"}`).join(" + ")}`;
+      for(const row of credited){if(row.item_id==="LIGHTNING_MAGNET") state.lightningMagnetInventory=row.inventory;else if(row.item_id==="PADDLE_EXTENDER") state.paddleExtenderInventory=row.inventory;else state.doubleDropInventory=row.inventory;}
+      purchaseState.cart={1:0,2:0,3:0};purchaseState.balance=null;purchaseState.refreshAfterCredit=true;reflectionState.balanceGeneration++;
+      $("purchaseStatus").textContent=`Purchase confirmed · ${credited.map(row=>`${row.quantity_purchased} ${row.item_id==="LIGHTNING_MAGNET"?"Lightning Magnet":row.item_id==="PADDLE_EXTENDER"?"Paddle Extender":"Double Drop"}`).join(" + ")}`;
       setPowerupButtons(!state.completed && !state.frozenResult);
       return;
     }
@@ -1529,7 +1542,7 @@ $("refreshReflectionsBtn").addEventListener("click",()=>{reflectionState.notice=
 setInterval(()=>{if(state.sessionToken && document.visibilityState!=="hidden" && Date.now()-reflectionState.lastRefresh>=30000) void refreshReflections();},30000);
 
 function resetWallet(){
-  purchaseState.cart={1:0,2:0};
+  purchaseState.cart={1:0,2:0,3:0};
   Object.assign(reflectionState,{loaded:false,readBusy:false,claimBusy:false,amount:null,balance:null,feeExempt:false,paused:false,excluded:false,pending:null,error:"",notice:"",lastRefresh:0,balanceGeneration:0});
   purchaseState.epoch++;purchaseState.busy=false;purchaseState.pending=null;purchaseState.balance=null;purchaseState.balanceError=false;purchaseState.refreshAfterCredit=false;purchaseState.unitPrice=250000000000000000000n;purchaseState.quoteBusy=false;$("purchaseReceiptHash").value="";$("purchaseStatus").textContent="Add powerups to your cart.";updatePurchaseButton();
   state.liveResults=null;state.lastLiveAt=0;state.liveSessionId=null;
@@ -1540,7 +1553,7 @@ function resetWallet(){
   $("yourRoundResult").hidden=true;$("position").textContent="—";$("positionLabel").textContent="Current position";
   state.recentScores=[];state.landingSequence=0;renderBallHistory();
   state.sessionToken=null;state.gameSessionId=null;state.wallet=null;state.round=null;
-  state.paddleExtenderUntil=0;state.paddleExtenderInventory=null;state.paddleExtenderActivations=0;state.doubleDropUntil=0;state.doubleDropInventory=null;state.doubleDropActivations=0;state.powerupsActivated=0;state.powerupBusy=false;
+  state.lightningMagnetUntil=0;state.lightningMagnetInventory=null;state.lightningMagnetActivations=0;state.paddleExtenderUntil=0;state.paddleExtenderInventory=null;state.paddleExtenderActivations=0;state.doubleDropUntil=0;state.doubleDropInventory=null;state.doubleDropActivations=0;state.powerupsActivated=0;state.powerupBusy=false;
   state.lightningCharge=0;state.superBalls=0;state.superArmed=false;state.superBusy=false;state.serverStateReadable=false;state.serverScore=null;state.ballsOnBoard=[];state.score=0;state.rules=null;state.claimedPickups=new Set();state.collectingPickups=new Set();$("superBallBtn").disabled=true;
   $("walletBtn").textContent="Connect Wallet";$("connection").textContent="Reconnect wallet";
   $("statusDot").classList.remove("live");setPowerupButtons(false);updatePurchaseButton();renderReflections();
