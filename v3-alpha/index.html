@@ -328,7 +328,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.31 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.32 · Testnet only</div>
 </div>
 
 <dialog id="walletOverlay" aria-labelledby="walletOverlayTitle"><div class="wallet-overlay-header"><div><h2 id="walletOverlayTitle">My HPL Wallet</h2><p class="mini">Base Sepolia · Alpha testing</p></div><button id="closeWalletBtn" type="button" class="wallet-refresh">Back to game ✕</button></div><div class="wallet-overlay-content"><div id="walletOverlayControls"></div><section class="card"><h3>Game rewards</h3><div id="gameRewardAmount" class="metric gold">— TEST-HPL</div><button id="claimGameRewardsBtn" type="button" class="wallet-refresh" disabled>Claim game rewards</button> <button id="refreshGameRewardsBtn" type="button" class="wallet-refresh" disabled>Refresh rewards</button><p id="gameRewardStatus" class="mini" role="status">Connect your wallet to view game rewards.</p></section><details class="card"><summary>Wallet feedback</summary><p class="mini">Tell us what feels easy or confusing. Copy your feedback to share with the alpha organizer.</p><textarea id="walletFeedback" rows="5" maxlength="2000" placeholder="I prefer the side panel / full wallet because…"></textarea><button id="copyWalletFeedbackBtn" type="button" class="wallet-refresh">Copy feedback</button><p id="walletFeedbackStatus" class="mini" role="status"></p></details></div></dialog>
@@ -1480,10 +1480,10 @@ function renderReflections(){
 async function walletRpc(provider,method,params=[]){
   let timer;try{return await Promise.race([provider.request({method,params}),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error("Wallet read timed out. Try Refresh wallet.")),12000);})]);}finally{clearTimeout(timer);}
 }
-async function reflectionSnapshot(wallet,provider){
+async function reflectionSnapshot(wallet,provider,receiptBlock=null){
   if(!/^0x[0-9a-f]{40}$/i.test(wallet)) throw new Error("Invalid wallet address");
   if(await walletRpc(provider,"eth_chainId")!==MARKET.chain) throw new Error("Switch to Base Sepolia to view reflections.");
-  const block=await walletRpc(provider,"eth_blockNumber");
+  const block=receiptBlock || await walletRpc(provider,"eth_blockNumber");
   const address=wallet.slice(2).padStart(64,"0"),ref=REFLECTIONS.address.slice(2).padStart(64,"0");
   const specs=[
     [REFLECTIONS.address,"0x720ec7cc"],[MARKET.token,"0xd1571e47"],
@@ -1496,12 +1496,12 @@ async function reflectionSnapshot(wallet,provider){
   return {block,amount:BigInt(values[2]),paused:BigInt(values[3])!==0n,excluded:BigInt(values[4])!==0n,feeExempt:BigInt(values[5])!==0n,balance:BigInt(values[6])};
 }
 async function refreshReflections(){
-  if(!state.sessionToken || !state.wallet || !state.provider || reflectionState.readBusy || reflectionState.claimBusy) return;
+  if(!state.sessionToken || !state.wallet || !state.provider || reflectionState.readBusy || reflectionState.claimBusy || rewardState.busy) return;
   const wallet=state.wallet,token=state.sessionToken,epoch=purchaseState.epoch,provider=state.provider,generation=reflectionState.balanceGeneration;
   reflectionState.readBusy=true;renderReflections();
   try{
     const snapshot=await reflectionSnapshot(wallet,provider);
-    if(epoch!==purchaseState.epoch || wallet!==state.wallet || token!==state.sessionToken || reflectionState.claimBusy || generation!==reflectionState.balanceGeneration) return;
+    if(epoch!==purchaseState.epoch || wallet!==state.wallet || token!==state.sessionToken || reflectionState.claimBusy || rewardState.busy || generation!==reflectionState.balanceGeneration) return;
     Object.assign(reflectionState,snapshot,{loaded:true,error:"",lastRefresh:Date.now()});
     purchaseState.balance=snapshot.balance;purchaseState.balanceError=false;renderPurchaseCost();
   }catch(error){if(epoch===purchaseState.epoch && token===state.sessionToken){reflectionState.error=error.message;reflectionState.loaded=false;reflectionState.lastRefresh=Date.now();}}
@@ -1671,10 +1671,10 @@ function renderGameRewards(){
  $("refreshGameRewardsBtn").disabled=!state.sessionToken || !state.provider || rewardState.busy || rewardState.readBusy;
  $("gameRewardStatus").textContent=!state.wallet?"Connect your wallet to view game rewards.":rewardState.error||rewardState.notice|| (rewardState.readBusy?"Refreshing rewards…":rewardState.pending?"Claim receipt saved. Check its confirmation before sending another claim.":!rewardState.loaded?"Rewards unavailable · try Refresh rewards":rewardState.paused || !rewardState.feeExempt?"Claims temporarily unavailable.":rewardState.amount===0n?"No reserved rewards yet. Finalized round payouts appear after onchain confirmation.":"Claim up to 25 reward records at a time. Network fee shown in MetaMask.");
 }
-async function rewardSnapshot(wallet,provider){
+async function rewardSnapshot(wallet,provider,receiptBlock=null){
  if(!/^0x[0-9a-f]{40}$/i.test(wallet))throw new Error("Invalid wallet address");
  if(await walletRpc(provider,"eth_chainId")!==MARKET.chain)throw new Error("Switch to Base Sepolia.");
- const block=await walletRpc(provider,"eth_blockNumber"),aw=wallet.slice(2).padStart(64,"0"),rw=REWARDS.address.slice(2).padStart(64,"0");
+ const block=receiptBlock || await walletRpc(provider,"eth_blockNumber"),aw=wallet.slice(2).padStart(64,"0"),rw=REWARDS.address.slice(2).padStart(64,"0");
  const specs=[[REWARDS.address,"0x720ec7cc"],[REWARDS.address,"0x402914f5"+aw],[REWARDS.address,"0x4a2ae305"],[MARKET.token,"0x4fbee193"+rw]];
  const values=await Promise.all(specs.map(([to,data])=>walletRpc(provider,"eth_call",[{to,data},block])));
  if(values.some(v=>!/^0x[0-9a-f]{64}$/i.test(v)))throw new Error("Invalid Rewards response.");
@@ -1706,6 +1706,35 @@ async function waitRewardClaim(hash,wallet,token,epoch,provider){
  }
  rewardState.notice="Still pending. Receipt saved; use Check claim confirmation later.";return null;
 }
+async function refreshConfirmedGameClaim(receipt,wallet,token,epoch,provider){
+ if(!/^0x[0-9a-f]+$/i.test(receipt.blockNumber||"")){rewardState.notice="Claim confirmed · use Refresh rewards and Refresh wallet.";renderGameRewards();return;}
+ const generation=++reflectionState.balanceGeneration;
+ const current=()=>epoch===purchaseState.epoch && wallet===state.wallet && token===state.sessionToken && generation===reflectionState.balanceGeneration;
+ rewardState.notice="Claim confirmed · updating rewards and wallet balance…";renderGameRewards();
+ let rewardsUpdated=false,balanceUpdated=false;
+ for(let attempt=0;attempt<3;attempt++){
+  if(!current())return;
+  const [rewardRead,balanceRead]=await Promise.allSettled([
+   rewardsUpdated?Promise.resolve(null):rewardSnapshot(wallet,provider,receipt.blockNumber),
+   balanceUpdated?Promise.resolve(null):reflectionSnapshot(wallet,provider,receipt.blockNumber)
+  ]);
+  if(!current())return;
+  if(rewardRead.status==="fulfilled" && rewardRead.value){
+   Object.assign(rewardState,rewardRead.value,{loaded:true,error:"",lastRefresh:Date.now()});rewardsUpdated=true;
+  }
+  if(balanceRead.status==="fulfilled" && balanceRead.value){
+   Object.assign(reflectionState,balanceRead.value,{loaded:true,error:"",lastRefresh:Date.now()});
+   purchaseState.balance=balanceRead.value.balance;purchaseState.balanceError=false;balanceUpdated=true;renderPurchaseCost();renderReflections();
+  }
+  if(rewardsUpdated && balanceUpdated){rewardState.notice="Claim confirmed · wallet balance updated.";renderGameRewards();return;}
+  renderGameRewards();
+  if(attempt<2)await new Promise(resolve=>setTimeout(resolve,1500));
+ }
+ if(current()){
+  rewardState.notice="Claim confirmed · refresh delayed. Use Refresh rewards or Refresh wallet; your claim is saved onchain.";
+  renderGameRewards();
+ }
+}
 async function claimGameRewards(){
  if(!state.sessionToken || !state.wallet || !state.provider || rewardState.busy || rewardState.readBusy || tradeState.busy || purchaseState.busy || reflectionState.claimBusy)return;
  const wallet=state.wallet,token=state.sessionToken,epoch=purchaseState.epoch,provider=state.provider;
@@ -1730,7 +1759,11 @@ async function claimGameRewards(){
   if(epoch!==purchaseState.epoch || wallet!==state.wallet || token!==state.sessionToken)return;
   rewardState.pending=hash;receipt=await waitRewardClaim(hash,wallet,token,epoch,provider);
  }catch(error){if(epoch===purchaseState.epoch)rewardState.error=error.code===4001?"Claim cancelled.":error.message;}
- finally{if(epoch===purchaseState.epoch){rewardState.busy=false;renderGameRewards();renderReflections();updatePurchaseButton();if(receipt){rewardState.notice="Claim confirmed. Refreshing wallet…";reflectionState.balanceGeneration++;await refreshGameRewards();const snapshot=await reflectionSnapshot(wallet,provider).catch(()=>null);if(snapshot && epoch===purchaseState.epoch && BigInt(snapshot.block)>=BigInt(receipt.blockNumber)){Object.assign(reflectionState,snapshot,{loaded:true,error:"",lastRefresh:Date.now()});purchaseState.balance=snapshot.balance;renderPurchaseCost();renderReflections();rewardState.notice="Claim confirmed · wallet balance updated.";}else if(epoch===purchaseState.epoch)rewardState.notice="Claim confirmed · wallet balance is still syncing. Use Refresh wallet.";renderGameRewards();}}}
+ finally{if(epoch===purchaseState.epoch){
+  // Keep wallet transaction controls locked until these confirmed-block reads finish.
+  if(receipt)await refreshConfirmedGameClaim(receipt,wallet,token,epoch,provider);
+  if(epoch===purchaseState.epoch){rewardState.busy=false;renderGameRewards();renderReflections();updatePurchaseButton();}
+ }}
 }
 $("claimGameRewardsBtn").addEventListener("click",()=>void claimGameRewards());
 $("refreshGameRewardsBtn").addEventListener("click",()=>{rewardState.notice="";void refreshGameRewards();});
