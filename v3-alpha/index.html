@@ -161,6 +161,7 @@
   #refreshPurchaseQuoteBtn{font-size:11px;margin:6px 0 10px}.checkout-buy{display:block;width:100%;padding:12px;background:#28b582;color:#051d16;font-weight:700;border:0;border-radius:10px;cursor:pointer;margin-bottom:10px}
   .checkout-buy:disabled,.quantity-controls button:disabled,#refreshPurchaseQuoteBtn:disabled{opacity:.5;cursor:default}
   .wallet-refresh{padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:#122942;color:var(--text);cursor:pointer;margin-bottom:10px}.wallet-refresh:disabled{opacity:.5;cursor:default}
+  #walletOverlay{width:100vw;height:100dvh;max-width:100vw;max-height:100dvh;box-sizing:border-box;margin:0;padding:24px;border:0;background:#0b1729;color:var(--text);overflow:auto}#walletOverlay::backdrop{background:#050b15}.wallet-overlay-header{display:flex;justify-content:space-between;align-items:center;gap:16px;max-width:1000px;margin:0 auto 20px}.wallet-overlay-content{max-width:1000px;margin:auto}#walletOverlayControls #walletControls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}#walletOverlayControls .card{margin:0}#walletOverlay textarea{width:100%;box-sizing:border-box;background:#122942;color:white;border:1px solid #596582;padding:12px;border-radius:8px}#walletOverlay .card{margin-bottom:20px}#walletOverlay summary{cursor:pointer}body.wallet-open{overflow:hidden}@media(max-width:650px){#walletOverlay{padding:16px}#walletOverlayControls #walletControls{grid-template-columns:1fr}header{flex-wrap:wrap}}
   .trade-tabs{display:flex;gap:8px;margin:12px 0}.trade-tabs button{flex:1;color:#fff;background:#25304b;border:1px solid #596582;border-radius:8px;padding:10px;cursor:pointer}.trade-tabs button[aria-pressed="true"]{background:#653bb0;border-color:#c4a1ff}.trade-tabs button:disabled{opacity:.6}.card input{max-width:100%;box-sizing:border-box}
   #reflectionWalletBalance,#reflectionAmount{overflow-wrap:anywhere}
   .footer{color:#607993;text-align:center;font-size:11px;padding:16px}
@@ -185,6 +186,7 @@
       <button id="walletBtn" class="config button" style="margin:0;padding:9px 14px;border:1px solid var(--line);border-radius:10px;background:#122942;color:var(--text);cursor:pointer">
         Connect Wallet
       </button>
+      <button id="myWalletBtn" type="button" class="wallet-refresh" style="margin:0">My Wallet</button>
       <details class="help-menu" id="helpMenu">
         <summary aria-label="Open Help menu">☰ Help</summary>
         <div class="help-panel">
@@ -261,6 +263,7 @@
         <div id="liveLeaderboard" class="notice">Waiting for players.</div>
         <div id="yourLiveResult" class="result-summary" hidden></div>
       </div>
+      <div id="walletHome"><div id="walletControls">
       <div class="card">
         <div class="metric-label">Wallet &amp; Reflections</div>
         <div class="mini">TEST-HPL balance</div>
@@ -271,15 +274,16 @@
         <button id="refreshReflectionsBtn" type="button" class="wallet-refresh" disabled>Refresh wallet</button>
         <div id="reflectionStatus" class="mini" role="status" aria-live="polite">Connect your wallet to view reflections.</div>
       </div>
-      <details class="card"><summary>Buy / sell TEST-HPL</summary>
+      <details id="tradeCard" class="card"><summary>Buy / sell TEST-HPL</summary>
         <p class="mini">Base Sepolia test tokens · 10% transfer tax for ordinary player wallets. Quotes include tax and pool fees.</p>
         <div class="trade-tabs" role="group" aria-label="Trade direction"><button id="tradeBuyTab" type="button" aria-pressed="true">Buy</button><button id="tradeSellTab" type="button" aria-pressed="false">Sell</button></div><input id="tradeSide" type="hidden" value="buy" />
-        <label><span id="tradeAmountLabel">Spend test ETH</span> <input id="tradeAmount" type="text" inputmode="decimal" placeholder="0.0001" /></label>
+        <div id="buyModeControls" class="trade-tabs" role="group" aria-label="Buy amount type"><button id="spendModeBtn" type="button" aria-pressed="true">Spend ETH</button><button id="receiveModeBtn" type="button" aria-pressed="false">Receive HPL</button></div><label><span id="tradeAmountLabel">Spend test ETH</span> <input id="tradeAmount" type="text" inputmode="decimal" placeholder="0.0001" /></label>
         <p id="tradeQuote" class="mini">Enter an amount and get a quote.</p>
-        <button id="tradeQuoteBtn" type="button" class="wallet-refresh">Get quote</button>
+        <button id="tradeQuoteBtn" type="button" class="wallet-refresh">Refresh estimate</button>
         <button id="tradeSendBtn" type="button" class="checkout-buy" disabled>Review quote first</button>
         <p id="tradeStatus" class="mini" role="status" aria-live="polite">Slippage tolerance: 5% of the estimated amount after tax. Gas is additional.</p>
       </details>
+      </div></div><div id="quickWalletSummary" class="card" hidden><strong id="quickWalletBalance"></strong><p id="quickReflections"></p><button id="walletReturnBtn" type="button" class="wallet-refresh">Manage wallet</button></div>
       <div class="card">
         <div class="metric-label">Round Rewards</div>
         <div class="metric gold" id="rewardPool">— HPL</div>
@@ -324,9 +328,10 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.28 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.29 · Testnet only</div>
 </div>
 
+<dialog id="walletOverlay" aria-labelledby="walletOverlayTitle"><div class="wallet-overlay-header"><div><h2 id="walletOverlayTitle">My HPL Wallet</h2><p class="mini">Base Sepolia · Alpha testing</p></div><button id="closeWalletBtn" type="button" class="wallet-refresh">Back to game ✕</button></div><div class="wallet-overlay-content"><div id="walletOverlayControls"></div><section class="card"><h3>Game rewards</h3><p class="mini">Claim your game rewards here soon.</p></section><details class="card"><summary>Wallet feedback</summary><p class="mini">Tell us what feels easy or confusing. Copy your feedback to share with the alpha organizer.</p><textarea id="walletFeedback" rows="5" maxlength="2000" placeholder="I prefer the side panel / full wallet because…"></textarea><button id="copyWalletFeedbackBtn" type="button" class="wallet-refresh">Copy feedback</button><p id="walletFeedbackStatus" class="mini" role="status"></p></details></div></dialog>
 <script>
 const CONFIG={url:"https://brvnzzkatyxfxpevukzt.supabase.co",key:"sb_publishable_N7wjJGUvFGcNznaPN_aFZQ_nnSVYmZ0"};
 const MARKET={address:"0xc92c2f7359e20b336dfe14d6785f307194a14c4a",token:"0x7e8e2fbfdfc4337b926329dcceeb82440f51735c",chain:"0x14a34"};
@@ -1458,8 +1463,9 @@ function restoreReflectionClaim(){
   renderReflections();
 }
 function renderReflections(){
+  $("quickWalletBalance").textContent=reflectionState.balance===null?"Connect your wallet":`${formatBalance(reflectionState.balance)} TEST-HPL`;$("quickReflections").textContent=reflectionState.amount===null?"Reflections: —":`Claimable reflections: ${formatBalance(reflectionState.amount)} TEST-HPL`;
   $("reflectionWalletBalance").textContent=reflectionState.balance===null?state.wallet?"Loading…":"Connect your wallet":`${formatBalance(reflectionState.balance)} TEST-HPL`;
-  $("reflectionAmount").textContent=reflectionState.amount===null?"— TEST-HPL":`${formatTestHpl(reflectionState.amount)} TEST-HPL`;
+  $("reflectionAmount").textContent=reflectionState.amount===null?"— TEST-HPL":`${formatBalance(reflectionState.amount)} TEST-HPL`;
   $("claimReflectionsBtn").disabled=!state.sessionToken || !state.provider || reflectionState.claimBusy || reflectionState.readBusy || purchaseState.busy ||
     (!reflectionState.pending && (!reflectionState.loaded || !reflectionState.feeExempt || reflectionState.paused || reflectionState.excluded || !(reflectionState.amount>0n)));
   $("claimReflectionsBtn").textContent=reflectionState.claimBusy?"Confirming claim…":reflectionState.pending?"Check claim confirmation":"Claim reflections";
@@ -1553,29 +1559,34 @@ setInterval(()=>{if(state.sessionToken && document.visibilityState!=="hidden" &&
 
 
 const DEX={router:"0x837e965e801b64429cf4aa070a1834a578688497",factory:"0x37ee8c40b1103606695dc742caa636eccb2a7363",pair:"0x65926e01fa24f08f271d2051f99a3afe480fac60",weth:"0x4200000000000000000000000000000000000006"};
-const tradeState={busy:false,quote:null,phase:"",side:"buy"};
+const tradeState={busy:false,quote:null,phase:"",side:"buy",mode:"spend",quoteVersion:0,quoting:false,timer:null};
 function tradeKey(wallet){return `hpl-v3-trade:${wallet}`;}
 function tradePending(){try{return JSON.parse(localStorage.getItem(tradeKey(state.wallet))||"null");}catch{return null;}}
 function tradeAmount(text){if(!/^(?:0|[1-9]\d*)(?:\.\d{1,18})?$/.test(text)) throw new Error("Enter a positive amount with at most 18 decimal places.");const [a,b=""]=text.split(".");const n=BigInt(a)*10n**18n+BigInt(b.padEnd(18,"0"));if(n<=0n || n>=2n**256n)throw new Error("Invalid amount.");return n;}
 function tradeNet(n,taxed){return taxed?n-n*350n/10000n-n*350n/10000n-n*300n/10000n:n;}
 function tradePath(side){return (side==="buy"?[DEX.weth,MARKET.token]:[MARKET.token,DEX.weth]).map(a=>a.slice(2).padStart(64,"0"));}
 function swapData(q,deadline){const tail=[uintWord(2),...tradePath(q.side)].join("");return q.side==="buy"?"0xb6f9de95"+[uintWord(q.min),uintWord(128),state.wallet.slice(2).padStart(64,"0"),uintWord(deadline)].join("")+tail:"0x791ac947"+[uintWord(q.amount),uintWord(q.min),uintWord(160),state.wallet.slice(2).padStart(64,"0"),uintWord(deadline)].join("")+tail;}
-function renderTrade(){const pending=tradePending();if(!tradeState.busy && pending?.intent){$("tradeSide").value=pending.intent.side;$("tradeAmount").value=pending.intent.text;$("tradeAmountLabel").textContent=pending.intent.side==="buy"?"Spend test ETH":"Sell TEST-HPL";}const locked=tradeState.busy || !!pending;$("tradeQuoteBtn").disabled=locked || !state.sessionToken;$("tradeSendBtn").disabled=tradeState.busy || !state.sessionToken || (!pending && !tradeState.quote);$("tradeSendBtn").textContent=tradeState.busy?tradeState.phase||"Checking…":pending?"Continue confirmation":tradeState.quote?($("tradeSide").value==="buy"?"Buy TEST-HPL":"Sell TEST-HPL"):"Review quote first";$("tradeAmount").disabled=locked;for(const side of ["buy","sell"]){const tab=$(side==="buy"?"tradeBuyTab":"tradeSellTab");tab.disabled=locked;tab.setAttribute?.("aria-pressed",String($("tradeSide").value===side));}}
-function chooseTrade(side){if(tradeState.busy || tradePending())return;$("tradeSide").value=side;tradeState.side=side;$("tradeAmount").value="";$("tradeAmount").placeholder=side==="buy"?"0.0001":"1000";$("tradeAmountLabel").textContent=side==="buy"?"Spend test ETH":"Sell TEST-HPL";invalidateTrade();}
-function invalidateTrade(){tradeState.quote=null;$("tradeQuote").textContent="Enter an amount and get a quote.";renderTrade();}
+function renderTrade(){const pending=tradePending();if(!tradeState.busy && pending?.intent){tradeState.mode=pending.intent.mode||"spend";$("tradeSide").value=pending.intent.side;$("tradeAmount").value=pending.intent.text;$("tradeAmountLabel").textContent=pending.intent.side==="buy"?"Spend test ETH":"Sell TEST-HPL";}const locked=tradeState.busy || !!pending;$("buyModeControls").hidden=$("tradeSide").value!=="buy";for(const mode of ["spend","receive"]){const b=$(mode==="spend"?"spendModeBtn":"receiveModeBtn");b.disabled=locked;b.setAttribute?.("aria-pressed",String(tradeState.mode===mode));}$("tradeQuoteBtn").disabled=locked || !state.sessionToken;$("tradeSendBtn").disabled=tradeState.quoting || tradeState.busy || !state.sessionToken || (!pending && !tradeState.quote);$("tradeSendBtn").textContent=tradeState.busy?tradeState.phase||"Checking…":pending?"Continue confirmation":tradeState.quote?($("tradeSide").value==="buy"?"Buy TEST-HPL":"Sell TEST-HPL"):"Review quote first";$("tradeAmount").disabled=locked;for(const side of ["buy","sell"]){const tab=$(side==="buy"?"tradeBuyTab":"tradeSellTab");tab.disabled=locked;tab.setAttribute?.("aria-pressed",String($("tradeSide").value===side));}}
+function chooseTrade(side){if(tradeState.busy || tradePending())return;$("tradeSide").value=side;tradeState.side=side;$("tradeAmount").value="";$("tradeAmount").placeholder=side==="buy"?"0.0001":"1000";$("tradeAmountLabel").textContent=side==="buy"?(tradeState.mode==="receive"?"Receive TEST-HPL":"Spend test ETH"):"Sell TEST-HPL";invalidateTrade();}
+function invalidateTrade(){tradeState.quoting=false;tradeState.quoteVersion++;clearTimeout(tradeState.timer);tradeState.quote=null;$("tradeQuote").textContent="Enter an amount and get a quote.";renderTrade();if(state.sessionToken && $("tradeAmount").value.trim())tradeState.timer=setTimeout(()=>void getTradeQuote(),500);}
+function chooseBuyMode(mode){if(tradeState.busy || tradePending())return;tradeState.mode=mode;$("tradeAmount").value="";$("tradeAmount").placeholder=mode==="receive"?"10000":"0.0001";$("tradeAmountLabel").textContent=mode==="receive"?"Receive TEST-HPL":"Spend test ETH";invalidateTrade();}
+function grossForNet(target,taxed){return taxed?(target*10000n+8999n)/9000n:target;}
+function decodeQuoteAmounts(out){const words=out.slice(2).match(/.{64}/g);if(words?.length!==4 || BigInt("0x"+words[0])!==32n || BigInt("0x"+words[1])!==2n)throw new Error("Invalid pool quote.");return [BigInt("0x"+words[2]),BigInt("0x"+words[3])];}
 async function dexQuote(wallet,epoch){
- await assertPurchaseWallet(wallet,epoch);const provider=state.provider,side=$("tradeSide").value,text=$("tradeAmount").value,amount=tradeAmount(text.trim()),block=await walletRpc(provider,"eth_blockNumber");
+ await assertPurchaseWallet(wallet,epoch);const provider=state.provider,side=$("tradeSide").value,text=$("tradeAmount").value,mode=tradeState.mode,target=side==="buy" && mode==="receive"?tradeAmount(text.trim()):null,block=await walletRpc(provider,"eth_blockNumber");
+ let amount=tradeAmount(text.trim());
  const call=(to,data)=>walletRpc(provider,"eth_call",[{to,data},block]);const aw=wallet.slice(2).padStart(64,"0"),pw=DEX.pair.slice(2).padStart(64,"0");
  const values=await Promise.all([call(DEX.router,"0xc45a0155"),call(DEX.router,"0xad5c4648"),call(DEX.factory,"0xe6a43905"+MARKET.token.slice(2).padStart(64,"0")+DEX.weth.slice(2).padStart(64,"0")),call(MARKET.token,"0xbff51ef8"),call(MARKET.token,"0x4563f30a"),call(MARKET.token,"0x4fbee193"+aw),call(MARKET.token,"0x4fbee193"+pw),call(MARKET.token,"0x70a08231"+aw),call(MARKET.token,"0xa2f90c43"+aw),walletRpc(provider,"eth_getBalance",[wallet,block])]);
  if("0x"+values[0].slice(-40).toLowerCase()!==DEX.factory || "0x"+values[1].slice(-40).toLowerCase()!==DEX.weth || "0x"+values[2].slice(-40).toLowerCase()!==DEX.pair)throw new Error("Test pool configuration mismatch.");
  if(BigInt(values[4]))throw new Error("Token transfers are paused.");const taxed=!!BigInt(values[3]) && !BigInt(values[5]) && !BigInt(values[6]);
  if(side==="sell" && (amount>BigInt(values[7]) || amount>BigInt(values[8])))throw new Error("Amount exceeds your token balance or remaining 24-hour sell allowance.");
+ if(target!==null){const grossTarget=grossForNet(target,taxed);const needed=await call(DEX.router,"0x1f00ca74"+uintWord(grossTarget)+uintWord(64)+uintWord(2)+tradePath(side).join(""));amount=decodeQuoteAmounts(needed)[0];}
  if(side==="buy" && amount>=BigInt(values[9]))throw new Error("Leave some test ETH for gas.");
  const input=side==="sell"?tradeNet(amount,taxed):amount;const out=await call(DEX.router,"0xd06ca61f"+uintWord(input)+uintWord(64)+uintWord(2)+tradePath(side).join(""));
- const words=out.slice(2).match(/.{64}/g);if(words?.length!==4 || BigInt("0x"+words[0])!==32n || BigInt("0x"+words[1])!==2n)throw new Error("Invalid pool quote.");const gross=BigInt("0x"+words[3]),net=side==="buy"?tradeNet(gross,taxed):gross,min=net*95n/100n;if(min<=0n)throw new Error("Trade amount is too small.");
- await assertPurchaseWallet(wallet,epoch);return {side,amount,net,min,taxed,wallet,epoch,at:Date.now(),text};
+ const gross=decodeQuoteAmounts(out)[1],net=side==="buy"?tradeNet(gross,taxed):gross,min=target===null?net*95n/100n:target;if(min<=0n || net<min)throw new Error("Trade amount is too small or target cannot be reached.");
+ await assertPurchaseWallet(wallet,epoch);return {side,amount,net,min,taxed,wallet,epoch,at:Date.now(),text,mode,target};
 }
-async function getTradeQuote(){if(tradeState.busy || purchaseState.busy || reflectionState.claimBusy)return;const epoch=purchaseState.epoch;tradeState.busy=true;tradeState.quote=null;renderTrade();try{const q=await dexQuote(state.wallet,epoch);if(epoch!==purchaseState.epoch)return;if(q.side!==$("tradeSide").value || q.text!==$("tradeAmount").value)throw new Error("Amount changed. Get a new quote.");tradeState.quote=q;$("tradeQuote").textContent=`Estimated receive: ${formatTestHpl(q.net)} ${q.side==="buy"?"TEST-HPL":"test ETH"} · Minimum: ${formatTestHpl(q.min)} · ${q.taxed?"10% token tax included":"This transfer is fee exempt"}.`;$("tradeStatus").textContent="Quote valid for 30 seconds. MetaMask will show the network fee.";}catch(e){if(epoch===purchaseState.epoch)$("tradeStatus").textContent=e.message;}finally{if(epoch===purchaseState.epoch){tradeState.busy=false;renderTrade();}}}
+async function getTradeQuote(){if(tradeState.busy || purchaseState.busy || reflectionState.claimBusy || !state.sessionToken || tradePending())return;clearTimeout(tradeState.timer);const epoch=purchaseState.epoch,version=++tradeState.quoteVersion;tradeState.quoting=true;tradeState.quote=null;$("tradeQuote").textContent="Estimating…";renderTrade();try{const q=await dexQuote(state.wallet,epoch);if(epoch!==purchaseState.epoch || version!==tradeState.quoteVersion)return;if(q.side!==$("tradeSide").value || q.text!==$("tradeAmount").value || q.mode!==tradeState.mode)return;tradeState.quote=q;displayTradeQuote(q);$("tradeStatus").textContent=q.target!==null?"Your HPL target is the minimum receive amount. If the price moves against you, the trade reverts; refresh the estimate. Gas is additional.":"Estimate valid for 30 seconds · 5% slippage tolerance · gas additional.";}catch(e){if(epoch===purchaseState.epoch && version===tradeState.quoteVersion){$("tradeQuote").textContent="Estimate unavailable";$("tradeStatus").textContent=e.message;}}finally{if(epoch===purchaseState.epoch && version===tradeState.quoteVersion){tradeState.quoting=false;renderTrade();}}}
 
 async function refreshTradeBalance(wallet,epoch,receiptBlock){
  reflectionState.balanceGeneration++;const generation=reflectionState.balanceGeneration;
@@ -1605,7 +1616,7 @@ async function waitTrade(pending,wallet,epoch){
  for(let n=0;n<30;n++){if(await checkTrade(pending,wallet,epoch))return true;$("tradeStatus").textContent=`${pending.stage==="approval"?"Approval":"Trade"} sent · waiting for confirmation. Hash: ${pending.hash}`;await new Promise(r=>setTimeout(r,2000));}
  $("tradeStatus").textContent="Still pending. Confirmation is saved; use Continue confirmation later.";return false;
 }
-function displayTradeQuote(q){$("tradeQuote").textContent=`Estimated receive: ${formatTestHpl(q.net)} ${q.side==="buy"?"TEST-HPL":"test ETH"} · Minimum: ${formatTestHpl(q.min)} · ${q.taxed?"10% token tax included":"This transfer is fee exempt"}.`;}
+function displayTradeQuote(q){$("tradeQuote").textContent=(q.target!=null?`Estimated cost: ${formatTestHpl(q.amount)} test ETH · `:"")+`Estimated receive: ${formatTestHpl(q.net)} ${q.side==="buy"?"TEST-HPL":"test ETH"} · Minimum: ${formatTestHpl(q.min)} · ${q.taxed?"10% token tax included":"This transfer is fee exempt"}.`;}
 async function submitTradeTransaction(q,stage,wallet,epoch){
  const provider=state.provider,to=stage==="approval"?MARKET.token:DEX.router;
  const data=stage==="approval"?"0x095ea7b3"+DEX.router.slice(2).padStart(64,"0")+uintWord(q.amount):swapData(q,Math.floor(Date.now()/1000)+300);
@@ -1615,7 +1626,7 @@ async function submitTradeTransaction(q,stage,wallet,epoch){
  tradeState.phase=stage==="approval"?"Approve in MetaMask…":"Confirm in MetaMask…";renderTrade();$("tradeStatus").textContent=stage==="approval"?"Step 1 of 2: approve this TEST-HPL amount. The sell confirmation follows automatically.":"Confirm the trade in MetaMask. Network gas is additional.";
  const key=tradeKey(wallet);localStorage.setItem(key,"null");
  const hash=await provider.request({method:"eth_sendTransaction",params:[{from:wallet,to,data,value}]});if(!/^0x[0-9a-f]{64}$/i.test(hash))throw new Error("Invalid transaction hash.");
- const pending={hash,stage,intent:{side:q.side,text:q.text,min:String(q.min)}};
+ const pending={hash,stage,intent:{side:q.side,text:q.text,min:String(q.min),mode:q.mode}};
  try{localStorage.setItem(key,JSON.stringify(pending));}catch{throw new Error(`Transaction sent. Save this hash and check it in MetaMask: ${hash}`);}
  await assertPurchaseWallet(wallet,epoch);return pending;
 }
@@ -1634,7 +1645,7 @@ async function sendTrade(){
  const wallet=state.wallet,epoch=purchaseState.epoch;tradeState.busy=true;tradeState.phase="Checking wallet…";renderTrade();
  try{await assertPurchaseWallet(wallet,epoch);const pending=tradePending();
   if(pending){if(await waitTrade(pending,wallet,epoch) && pending.stage==="approval")await continueApprovedSell(pending.intent,wallet,epoch);return;}
-  const q=tradeState.quote;if(!q || q.wallet!==wallet || q.epoch!==epoch || Date.now()-q.at>30000 || q.side!==$("tradeSide").value || q.text!==$("tradeAmount").value)throw new Error("Get a fresh quote before trading.");
+  const q=tradeState.quote;if(!q || q.wallet!==wallet || q.epoch!==epoch || Date.now()-q.at>30000 || q.side!==$("tradeSide").value || q.text!==$("tradeAmount").value || q.mode!==tradeState.mode)throw new Error("Get a fresh quote before trading.");
   let stage="swap";
   if(q.side==="sell"){const allowance=BigInt(await walletRpc(state.provider,"eth_call",[{to:MARKET.token,data:"0xdd62ed3e"+wallet.slice(2).padStart(64,"0")+DEX.router.slice(2).padStart(64,"0")},"latest"]));await assertPurchaseWallet(wallet,epoch);if(allowance<q.amount)stage="approval";}
   const sent=await submitTradeTransaction(q,stage,wallet,epoch);tradeState.quote=null;
@@ -1642,11 +1653,11 @@ async function sendTrade(){
  }catch(e){if(epoch===purchaseState.epoch){tradeState.quote=null;$("tradeStatus").textContent=e.code===4001?"Transaction cancelled. Any confirmed approval remains available.":e.message;}}
  finally{if(epoch===purchaseState.epoch){tradeState.busy=false;tradeState.phase="";renderTrade();}}
 }
-$("tradeQuoteBtn").addEventListener("click",()=>void getTradeQuote());$("tradeSendBtn").addEventListener("click",()=>void sendTrade());$("tradeAmount").addEventListener("input",invalidateTrade);$("tradeBuyTab").addEventListener("click",()=>chooseTrade("buy"));$("tradeSellTab").addEventListener("click",()=>chooseTrade("sell"));
-setInterval(renderTrade,2000);
+$("tradeQuoteBtn").addEventListener("click",()=>void getTradeQuote());$("tradeSendBtn").addEventListener("click",()=>void sendTrade());$("tradeAmount").addEventListener("input",invalidateTrade);$("spendModeBtn").addEventListener("click",()=>chooseBuyMode("spend"));$("receiveModeBtn").addEventListener("click",()=>chooseBuyMode("receive"));$("tradeBuyTab").addEventListener("click",()=>chooseTrade("buy"));$("tradeSellTab").addEventListener("click",()=>chooseTrade("sell"));
+setInterval(()=>{renderTrade();if($("tradeCard").open && document.visibilityState!=="hidden" && state.sessionToken && !tradeState.busy && !tradeState.quoting && !tradePending() && tradeState.quote && Date.now()-tradeState.quote.at>=25000)void getTradeQuote();},2000);
 
 function resetWallet(){
-  tradeState.busy=false;tradeState.quote=null;tradeState.phase="";
+  clearTimeout(tradeState.timer);tradeState.quoteVersion++;tradeState.quoting=false;tradeState.busy=false;tradeState.quote=null;tradeState.phase="";
   purchaseState.cart={1:0,2:0,3:0};
   Object.assign(reflectionState,{loaded:false,readBusy:false,claimBusy:false,amount:null,balance:null,feeExempt:false,paused:false,excluded:false,pending:null,error:"",notice:"",lastRefresh:0,balanceGeneration:0});
   purchaseState.epoch++;purchaseState.busy=false;purchaseState.pending=null;purchaseState.balance=null;purchaseState.balanceError=false;purchaseState.refreshAfterCredit=false;purchaseState.unitPrice=250000000000000000000n;purchaseState.quoteBusy=false;$("purchaseReceiptHash").value="";$("purchaseStatus").textContent="Add powerups to your cart.";updatePurchaseButton();
@@ -1663,8 +1674,14 @@ function resetWallet(){
   $("walletBtn").textContent="Connect Wallet";$("connection").textContent="Reconnect wallet";
   $("statusDot").classList.remove("live");setPowerupButtons(false);updatePurchaseButton();renderReflections();
 }
+let walletReturnFocus=null;
+function openWalletOverlay(){const modal=$("walletOverlay");if(modal.open)return;walletReturnFocus=document.activeElement;modal.showModal();$("walletOverlayControls").appendChild($("walletControls"));$("walletControls").querySelector("details").open=true;$("quickWalletSummary").hidden=false;document.body.classList.add("wallet-open");$("closeWalletBtn").focus();void refreshReflections();}
+function restoreWalletPanel(){$("walletHome").appendChild($("walletControls"));$("quickWalletSummary").hidden=true;document.body.classList.remove("wallet-open");walletReturnFocus?.focus?.();}
+$("myWalletBtn").addEventListener("click",openWalletOverlay);$("walletReturnBtn").addEventListener("click",openWalletOverlay);$("closeWalletBtn").addEventListener("click",()=>$("walletOverlay").close());$("walletOverlay").addEventListener("close",restoreWalletPanel);
+$("copyWalletFeedbackBtn").addEventListener("click",async()=>{const text=$("walletFeedback").value.trim();if(!text){$("walletFeedbackStatus").textContent="Write your feedback first.";return;}try{await navigator.clipboard.writeText(`HPL Wallet Alpha feedback\n${text}`);$("walletFeedbackStatus").textContent="Copied. Paste it into your message to the alpha organizer.";}catch{$("walletFeedback").focus();$("walletFeedback").select();$("walletFeedbackStatus").textContent="Select and copy your feedback to share it.";}});
 connectBackend().catch(error=>{$("apiStatus").textContent=`Round preview unavailable: ${error.message}. Connect your wallet to join.`;});
 drawBoard();
 </script>
+
 </body>
 </html>
