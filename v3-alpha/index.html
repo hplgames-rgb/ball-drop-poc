@@ -328,7 +328,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.29 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.30 · Testnet only</div>
 </div>
 
 <dialog id="walletOverlay" aria-labelledby="walletOverlayTitle"><div class="wallet-overlay-header"><div><h2 id="walletOverlayTitle">My HPL Wallet</h2><p class="mini">Base Sepolia · Alpha testing</p></div><button id="closeWalletBtn" type="button" class="wallet-refresh">Back to game ✕</button></div><div class="wallet-overlay-content"><div id="walletOverlayControls"></div><section class="card"><h3>Game rewards</h3><p class="mini">Claim your game rewards here soon.</p></section><details class="card"><summary>Wallet feedback</summary><p class="mini">Tell us what feels easy or confusing. Copy your feedback to share with the alpha organizer.</p><textarea id="walletFeedback" rows="5" maxlength="2000" placeholder="I prefer the side panel / full wallet because…"></textarea><button id="copyWalletFeedbackBtn" type="button" class="wallet-refresh">Copy feedback</button><p id="walletFeedbackStatus" class="mini" role="status"></p></details></div></dialog>
@@ -401,7 +401,7 @@ const $ = id => document.getElementById(id);
 const canvas = $("board");
 const ctx = canvas.getContext("2d");
 
-function money(n){ return Number(n || 0).toLocaleString(undefined,{maximumFractionDigits:4}); }
+function money(n){ return Number(n || 0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); }
 
 function resize(){
   const dpr = Math.min(devicePixelRatio || 1, 2);
@@ -1307,11 +1307,8 @@ function restorePendingPurchase(){
   if(purchaseState.pending) $("purchaseStatus").textContent="Purchase receipt saved. Retry confirmation to recover your inventory.";
   updatePurchaseButton();
 }
-function formatTestHpl(units){
-  const n=BigInt(units),whole=n/1000000000000000000n;
-  const fraction=(n%1000000000000000000n).toString().padStart(18,"0").replace(/0+$/,"");
-  return `${whole.toLocaleString()}${fraction?"."+fraction:""}`;
-}
+function formatTestHpl(units){return formatBalance(units);}
+function formatEthEstimate(units){const n=BigInt(units);if(n>0n && n<100000000000000n)return "<0.0001";const ticks=(n+50000000000000n)/100000000000000n;const fraction=(ticks%10000n).toString().padStart(4,"0").replace(/0+$/,"");return `${(ticks/10000n).toLocaleString()}${fraction?"."+fraction:""}`;}
 function formatBalance(units){const cents=BigInt(units)/10000000000000000n;return `${(cents/100n).toLocaleString()}.${(cents%100n).toString().padStart(2,"0")}`;}
 function cartItems(){return [1,2,3].filter(id=>purchaseState.cart[id]>0).map(id=>({power_up_id:id,quantity:purchaseState.cart[id]}));}
 function cartTotal(){return cartItems().reduce((sum,row)=>sum+purchaseState.prices[row.power_up_id]*BigInt(row.quantity),0n);}
@@ -1616,7 +1613,8 @@ async function waitTrade(pending,wallet,epoch){
  for(let n=0;n<30;n++){if(await checkTrade(pending,wallet,epoch))return true;$("tradeStatus").textContent=`${pending.stage==="approval"?"Approval":"Trade"} sent · waiting for confirmation. Hash: ${pending.hash}`;await new Promise(r=>setTimeout(r,2000));}
  $("tradeStatus").textContent="Still pending. Confirmation is saved; use Continue confirmation later.";return false;
 }
-function displayTradeQuote(q){$("tradeQuote").textContent=(q.target!=null?`Estimated cost: ${formatTestHpl(q.amount)} test ETH · `:"")+`Estimated receive: ${formatTestHpl(q.net)} ${q.side==="buy"?"TEST-HPL":"test ETH"} · Minimum: ${formatTestHpl(q.min)} · ${q.taxed?"10% token tax included":"This transfer is fee exempt"}.`;}
+function displayTradeQuote(q){const eth=n=>{const value=formatEthEstimate(n);return value.startsWith("<")?value:`~${value}`;},hpl=n=>`~${formatTestHpl(n)}`;$("tradeQuote").textContent=(q.target!=null?`Estimated cost: ${eth(q.amount)} test ETH · `:"")+`Estimated receive: ${q.side==="buy"?hpl(q.net):eth(q.net)} ${q.side==="buy"?"TEST-HPL":"test ETH"} · Minimum: ${q.side==="buy"?hpl(q.min):eth(q.min)} · ${q.taxed?"10% token tax included":"This transfer is fee exempt"}.`;}
+
 async function submitTradeTransaction(q,stage,wallet,epoch){
  const provider=state.provider,to=stage==="approval"?MARKET.token:DEX.router;
  const data=stage==="approval"?"0x095ea7b3"+DEX.router.slice(2).padStart(64,"0")+uintWord(q.amount):swapData(q,Math.floor(Date.now()/1000)+300);
