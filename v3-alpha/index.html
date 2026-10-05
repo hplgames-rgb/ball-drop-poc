@@ -161,6 +161,7 @@
   #refreshPurchaseQuoteBtn{font-size:11px;margin:6px 0 10px}.checkout-buy{display:block;width:100%;padding:12px;background:#28b582;color:#051d16;font-weight:700;border:0;border-radius:10px;cursor:pointer;margin-bottom:10px}
   .checkout-buy:disabled,.quantity-controls button:disabled,#refreshPurchaseQuoteBtn:disabled{opacity:.5;cursor:default}
   .wallet-refresh{padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:#122942;color:var(--text);cursor:pointer;margin-bottom:10px}.wallet-refresh:disabled{opacity:.5;cursor:default}
+  .trade-tabs{display:flex;gap:8px;margin:12px 0}.trade-tabs button{flex:1;color:#fff;background:#25304b;border:1px solid #596582;border-radius:8px;padding:10px;cursor:pointer}.trade-tabs button[aria-pressed="true"]{background:#653bb0;border-color:#c4a1ff}.trade-tabs button:disabled{opacity:.6}.card input{max-width:100%;box-sizing:border-box}
   #reflectionWalletBalance,#reflectionAmount{overflow-wrap:anywhere}
   .footer{color:#607993;text-align:center;font-size:11px;padding:16px}
   @media(max-width:900px){
@@ -272,8 +273,8 @@
       </div>
       <details class="card"><summary>Buy / sell TEST-HPL</summary>
         <p class="mini">Base Sepolia test tokens · 10% transfer tax for ordinary player wallets. Quotes include tax and pool fees.</p>
-        <label>Trade <select id="tradeSide"><option value="buy">Buy with test ETH</option><option value="sell">Sell TEST-HPL</option></select></label>
-        <label>Amount <input id="tradeAmount" type="text" inputmode="decimal" placeholder="0.0001" /></label>
+        <div class="trade-tabs" role="group" aria-label="Trade direction"><button id="tradeBuyTab" type="button" aria-pressed="true">Buy</button><button id="tradeSellTab" type="button" aria-pressed="false">Sell</button></div><input id="tradeSide" type="hidden" value="buy" />
+        <label><span id="tradeAmountLabel">Spend test ETH</span> <input id="tradeAmount" type="text" inputmode="decimal" placeholder="0.0001" /></label>
         <p id="tradeQuote" class="mini">Enter an amount and get a quote.</p>
         <button id="tradeQuoteBtn" type="button" class="wallet-refresh">Get quote</button>
         <button id="tradeSendBtn" type="button" class="checkout-buy" disabled>Review quote first</button>
@@ -323,7 +324,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.27 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.28 · Testnet only</div>
 </div>
 
 <script>
@@ -1485,7 +1486,7 @@ async function reflectionSnapshot(wallet,provider){
   ];
   const values=await Promise.all(specs.map(([to,data])=>walletRpc(provider,"eth_call",[{to,data},block])));
   if("0x"+values[0].slice(-40).toLowerCase()!==MARKET.token || "0x"+values[1].slice(-40).toLowerCase()!==REFLECTIONS.address) throw new Error("Reflections configuration mismatch.");
-  return {amount:BigInt(values[2]),paused:BigInt(values[3])!==0n,excluded:BigInt(values[4])!==0n,feeExempt:BigInt(values[5])!==0n,balance:BigInt(values[6])};
+  return {block,amount:BigInt(values[2]),paused:BigInt(values[3])!==0n,excluded:BigInt(values[4])!==0n,feeExempt:BigInt(values[5])!==0n,balance:BigInt(values[6])};
 }
 async function refreshReflections(){
   if(!state.sessionToken || !state.wallet || !state.provider || reflectionState.readBusy || reflectionState.claimBusy) return;
@@ -1552,14 +1553,15 @@ setInterval(()=>{if(state.sessionToken && document.visibilityState!=="hidden" &&
 
 
 const DEX={router:"0x837e965e801b64429cf4aa070a1834a578688497",factory:"0x37ee8c40b1103606695dc742caa636eccb2a7363",pair:"0x65926e01fa24f08f271d2051f99a3afe480fac60",weth:"0x4200000000000000000000000000000000000006"};
-const tradeState={busy:false,quote:null};
+const tradeState={busy:false,quote:null,phase:"",side:"buy"};
 function tradeKey(wallet){return `hpl-v3-trade:${wallet}`;}
 function tradePending(){try{return JSON.parse(localStorage.getItem(tradeKey(state.wallet))||"null");}catch{return null;}}
 function tradeAmount(text){if(!/^(?:0|[1-9]\d*)(?:\.\d{1,18})?$/.test(text)) throw new Error("Enter a positive amount with at most 18 decimal places.");const [a,b=""]=text.split(".");const n=BigInt(a)*10n**18n+BigInt(b.padEnd(18,"0"));if(n<=0n || n>=2n**256n)throw new Error("Invalid amount.");return n;}
 function tradeNet(n,taxed){return taxed?n-n*350n/10000n-n*350n/10000n-n*300n/10000n:n;}
 function tradePath(side){return (side==="buy"?[DEX.weth,MARKET.token]:[MARKET.token,DEX.weth]).map(a=>a.slice(2).padStart(64,"0"));}
 function swapData(q,deadline){const tail=[uintWord(2),...tradePath(q.side)].join("");return q.side==="buy"?"0xb6f9de95"+[uintWord(q.min),uintWord(128),state.wallet.slice(2).padStart(64,"0"),uintWord(deadline)].join("")+tail:"0x791ac947"+[uintWord(q.amount),uintWord(q.min),uintWord(160),state.wallet.slice(2).padStart(64,"0"),uintWord(deadline)].join("")+tail;}
-function renderTrade(){const pending=tradePending();$("tradeQuoteBtn").disabled=tradeState.busy || !state.sessionToken || !!pending;$("tradeSendBtn").disabled=tradeState.busy || !state.sessionToken || (!pending && !tradeState.quote);$("tradeSendBtn").textContent=tradeState.busy?"Checking…":pending?"Check transaction confirmation":tradeState.quote?"Confirm trade in MetaMask":"Review quote first";}
+function renderTrade(){const pending=tradePending();if(!tradeState.busy && pending?.intent){$("tradeSide").value=pending.intent.side;$("tradeAmount").value=pending.intent.text;$("tradeAmountLabel").textContent=pending.intent.side==="buy"?"Spend test ETH":"Sell TEST-HPL";}const locked=tradeState.busy || !!pending;$("tradeQuoteBtn").disabled=locked || !state.sessionToken;$("tradeSendBtn").disabled=tradeState.busy || !state.sessionToken || (!pending && !tradeState.quote);$("tradeSendBtn").textContent=tradeState.busy?tradeState.phase||"Checking…":pending?"Continue confirmation":tradeState.quote?($("tradeSide").value==="buy"?"Buy TEST-HPL":"Sell TEST-HPL"):"Review quote first";$("tradeAmount").disabled=locked;for(const side of ["buy","sell"]){const tab=$(side==="buy"?"tradeBuyTab":"tradeSellTab");tab.disabled=locked;tab.setAttribute?.("aria-pressed",String($("tradeSide").value===side));}}
+function chooseTrade(side){if(tradeState.busy || tradePending())return;$("tradeSide").value=side;tradeState.side=side;$("tradeAmount").value="";$("tradeAmount").placeholder=side==="buy"?"0.0001":"1000";$("tradeAmountLabel").textContent=side==="buy"?"Spend test ETH":"Sell TEST-HPL";invalidateTrade();}
 function invalidateTrade(){tradeState.quote=null;$("tradeQuote").textContent="Enter an amount and get a quote.";renderTrade();}
 async function dexQuote(wallet,epoch){
  await assertPurchaseWallet(wallet,epoch);const provider=state.provider,side=$("tradeSide").value,text=$("tradeAmount").value,amount=tradeAmount(text.trim()),block=await walletRpc(provider,"eth_blockNumber");
@@ -1574,19 +1576,77 @@ async function dexQuote(wallet,epoch){
  await assertPurchaseWallet(wallet,epoch);return {side,amount,net,min,taxed,wallet,epoch,at:Date.now(),text};
 }
 async function getTradeQuote(){if(tradeState.busy || purchaseState.busy || reflectionState.claimBusy)return;const epoch=purchaseState.epoch;tradeState.busy=true;tradeState.quote=null;renderTrade();try{const q=await dexQuote(state.wallet,epoch);if(epoch!==purchaseState.epoch)return;if(q.side!==$("tradeSide").value || q.text!==$("tradeAmount").value)throw new Error("Amount changed. Get a new quote.");tradeState.quote=q;$("tradeQuote").textContent=`Estimated receive: ${formatTestHpl(q.net)} ${q.side==="buy"?"TEST-HPL":"test ETH"} · Minimum: ${formatTestHpl(q.min)} · ${q.taxed?"10% token tax included":"This transfer is fee exempt"}.`;$("tradeStatus").textContent="Quote valid for 30 seconds. MetaMask will show the network fee.";}catch(e){if(epoch===purchaseState.epoch)$("tradeStatus").textContent=e.message;}finally{if(epoch===purchaseState.epoch){tradeState.busy=false;renderTrade();}}}
-async function checkTrade(pending,wallet,epoch){await assertPurchaseWallet(wallet,epoch);const receipt=await walletRpc(state.provider,"eth_getTransactionReceipt",[pending.hash]);await assertPurchaseWallet(wallet,epoch);if(!receipt){$("tradeStatus").textContent=`Still pending. Transaction: ${pending.hash}. Check again; do not resend.`;return false;}if(receipt.transactionHash?.toLowerCase()!==pending.hash.toLowerCase())throw new Error("Receipt mismatch.");localStorage.removeItem?.(tradeKey(wallet));if(BigInt(receipt.status)!==1n)throw new Error("Transaction reverted. Get a new quote before retrying.");$("tradeStatus").textContent=pending.stage==="approval"?"Approval confirmed. Get a fresh quote to submit the sell.":`Trade confirmed: ${pending.hash}`;tradeState.quote=null;reflectionState.balanceGeneration++;return true;}
-async function sendTrade(){if(tradeState.busy || purchaseState.busy || reflectionState.claimBusy || !state.sessionToken)return;const wallet=state.wallet,epoch=purchaseState.epoch;tradeState.busy=true;renderTrade();try{await assertPurchaseWallet(wallet,epoch);const pending=tradePending();if(pending){await checkTrade(pending,wallet,epoch);return;}const q=tradeState.quote;if(!q || q.wallet!==wallet || q.epoch!==epoch || Date.now()-q.at>30000 || q.side!==$("tradeSide").value || q.text!==$("tradeAmount").value)throw new Error("Get a fresh quote before trading.");let to=DEX.router,data=swapData(q,Math.floor(Date.now()/1000)+300),value=q.side==="buy"?"0x"+q.amount.toString(16):"0x0",stage="swap";
- if(q.side==="sell"){const allowance=BigInt(await walletRpc(state.provider,"eth_call",[{to:MARKET.token,data:"0xdd62ed3e"+wallet.slice(2).padStart(64,"0")+DEX.router.slice(2).padStart(64,"0")},"latest"]));if(allowance<q.amount){to=MARKET.token;data="0x095ea7b3"+DEX.router.slice(2).padStart(64,"0")+uintWord(q.amount);stage="approval";}}
- await assertPurchaseWallet(wallet,epoch);const provider=state.provider;await walletRpc(provider,"eth_call",[{from:wallet,to,data,value},"latest"]);await assertPurchaseWallet(wallet,epoch);
+
+async function refreshTradeBalance(wallet,epoch,receiptBlock){
+ reflectionState.balanceGeneration++;const generation=reflectionState.balanceGeneration;
+ $("tradeStatus").textContent="Trade confirmed · updating wallet balance…";
+ for(let n=0;n<3;n++){
+  await assertPurchaseWallet(wallet,epoch);
+  try{const snapshot=await reflectionSnapshot(wallet,state.provider);await assertPurchaseWallet(wallet,epoch);
+   if(BigInt(snapshot.block)<BigInt(receiptBlock))throw new Error("Wallet node is catching up.");
+   if(generation!==reflectionState.balanceGeneration)return;
+   Object.assign(reflectionState,snapshot,{loaded:true,error:"",lastRefresh:Date.now()});purchaseState.balance=snapshot.balance;purchaseState.balanceError=false;renderPurchaseCost();renderReflections();$("tradeStatus").textContent="Trade confirmed · wallet balance updated.";return;
+  }catch(e){if(epoch!==purchaseState.epoch)throw e;if(n===2){$("tradeStatus").textContent="Trade confirmed. Balance refresh delayed; use Refresh wallet. Your trade was not resent.";return;}}
+  await new Promise(r=>setTimeout(r,2000));
+ }
+}
+async function checkTrade(pending,wallet,epoch){
+ await assertPurchaseWallet(wallet,epoch);const receipt=await walletRpc(state.provider,"eth_getTransactionReceipt",[pending.hash]);await assertPurchaseWallet(wallet,epoch);
+ if(!receipt)return false;
+ if(receipt.transactionHash?.toLowerCase()!==pending.hash.toLowerCase())throw new Error("Receipt mismatch.");
+ localStorage.removeItem?.(tradeKey(wallet));
+ if(BigInt(receipt.status)!==1n)throw new Error("Transaction reverted. Get a new quote before retrying.");
+ tradeState.quote=null;
+ if(pending.stage!=="approval")await refreshTradeBalance(wallet,epoch,receipt.blockNumber);
+ return true;
+}
+async function waitTrade(pending,wallet,epoch){
+ tradeState.phase=pending.stage==="approval"?"Waiting for approval…":"Waiting for trade…";renderTrade();
+ for(let n=0;n<30;n++){if(await checkTrade(pending,wallet,epoch))return true;$("tradeStatus").textContent=`${pending.stage==="approval"?"Approval":"Trade"} sent · waiting for confirmation. Hash: ${pending.hash}`;await new Promise(r=>setTimeout(r,2000));}
+ $("tradeStatus").textContent="Still pending. Confirmation is saved; use Continue confirmation later.";return false;
+}
+function displayTradeQuote(q){$("tradeQuote").textContent=`Estimated receive: ${formatTestHpl(q.net)} ${q.side==="buy"?"TEST-HPL":"test ETH"} · Minimum: ${formatTestHpl(q.min)} · ${q.taxed?"10% token tax included":"This transfer is fee exempt"}.`;}
+async function submitTradeTransaction(q,stage,wallet,epoch){
+ const provider=state.provider,to=stage==="approval"?MARKET.token:DEX.router;
+ const data=stage==="approval"?"0x095ea7b3"+DEX.router.slice(2).padStart(64,"0")+uintWord(q.amount):swapData(q,Math.floor(Date.now()/1000)+300);
+ const value=stage==="swap" && q.side==="buy"?"0x"+q.amount.toString(16):"0x0";
+ await assertPurchaseWallet(wallet,epoch);await walletRpc(provider,"eth_call",[{from:wallet,to,data,value},"latest"]);await assertPurchaseWallet(wallet,epoch);
  if(Date.now()-q.at>30000)throw new Error("Quote expired. Get a fresh quote.");
- const key=tradeKey(wallet);localStorage.setItem(key,"null");const hash=await provider.request({method:"eth_sendTransaction",params:[{from:wallet,to,data,value}]});if(!/^0x[0-9a-f]{64}$/i.test(hash))throw new Error("Invalid transaction hash.");try{localStorage.setItem(key,JSON.stringify({hash,stage}));}catch{if(epoch===purchaseState.epoch)$("tradeStatus").textContent=`Transaction sent. Save this hash: ${hash}`;return;}
- if(epoch!==purchaseState.epoch)return;tradeState.quote=null;$("tradeStatus").textContent=`${stage==="approval"?"Approval":"Trade"} sent: ${hash}. Use Check transaction confirmation once mined.`;await checkTrade({hash,stage},wallet,epoch);
- }catch(e){if(epoch===purchaseState.epoch){tradeState.quote=null;$("tradeStatus").textContent=e.code===4001?"Transaction cancelled.":e.message;}}finally{if(epoch===purchaseState.epoch){tradeState.busy=false;renderTrade();void refreshReflections();}}}
-$("tradeQuoteBtn").addEventListener("click",()=>void getTradeQuote());$("tradeSendBtn").addEventListener("click",()=>void sendTrade());$("tradeAmount").addEventListener("input",invalidateTrade);$("tradeSide").addEventListener("change",invalidateTrade);
+ tradeState.phase=stage==="approval"?"Approve in MetaMask…":"Confirm in MetaMask…";renderTrade();$("tradeStatus").textContent=stage==="approval"?"Step 1 of 2: approve this TEST-HPL amount. The sell confirmation follows automatically.":"Confirm the trade in MetaMask. Network gas is additional.";
+ const key=tradeKey(wallet);localStorage.setItem(key,"null");
+ const hash=await provider.request({method:"eth_sendTransaction",params:[{from:wallet,to,data,value}]});if(!/^0x[0-9a-f]{64}$/i.test(hash))throw new Error("Invalid transaction hash.");
+ const pending={hash,stage,intent:{side:q.side,text:q.text,min:String(q.min)}};
+ try{localStorage.setItem(key,JSON.stringify(pending));}catch{throw new Error(`Transaction sent. Save this hash and check it in MetaMask: ${hash}`);}
+ await assertPurchaseWallet(wallet,epoch);return pending;
+}
+async function continueApprovedSell(intent,wallet,epoch){
+ if(!intent || intent.side!=="sell"){ $("tradeStatus").textContent="Approval confirmed. Get a fresh sell quote.";return;}
+ if($("tradeSide").value!==intent.side || $("tradeAmount").value!==intent.text){$("tradeStatus").textContent="Approval confirmed. Restore your sell amount and get a fresh quote.";return;}
+ tradeState.phase="Refreshing sell quote…";renderTrade();const fresh=await dexQuote(wallet,epoch);await assertPurchaseWallet(wallet,epoch);
+ tradeState.quote=fresh;displayTradeQuote(fresh);
+ if(fresh.min<BigInt(intent.min)){ $("tradeStatus").textContent="Approval confirmed. The price moved lower; review the updated quote and click Sell to continue.";return;}
+ const allowance=BigInt(await walletRpc(state.provider,"eth_call",[{to:MARKET.token,data:"0xdd62ed3e"+wallet.slice(2).padStart(64,"0")+DEX.router.slice(2).padStart(64,"0")},"latest"]));await assertPurchaseWallet(wallet,epoch);
+ if(allowance<fresh.amount)throw new Error("Approval is not available yet. Get a fresh quote to retry.");
+ const swap=await submitTradeTransaction(fresh,"swap",wallet,epoch);tradeState.quote=null;await waitTrade(swap,wallet,epoch);
+}
+async function sendTrade(){
+ if(tradeState.busy || purchaseState.busy || reflectionState.claimBusy || !state.sessionToken)return;
+ const wallet=state.wallet,epoch=purchaseState.epoch;tradeState.busy=true;tradeState.phase="Checking wallet…";renderTrade();
+ try{await assertPurchaseWallet(wallet,epoch);const pending=tradePending();
+  if(pending){if(await waitTrade(pending,wallet,epoch) && pending.stage==="approval")await continueApprovedSell(pending.intent,wallet,epoch);return;}
+  const q=tradeState.quote;if(!q || q.wallet!==wallet || q.epoch!==epoch || Date.now()-q.at>30000 || q.side!==$("tradeSide").value || q.text!==$("tradeAmount").value)throw new Error("Get a fresh quote before trading.");
+  let stage="swap";
+  if(q.side==="sell"){const allowance=BigInt(await walletRpc(state.provider,"eth_call",[{to:MARKET.token,data:"0xdd62ed3e"+wallet.slice(2).padStart(64,"0")+DEX.router.slice(2).padStart(64,"0")},"latest"]));await assertPurchaseWallet(wallet,epoch);if(allowance<q.amount)stage="approval";}
+  const sent=await submitTradeTransaction(q,stage,wallet,epoch);tradeState.quote=null;
+  if(await waitTrade(sent,wallet,epoch) && stage==="approval")await continueApprovedSell(sent.intent,wallet,epoch);
+ }catch(e){if(epoch===purchaseState.epoch){tradeState.quote=null;$("tradeStatus").textContent=e.code===4001?"Transaction cancelled. Any confirmed approval remains available.":e.message;}}
+ finally{if(epoch===purchaseState.epoch){tradeState.busy=false;tradeState.phase="";renderTrade();}}
+}
+$("tradeQuoteBtn").addEventListener("click",()=>void getTradeQuote());$("tradeSendBtn").addEventListener("click",()=>void sendTrade());$("tradeAmount").addEventListener("input",invalidateTrade);$("tradeBuyTab").addEventListener("click",()=>chooseTrade("buy"));$("tradeSellTab").addEventListener("click",()=>chooseTrade("sell"));
 setInterval(renderTrade,2000);
 
 function resetWallet(){
-  tradeState.busy=false;tradeState.quote=null;
+  tradeState.busy=false;tradeState.quote=null;tradeState.phase="";
   purchaseState.cart={1:0,2:0,3:0};
   Object.assign(reflectionState,{loaded:false,readBusy:false,claimBusy:false,amount:null,balance:null,feeExempt:false,paused:false,excluded:false,pending:null,error:"",notice:"",lastRefresh:0,balanceGeneration:0});
   purchaseState.epoch++;purchaseState.busy=false;purchaseState.pending=null;purchaseState.balance=null;purchaseState.balanceError=false;purchaseState.refreshAfterCredit=false;purchaseState.unitPrice=250000000000000000000n;purchaseState.quoteBusy=false;$("purchaseReceiptHash").value="";$("purchaseStatus").textContent="Add powerups to your cart.";updatePurchaseButton();
