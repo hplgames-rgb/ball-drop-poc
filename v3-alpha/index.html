@@ -328,14 +328,16 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.30 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.31 · Testnet only</div>
 </div>
 
-<dialog id="walletOverlay" aria-labelledby="walletOverlayTitle"><div class="wallet-overlay-header"><div><h2 id="walletOverlayTitle">My HPL Wallet</h2><p class="mini">Base Sepolia · Alpha testing</p></div><button id="closeWalletBtn" type="button" class="wallet-refresh">Back to game ✕</button></div><div class="wallet-overlay-content"><div id="walletOverlayControls"></div><section class="card"><h3>Game rewards</h3><p class="mini">Claim your game rewards here soon.</p></section><details class="card"><summary>Wallet feedback</summary><p class="mini">Tell us what feels easy or confusing. Copy your feedback to share with the alpha organizer.</p><textarea id="walletFeedback" rows="5" maxlength="2000" placeholder="I prefer the side panel / full wallet because…"></textarea><button id="copyWalletFeedbackBtn" type="button" class="wallet-refresh">Copy feedback</button><p id="walletFeedbackStatus" class="mini" role="status"></p></details></div></dialog>
+<dialog id="walletOverlay" aria-labelledby="walletOverlayTitle"><div class="wallet-overlay-header"><div><h2 id="walletOverlayTitle">My HPL Wallet</h2><p class="mini">Base Sepolia · Alpha testing</p></div><button id="closeWalletBtn" type="button" class="wallet-refresh">Back to game ✕</button></div><div class="wallet-overlay-content"><div id="walletOverlayControls"></div><section class="card"><h3>Game rewards</h3><div id="gameRewardAmount" class="metric gold">— TEST-HPL</div><button id="claimGameRewardsBtn" type="button" class="wallet-refresh" disabled>Claim game rewards</button> <button id="refreshGameRewardsBtn" type="button" class="wallet-refresh" disabled>Refresh rewards</button><p id="gameRewardStatus" class="mini" role="status">Connect your wallet to view game rewards.</p></section><details class="card"><summary>Wallet feedback</summary><p class="mini">Tell us what feels easy or confusing. Copy your feedback to share with the alpha organizer.</p><textarea id="walletFeedback" rows="5" maxlength="2000" placeholder="I prefer the side panel / full wallet because…"></textarea><button id="copyWalletFeedbackBtn" type="button" class="wallet-refresh">Copy feedback</button><p id="walletFeedbackStatus" class="mini" role="status"></p></details></div></dialog>
 <script>
 const CONFIG={url:"https://brvnzzkatyxfxpevukzt.supabase.co",key:"sb_publishable_N7wjJGUvFGcNznaPN_aFZQ_nnSVYmZ0"};
 const MARKET={address:"0xc92c2f7359e20b336dfe14d6785f307194a14c4a",token:"0x7e8e2fbfdfc4337b926329dcceeb82440f51735c",chain:"0x14a34"};
 const REFLECTIONS={address:"0x073741dfa10cab0d5f02f8dd4d8dbc817046df9a",claimTopic:"0xcaa03033c11df8560eb1a698ca7632211dfb8d82def73ba95db35495cd6a671b"};
+const REWARDS={address:"0x019fb73bf80ce116210bcfb7514412ab99b6c218",claimTopic:"0x152b817a4d4f6150e6d3d4cff286dc596b7c82f44240434ac973fd8338b2a544"};
+const rewardState={loaded:false,readBusy:false,busy:false,amount:null,paused:false,feeExempt:false,pending:null,error:"",notice:"",lastRefresh:0};
 const reflectionState={loaded:false,readBusy:false,claimBusy:false,amount:null,balance:null,feeExempt:false,paused:false,excluded:false,pending:null,error:"",notice:"",lastRefresh:0,balanceGeneration:0};
 const SHOP={1:{name:"Double Drop",price:250000000000000000000n},2:{name:"Paddle Extender",price:175000000000000000000n},3:{name:"Lightning Magnet",price:200000000000000000000n}};
 const purchaseState={cart:{1:0,2:0,3:0},prices:{1:250000000000000000000n,2:175000000000000000000n,3:200000000000000000000n},itemId:1,busy:false,pending:null,epoch:0,unitPrice:250000000000000000000n,balance:null,balanceError:false,quoteBusy:false,refreshAfterCredit:false};
@@ -1016,7 +1018,7 @@ async function advanceRound(){
 }
 
 async function authenticateWallet(){
-  if(state.authBusy || purchaseState.busy || reflectionState.claimBusy) return;
+  if(state.authBusy || purchaseState.busy || rewardState.busy || reflectionState.claimBusy) return;
   state.authBusy=true;
   $("walletBtn").disabled=true;
   $("walletBtn").textContent="Connecting…";
@@ -1070,6 +1072,7 @@ async function authenticateWallet(){
     state.sessionToken=verified.session_token;
     restorePendingPurchase();
     restoreReflectionClaim();
+    restoreRewardClaim();
     $("walletBtn").textContent=`${state.wallet.slice(0,6)}…${state.wallet.slice(-4)}`;
     $("connection").textContent="Wallet authenticated";
     $("statusDot").classList.add("live");
@@ -1079,6 +1082,7 @@ async function authenticateWallet(){
     await refreshServerState();
     void refreshPurchaseQuote();
     void refreshReflections();
+    void refreshGameRewards();
 
   }catch(err){
     console.error(err);
@@ -1332,7 +1336,7 @@ async function refreshPurchaseQuote(){
   purchaseState.quoteBusy=true;updatePurchaseButton();
   try{
     const quote=await edgeRequest("marketplace-purchase",{session_token:token,action:"quote",items:[{power_up_id:1,quantity:1},{power_up_id:2,quantity:1},{power_up_id:3,quantity:1}]});
-    if(purchaseState.epoch!==epoch || state.wallet!==wallet || state.sessionToken!==token || purchaseState.busy || reflectionState.claimBusy || generation!==reflectionState.balanceGeneration) return;
+    if(purchaseState.epoch!==epoch || state.wallet!==wallet || state.sessionToken!==token || purchaseState.busy || rewardState.busy || reflectionState.claimBusy || generation!==reflectionState.balanceGeneration) return;
     applyCartQuote(quote,[{power_up_id:1,quantity:1},{power_up_id:2,quantity:1},{power_up_id:3,quantity:1}]);
   }catch(error){if(purchaseState.epoch===epoch && state.sessionToken===token) purchaseState.balanceError=true;}
   finally{if(purchaseState.epoch===epoch){purchaseState.quoteBusy=false;updatePurchaseButton();}}
@@ -1340,7 +1344,7 @@ async function refreshPurchaseQuote(){
 function updatePurchaseButton(){
   renderPurchaseCost();
   const btn=$("buyDoubleDropBtn");
-  btn.disabled=purchaseState.busy || purchaseState.quoteBusy || reflectionState.claimBusy || !state.sessionToken || !state.wallet || !state.provider || (!purchaseState.pending && !cartItems().length);
+  btn.disabled=purchaseState.busy || purchaseState.quoteBusy || rewardState.busy || reflectionState.claimBusy || !state.sessionToken || !state.wallet || !state.provider || (!purchaseState.pending && !cartItems().length);
   btn.textContent=purchaseState.busy?"Confirming…":purchaseState.pending?"Retry purchase confirmation":"Checkout";
   document.querySelectorAll("[data-cart-id]").forEach(btn=>{const id=Number(btn.dataset.cartId),step=Number(btn.dataset.cartStep);btn.disabled=purchaseState.busy || purchaseState.quoteBusy || !!purchaseState.pending || (step<0?purchaseState.cart[id]===0:purchaseState.cart[id]===100);});
   $("refreshPurchaseQuoteBtn").disabled=!state.sessionToken || purchaseState.busy || purchaseState.quoteBusy;
@@ -1397,7 +1401,7 @@ async function confirmPurchase(hash,wallet,token,epoch){
   $("purchaseStatus").textContent="Still confirming. Your receipt is saved; click Retry confirmation later.";
 }
 async function buyDoubleDrop(){
-  if(tradeState.busy || purchaseState.busy || reflectionState.claimBusy || !state.sessionToken || !state.wallet || !state.provider) return;
+  if(tradeState.busy || purchaseState.busy || rewardState.busy || reflectionState.claimBusy || !state.sessionToken || !state.wallet || !state.provider) return;
 
   const wallet=state.wallet,token=state.sessionToken,epoch=purchaseState.epoch;
   purchaseState.busy=true;updatePurchaseButton();
@@ -1463,10 +1467,10 @@ function renderReflections(){
   $("quickWalletBalance").textContent=reflectionState.balance===null?"Connect your wallet":`${formatBalance(reflectionState.balance)} TEST-HPL`;$("quickReflections").textContent=reflectionState.amount===null?"Reflections: —":`Claimable reflections: ${formatBalance(reflectionState.amount)} TEST-HPL`;
   $("reflectionWalletBalance").textContent=reflectionState.balance===null?state.wallet?"Loading…":"Connect your wallet":`${formatBalance(reflectionState.balance)} TEST-HPL`;
   $("reflectionAmount").textContent=reflectionState.amount===null?"— TEST-HPL":`${formatBalance(reflectionState.amount)} TEST-HPL`;
-  $("claimReflectionsBtn").disabled=!state.sessionToken || !state.provider || reflectionState.claimBusy || reflectionState.readBusy || purchaseState.busy ||
+  $("claimReflectionsBtn").disabled=!state.sessionToken || !state.provider || reflectionState.claimBusy || reflectionState.readBusy || purchaseState.busy || rewardState.busy ||
     (!reflectionState.pending && (!reflectionState.loaded || !reflectionState.feeExempt || reflectionState.paused || reflectionState.excluded || !(reflectionState.amount>0n)));
   $("claimReflectionsBtn").textContent=reflectionState.claimBusy?"Confirming claim…":reflectionState.pending?"Check claim confirmation":"Claim reflections";
-  $("refreshReflectionsBtn").disabled=!state.sessionToken || !state.provider || reflectionState.readBusy || reflectionState.claimBusy;
+  $("refreshReflectionsBtn").disabled=!state.sessionToken || !state.provider || reflectionState.readBusy || reflectionState.claimBusy || rewardState.busy;
   $("refreshReflectionsBtn").textContent=reflectionState.readBusy?"Refreshing…":"Refresh wallet";
   $("reflectionStatus").textContent=!state.wallet?"Connect your wallet to view reflections.":reflectionState.error||reflectionState.notice||
     (reflectionState.readBusy?"Refreshing wallet…":reflectionState.pending?"Claim receipt saved. Check confirmation before sending another claim.":
@@ -1526,7 +1530,7 @@ async function waitReflectionClaim(hash,wallet,token,epoch,provider){
   return false;
 }
 async function claimReflections(){
-  if(tradeState.busy || !state.sessionToken || !state.wallet || !state.provider || reflectionState.claimBusy || reflectionState.readBusy || purchaseState.busy) return;
+  if(tradeState.busy || !state.sessionToken || !state.wallet || !state.provider || reflectionState.claimBusy || reflectionState.readBusy || purchaseState.busy || rewardState.busy) return;
   const wallet=state.wallet,token=state.sessionToken,epoch=purchaseState.epoch,provider=state.provider;
   let confirmed=false;reflectionState.claimBusy=true;reflectionState.error="";reflectionState.notice="Checking your claim…";renderReflections();updatePurchaseButton();
   try{
@@ -1583,7 +1587,7 @@ async function dexQuote(wallet,epoch){
  const gross=decodeQuoteAmounts(out)[1],net=side==="buy"?tradeNet(gross,taxed):gross,min=target===null?net*95n/100n:target;if(min<=0n || net<min)throw new Error("Trade amount is too small or target cannot be reached.");
  await assertPurchaseWallet(wallet,epoch);return {side,amount,net,min,taxed,wallet,epoch,at:Date.now(),text,mode,target};
 }
-async function getTradeQuote(){if(tradeState.busy || purchaseState.busy || reflectionState.claimBusy || !state.sessionToken || tradePending())return;clearTimeout(tradeState.timer);const epoch=purchaseState.epoch,version=++tradeState.quoteVersion;tradeState.quoting=true;tradeState.quote=null;$("tradeQuote").textContent="Estimating…";renderTrade();try{const q=await dexQuote(state.wallet,epoch);if(epoch!==purchaseState.epoch || version!==tradeState.quoteVersion)return;if(q.side!==$("tradeSide").value || q.text!==$("tradeAmount").value || q.mode!==tradeState.mode)return;tradeState.quote=q;displayTradeQuote(q);$("tradeStatus").textContent=q.target!==null?"Your HPL target is the minimum receive amount. If the price moves against you, the trade reverts; refresh the estimate. Gas is additional.":"Estimate valid for 30 seconds · 5% slippage tolerance · gas additional.";}catch(e){if(epoch===purchaseState.epoch && version===tradeState.quoteVersion){$("tradeQuote").textContent="Estimate unavailable";$("tradeStatus").textContent=e.message;}}finally{if(epoch===purchaseState.epoch && version===tradeState.quoteVersion){tradeState.quoting=false;renderTrade();}}}
+async function getTradeQuote(){if(tradeState.busy || purchaseState.busy || rewardState.busy || reflectionState.claimBusy || !state.sessionToken || tradePending())return;clearTimeout(tradeState.timer);const epoch=purchaseState.epoch,version=++tradeState.quoteVersion;tradeState.quoting=true;tradeState.quote=null;$("tradeQuote").textContent="Estimating…";renderTrade();try{const q=await dexQuote(state.wallet,epoch);if(epoch!==purchaseState.epoch || version!==tradeState.quoteVersion)return;if(q.side!==$("tradeSide").value || q.text!==$("tradeAmount").value || q.mode!==tradeState.mode)return;tradeState.quote=q;displayTradeQuote(q);$("tradeStatus").textContent=q.target!==null?"Your HPL target is the minimum receive amount. If the price moves against you, the trade reverts; refresh the estimate. Gas is additional.":"Estimate valid for 30 seconds · 5% slippage tolerance · gas additional.";}catch(e){if(epoch===purchaseState.epoch && version===tradeState.quoteVersion){$("tradeQuote").textContent="Estimate unavailable";$("tradeStatus").textContent=e.message;}}finally{if(epoch===purchaseState.epoch && version===tradeState.quoteVersion){tradeState.quoting=false;renderTrade();}}}
 
 async function refreshTradeBalance(wallet,epoch,receiptBlock){
  reflectionState.balanceGeneration++;const generation=reflectionState.balanceGeneration;
@@ -1639,7 +1643,7 @@ async function continueApprovedSell(intent,wallet,epoch){
  const swap=await submitTradeTransaction(fresh,"swap",wallet,epoch);tradeState.quote=null;await waitTrade(swap,wallet,epoch);
 }
 async function sendTrade(){
- if(tradeState.busy || purchaseState.busy || reflectionState.claimBusy || !state.sessionToken)return;
+ if(tradeState.busy || purchaseState.busy || rewardState.busy || reflectionState.claimBusy || !state.sessionToken)return;
  const wallet=state.wallet,epoch=purchaseState.epoch;tradeState.busy=true;tradeState.phase="Checking wallet…";renderTrade();
  try{await assertPurchaseWallet(wallet,epoch);const pending=tradePending();
   if(pending){if(await waitTrade(pending,wallet,epoch) && pending.stage==="approval")await continueApprovedSell(pending.intent,wallet,epoch);return;}
@@ -1654,7 +1658,87 @@ async function sendTrade(){
 $("tradeQuoteBtn").addEventListener("click",()=>void getTradeQuote());$("tradeSendBtn").addEventListener("click",()=>void sendTrade());$("tradeAmount").addEventListener("input",invalidateTrade);$("spendModeBtn").addEventListener("click",()=>chooseBuyMode("spend"));$("receiveModeBtn").addEventListener("click",()=>chooseBuyMode("receive"));$("tradeBuyTab").addEventListener("click",()=>chooseTrade("buy"));$("tradeSellTab").addEventListener("click",()=>chooseTrade("sell"));
 setInterval(()=>{renderTrade();if($("tradeCard").open && document.visibilityState!=="hidden" && state.sessionToken && !tradeState.busy && !tradeState.quoting && !tradePending() && tradeState.quote && Date.now()-tradeState.quote.at>=25000)void getTradeQuote();},2000);
 
+
+function rewardClaimKey(wallet){return `hpl-v3-game-claim:${MARKET.chain}:${REWARDS.address}:${wallet}`;}
+function restoreRewardClaim(){
+ try{const hash=localStorage.getItem(rewardClaimKey(state.wallet));rewardState.pending=/^0x[0-9a-f]{64}$/i.test(hash||"")?hash:null;}catch{rewardState.pending=null;}
+ renderGameRewards();
+}
+function renderGameRewards(){
+ $("gameRewardAmount").textContent=rewardState.amount===null?"— TEST-HPL":`${formatBalance(rewardState.amount)} TEST-HPL`;
+ $("claimGameRewardsBtn").disabled=!state.sessionToken || !state.provider || rewardState.busy || rewardState.readBusy || tradeState.busy || purchaseState.busy || reflectionState.claimBusy || (!rewardState.pending && (!rewardState.loaded || rewardState.paused || !rewardState.feeExempt || !(rewardState.amount>0n)));
+ $("claimGameRewardsBtn").textContent=rewardState.busy?"Confirming claim…":rewardState.pending?"Check claim confirmation":"Claim game rewards";
+ $("refreshGameRewardsBtn").disabled=!state.sessionToken || !state.provider || rewardState.busy || rewardState.readBusy;
+ $("gameRewardStatus").textContent=!state.wallet?"Connect your wallet to view game rewards.":rewardState.error||rewardState.notice|| (rewardState.readBusy?"Refreshing rewards…":rewardState.pending?"Claim receipt saved. Check its confirmation before sending another claim.":!rewardState.loaded?"Rewards unavailable · try Refresh rewards":rewardState.paused || !rewardState.feeExempt?"Claims temporarily unavailable.":rewardState.amount===0n?"No reserved rewards yet. Finalized round payouts appear after onchain confirmation.":"Claim up to 25 reward records at a time. Network fee shown in MetaMask.");
+}
+async function rewardSnapshot(wallet,provider){
+ if(!/^0x[0-9a-f]{40}$/i.test(wallet))throw new Error("Invalid wallet address");
+ if(await walletRpc(provider,"eth_chainId")!==MARKET.chain)throw new Error("Switch to Base Sepolia.");
+ const block=await walletRpc(provider,"eth_blockNumber"),aw=wallet.slice(2).padStart(64,"0"),rw=REWARDS.address.slice(2).padStart(64,"0");
+ const specs=[[REWARDS.address,"0x720ec7cc"],[REWARDS.address,"0x402914f5"+aw],[REWARDS.address,"0x4a2ae305"],[MARKET.token,"0x4fbee193"+rw]];
+ const values=await Promise.all(specs.map(([to,data])=>walletRpc(provider,"eth_call",[{to,data},block])));
+ if(values.some(v=>!/^0x[0-9a-f]{64}$/i.test(v)))throw new Error("Invalid Rewards response.");
+ if("0x"+values[0].slice(-40).toLowerCase()!==MARKET.token)throw new Error("Rewards token configuration mismatch.");
+ return {block,amount:BigInt(values[1]),paused:BigInt(values[2])!==0n,feeExempt:BigInt(values[3])!==0n};
+}
+async function refreshGameRewards(){
+ if(!state.sessionToken || !state.provider || !state.wallet || rewardState.readBusy || rewardState.busy)return;
+ const wallet=state.wallet,token=state.sessionToken,epoch=purchaseState.epoch,provider=state.provider;
+ rewardState.readBusy=true;renderGameRewards();
+ try{const snapshot=await rewardSnapshot(wallet,provider);if(epoch!==purchaseState.epoch || wallet!==state.wallet || token!==state.sessionToken || rewardState.busy)return;Object.assign(rewardState,snapshot,{loaded:true,error:"",lastRefresh:Date.now()});}
+ catch(error){if(epoch===purchaseState.epoch){rewardState.loaded=false;rewardState.error=error.message;rewardState.lastRefresh=Date.now();}}
+ finally{if(epoch===purchaseState.epoch){rewardState.readBusy=false;renderGameRewards();}}
+}
+async function waitRewardClaim(hash,wallet,token,epoch,provider){
+ for(let n=0;n<30;n++){
+  if(epoch!==purchaseState.epoch || wallet!==state.wallet || token!==state.sessionToken)return null;
+  if(await walletRpc(provider,"eth_chainId")!==MARKET.chain)throw new Error("Reconnect on Base Sepolia to check this claim.");
+  const receipt=await walletRpc(provider,"eth_getTransactionReceipt",[hash]);
+  if(receipt){
+   if(receipt.transactionHash?.toLowerCase()!==hash.toLowerCase())throw new Error("Claim receipt mismatch.");
+   if(BigInt(receipt.status)!==1n){rewardState.pending=null;localStorage.removeItem?.(rewardClaimKey(wallet));throw new Error("Claim reverted. Your rewards remain onchain.");}
+   const claimed=(receipt.logs||[]).some(log=>!log.removed && log.address?.toLowerCase()===REWARDS.address && log.topics?.[0]?.toLowerCase()===REWARDS.claimTopic && "0x"+log.topics?.[3]?.slice(-40).toLowerCase()===wallet);
+   if(!claimed)throw new Error("No game reward claim for this wallet in the receipt. Keep the saved hash for troubleshooting.");
+   rewardState.pending=null;localStorage.removeItem?.(rewardClaimKey(wallet));return receipt;
+  }
+  rewardState.notice="Claim sent · waiting for confirmation…";renderGameRewards();
+  await new Promise(resolve=>setTimeout(resolve,2000));
+ }
+ rewardState.notice="Still pending. Receipt saved; use Check claim confirmation later.";return null;
+}
+async function claimGameRewards(){
+ if(!state.sessionToken || !state.wallet || !state.provider || rewardState.busy || rewardState.readBusy || tradeState.busy || purchaseState.busy || reflectionState.claimBusy)return;
+ const wallet=state.wallet,token=state.sessionToken,epoch=purchaseState.epoch,provider=state.provider;
+ let receipt=null;rewardState.busy=true;rewardState.error="";rewardState.notice="Checking your rewards…";renderGameRewards();renderReflections();updatePurchaseButton();
+ try{
+  await assertPurchaseWallet(wallet,epoch);
+  if(rewardState.pending){receipt=await waitRewardClaim(rewardState.pending,wallet,token,epoch,provider);return;}
+  const snapshot=await rewardSnapshot(wallet,provider);
+  if(epoch!==purchaseState.epoch || wallet!==state.wallet || token!==state.sessionToken)return;
+  Object.assign(rewardState,snapshot,{loaded:true});
+  if(snapshot.paused || !snapshot.feeExempt)throw new Error("Claims temporarily unavailable.");
+  if(snapshot.amount<=0n)throw new Error("No rewards to claim yet.");
+  const key=rewardClaimKey(wallet);localStorage.setItem(key,"");localStorage.removeItem?.(key);
+  // Simulate first: default claim scans only 25 records, including expired ones.
+  const tx={from:wallet,to:REWARDS.address,data:"0x4e71d92d",value:"0x0"};
+  await walletRpc(provider,"eth_call",[tx,"latest"]);
+  await assertPurchaseWallet(wallet,epoch);
+  rewardState.notice="Confirm the game reward claim in MetaMask.";renderGameRewards();
+  const hash=await provider.request({method:"eth_sendTransaction",params:[tx]});
+  if(!/^0x[0-9a-f]{64}$/i.test(hash))throw new Error("Wallet returned an invalid claim hash.");
+  try{localStorage.setItem(key,hash);}catch{if(epoch===purchaseState.epoch)rewardState.notice=`Save this claim hash: ${hash}`;}
+  if(epoch!==purchaseState.epoch || wallet!==state.wallet || token!==state.sessionToken)return;
+  rewardState.pending=hash;receipt=await waitRewardClaim(hash,wallet,token,epoch,provider);
+ }catch(error){if(epoch===purchaseState.epoch)rewardState.error=error.code===4001?"Claim cancelled.":error.message;}
+ finally{if(epoch===purchaseState.epoch){rewardState.busy=false;renderGameRewards();renderReflections();updatePurchaseButton();if(receipt){rewardState.notice="Claim confirmed. Refreshing wallet…";reflectionState.balanceGeneration++;await refreshGameRewards();const snapshot=await reflectionSnapshot(wallet,provider).catch(()=>null);if(snapshot && epoch===purchaseState.epoch && BigInt(snapshot.block)>=BigInt(receipt.blockNumber)){Object.assign(reflectionState,snapshot,{loaded:true,error:"",lastRefresh:Date.now()});purchaseState.balance=snapshot.balance;renderPurchaseCost();renderReflections();rewardState.notice="Claim confirmed · wallet balance updated.";}else if(epoch===purchaseState.epoch)rewardState.notice="Claim confirmed · wallet balance is still syncing. Use Refresh wallet.";renderGameRewards();}}}
+}
+$("claimGameRewardsBtn").addEventListener("click",()=>void claimGameRewards());
+$("refreshGameRewardsBtn").addEventListener("click",()=>{rewardState.notice="";void refreshGameRewards();});
+// Only poll while the full wallet is open; no per-ball or extra Supabase requests.
+setInterval(()=>{if($("walletOverlay").open && document.visibilityState!=="hidden" && state.sessionToken && Date.now()-rewardState.lastRefresh>=30000)void refreshGameRewards();renderGameRewards();},30000);
+
 function resetWallet(){
+  Object.assign(rewardState,{loaded:false,readBusy:false,busy:false,amount:null,paused:false,feeExempt:false,pending:null,error:"",notice:"",lastRefresh:0});
   clearTimeout(tradeState.timer);tradeState.quoteVersion++;tradeState.quoting=false;tradeState.busy=false;tradeState.quote=null;tradeState.phase="";
   purchaseState.cart={1:0,2:0,3:0};
   Object.assign(reflectionState,{loaded:false,readBusy:false,claimBusy:false,amount:null,balance:null,feeExempt:false,paused:false,excluded:false,pending:null,error:"",notice:"",lastRefresh:0,balanceGeneration:0});
@@ -1670,10 +1754,10 @@ function resetWallet(){
   state.lightningMagnetUntil=0;state.lightningMagnetInventory=null;state.lightningMagnetActivations=0;state.paddleExtenderUntil=0;state.paddleExtenderInventory=null;state.paddleExtenderActivations=0;state.doubleDropUntil=0;state.doubleDropInventory=null;state.doubleDropActivations=0;state.powerupsActivated=0;state.powerupBusy=false;
   state.lightningCharge=0;state.superBalls=0;state.superArmed=false;state.superBusy=false;state.serverStateReadable=false;state.serverScore=null;state.ballsOnBoard=[];state.score=0;state.rules=null;state.claimedPickups=new Set();state.collectingPickups=new Set();$("superBallBtn").disabled=true;
   $("walletBtn").textContent="Connect Wallet";$("connection").textContent="Reconnect wallet";
-  $("statusDot").classList.remove("live");setPowerupButtons(false);updatePurchaseButton();renderReflections();
+  $("statusDot").classList.remove("live");setPowerupButtons(false);updatePurchaseButton();renderReflections();renderGameRewards();
 }
 let walletReturnFocus=null;
-function openWalletOverlay(){const modal=$("walletOverlay");if(modal.open)return;walletReturnFocus=document.activeElement;modal.showModal();$("walletOverlayControls").appendChild($("walletControls"));$("walletControls").querySelector("details").open=true;$("quickWalletSummary").hidden=false;document.body.classList.add("wallet-open");$("closeWalletBtn").focus();void refreshReflections();}
+function openWalletOverlay(){const modal=$("walletOverlay");if(modal.open)return;walletReturnFocus=document.activeElement;modal.showModal();$("walletOverlayControls").appendChild($("walletControls"));$("walletControls").querySelector("details").open=true;$("quickWalletSummary").hidden=false;document.body.classList.add("wallet-open");$("closeWalletBtn").focus();void refreshReflections();void refreshGameRewards();}
 function restoreWalletPanel(){$("walletHome").appendChild($("walletControls"));$("quickWalletSummary").hidden=true;document.body.classList.remove("wallet-open");walletReturnFocus?.focus?.();}
 $("myWalletBtn").addEventListener("click",openWalletOverlay);$("walletReturnBtn").addEventListener("click",openWalletOverlay);$("closeWalletBtn").addEventListener("click",()=>$("walletOverlay").close());$("walletOverlay").addEventListener("close",restoreWalletPanel);
 $("copyWalletFeedbackBtn").addEventListener("click",async()=>{const text=$("walletFeedback").value.trim();if(!text){$("walletFeedbackStatus").textContent="Write your feedback first.";return;}try{await navigator.clipboard.writeText(`HPL Wallet Alpha feedback\n${text}`);$("walletFeedbackStatus").textContent="Copied. Paste it into your message to the alpha organizer.";}catch{$("walletFeedback").focus();$("walletFeedback").select();$("walletFeedbackStatus").textContent="Select and copy your feedback to share it.";}});
