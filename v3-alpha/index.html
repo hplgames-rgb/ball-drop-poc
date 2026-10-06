@@ -50,7 +50,7 @@
   }
   .dot{width:8px;height:8px;border-radius:50%;background:var(--red)}
   .dot.live{background:var(--green);box-shadow:0 0 12px var(--green)}
-  .layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px}
+  .layout{display:grid;grid-template-columns:1fr;gap:16px}
   .card{
     background:linear-gradient(180deg,rgba(16,36,59,.96),rgba(9,23,39,.96));
     border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)
@@ -173,6 +173,25 @@
     .app{padding:10px}.side{display:flex}.roundbar{grid-template-columns:1fr auto}
     .phase{display:none}.board-wrap,canvas{min-height:520px;height:520px}
   }
+  #roundEndDialog{width:min(540px,calc(100vw - 24px));max-height:85dvh;overflow:auto;padding:24px;color:var(--text);background:#0d2036;border:1px solid #456182;border-radius:20px;box-shadow:var(--shadow)}
+  #roundEndDialog::backdrop{background:#020915b8;backdrop-filter:blur(4px)}
+  .round-end-header{display:flex;align-items:center;justify-content:space-between;gap:12px}.round-end-header h2{margin:0;font-size:23px}
+  .round-end-metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0}.round-end-metrics strong{font-size:22px;color:var(--gold);overflow-wrap:anywhere}
+  #roundEndScores{max-height:240px;overflow:auto;margin:12px 0}#roundEndRewardStatus{line-height:1.5}#roundEndDialog button{min-height:44px}
+  @media(min-width:901px) and (min-height:720px) and (min-aspect-ratio:1/1){
+    body{height:100dvh;overflow:hidden}
+    .app{height:100dvh;display:flex;flex-direction:column;padding:12px 18px;min-height:0}
+    header{flex:none;max-height:110px;overflow:auto;padding-bottom:12px}
+    .layout{grid-template-columns:minmax(0,1fr) clamp(270px,30vw,330px);flex:1;min-height:0}
+    .game-card{display:flex;flex-direction:column;min-height:0;padding:12px}
+    .roundbar,.game-controls,.score-history{flex:none}
+    .game-controls{gap:8px;margin-bottom:8px}.game-controls .mini{padding:6px 8px}
+    .board-wrap{flex:1;min-height:300px;height:auto}canvas{position:absolute;inset:0;height:100%;min-height:0}
+    .score-history{padding:8px;margin-top:8px}.score-history-list{flex-wrap:nowrap;overflow-x:auto;min-height:32px;margin-top:5px}.score-chip{flex:none}
+    #apiStatus{flex:none;max-height:35px;overflow:auto;margin-top:6px;font-size:11px}
+    .side{display:flex;min-height:0;overflow-y:auto;overscroll-behavior-y:contain;touch-action:pan-y;scrollbar-gutter:stable;padding-right:4px}
+    .side>.card,.side>#walletControls{flex:none}.footer{flex:none;padding:8px}
+  }
 </style>
 </head>
 <body>
@@ -182,7 +201,7 @@
       <div class="logo">H</div>
       <div><h1>HPL Games — Ball Drop</h1><small>V3 Alpha · Base Sepolia</small></div>
     </div>
-    <div style="display:flex;align-items:center;gap:10px">
+    <div class="header-actions" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0;max-width:100%">
       <button id="walletBtn" class="config button" style="margin:0;padding:9px 14px;border:1px solid var(--line);border-radius:10px;background:#122942;color:var(--text);cursor:pointer">
         Connect Wallet
       </button>
@@ -215,6 +234,7 @@
       </div>
 
       <div class="game-controls" aria-label="Lightning and Super Ball controls">
+        <button id="lastRoundBtn" type="button" class="wallet-refresh" hidden>Last round results</button>
         <div id="lightningMagnetStatus" class="mini" hidden></div>
         <div id="paddleExtenderStatus" class="mini" hidden></div>
         <div id="doubleDropStatus" class="mini" hidden></div>
@@ -245,7 +265,7 @@
       <div id="apiStatus" class="notice" role="status" aria-live="polite">Connecting…</div>
     </section>
 
-    <aside class="side">
+    <aside class="side" tabindex="0" aria-label="Player controls and wallet">
       <div class="card">
         <div class="metric-label" id="scoreLabel">Live Score</div>
         <div class="metric" id="score">—</div>
@@ -328,9 +348,19 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.34 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.35 · Testnet only</div>
 </div>
 
+<dialog id="roundEndDialog" aria-labelledby="roundEndTitle">
+ <div class="round-end-header"><h2 id="roundEndTitle">Round end scores</h2><button id="closeRoundEndBtn" type="button" class="wallet-refresh" aria-label="Close round results">✕</button></div>
+ <p id="roundEndPlacement" class="result-summary">Final scores syncing…</p>
+ <div class="round-end-metrics"><div class="mini"><div class="metric-label">Your score</div><strong id="roundEndScore">—</strong></div><div class="mini"><div class="metric-label">Round pool</div><strong id="roundEndPool">— HPL</strong></div></div>
+ <div id="roundEndScores" aria-label="Final round leaderboard"></div>
+ <p id="roundEndRewardStatus" role="status" aria-live="polite">Processing rewards…</p>
+ <button id="roundEndClaimBtn" type="button" class="wallet-refresh" hidden>View / claim rewards</button>
+ <button id="roundEndContinueBtn" type="button" class="wallet-refresh">Back to game</button>
+ <p class="mini">The next round starts automatically. You can reopen these results from the game controls.</p>
+</dialog>
 <dialog id="walletOverlay" aria-labelledby="walletOverlayTitle"><div class="wallet-overlay-header"><div><h2 id="walletOverlayTitle">My HPL Wallet</h2><p class="mini">Base Sepolia · Alpha testing</p></div><button id="closeWalletBtn" type="button" class="wallet-refresh">Back to game ✕</button></div><div class="wallet-overlay-content"><div id="walletOverlayControls"></div><section class="card"><h3>Game rewards</h3><div id="gameRewardAmount" class="metric gold">— TEST-HPL</div><button id="claimGameRewardsBtn" type="button" class="wallet-refresh" disabled>Claim game rewards</button> <button id="refreshGameRewardsBtn" type="button" class="wallet-refresh" disabled>Refresh rewards</button><p id="gameRewardStatus" class="mini" role="status">Connect your wallet to view game rewards.</p></section><details class="card"><summary>Wallet feedback</summary><p class="mini">Tell us what feels easy or confusing. Copy your feedback to share with the alpha organizer.</p><textarea id="walletFeedback" rows="5" maxlength="2000" placeholder="I prefer the side panel / full wallet because…"></textarea><button id="copyWalletFeedbackBtn" type="button" class="wallet-refresh">Copy feedback</button><p id="walletFeedbackStatus" class="mini" role="status"></p></details></div></dialog>
 <script>
 const CONFIG={url:"https://brvnzzkatyxfxpevukzt.supabase.co",key:"sb_publishable_N7wjJGUvFGcNznaPN_aFZQ_nnSVYmZ0"};
@@ -413,6 +443,7 @@ function resize(){
   ctx.setTransform(dpr,0,0,dpr,0,0);
 }
 window.addEventListener("resize", resize);
+if(typeof ResizeObserver!=="undefined") new ResizeObserver(resize).observe(canvas);
 resize();
 
 function drawLightningBolt(x,y,scale=1,active=true){
@@ -846,6 +877,7 @@ async function startGameSession(){
   $("statusDot").classList.add("live");
   $("connection").textContent=`Live · ${state.wallet.slice(0,6)}…${state.wallet.slice(-4)}`;
   setPowerupButtons(true);
+  if($("roundEndDialog").open) dismissRoundEnd();
   countdown();
   return true;
 }
@@ -865,13 +897,72 @@ function applyRoundFunding(funding){
   return true;
 }
 
+const roundEndState={data:null,wallet:null,shown:new Set()};
+function roundEndStorageKey(){return `hpl-v3-round-end:${state.wallet||""}`;}
+function dismissRoundEnd(){
+ if(roundEndState.data){roundEndState.shown.add(roundEndState.data.round_id);try{localStorage.setItem(roundEndStorageKey(),roundEndState.data.round_id);}catch{}}
+ if($("roundEndDialog").open) $("roundEndDialog").close();
+}
+function openRoundEnd(manual=false){
+ const data=roundEndState.data;if(!data || roundEndState.wallet!==state.wallet || $("walletOverlay").open) return;
+ if(!manual){
+  if(roundEndState.shown.has(data.round_id)) return;
+  try{if(localStorage.getItem(roundEndStorageKey())===data.round_id) return;}catch{}
+  const end=new Date(state.round?.gameplay_ends_at).getTime(),next=new Date(state.round?.next_round_at).getTime();
+  if(state.round?.id!==data.round_id || !Number.isFinite(end) || !Number.isFinite(next) || serverNow()<end || serverNow()>=next) return;
+ }
+ renderRoundEnd();
+ if(!$("roundEndDialog").open){roundEndState.shown.add(data.round_id);$("roundEndDialog").showModal();}
+}
+function previewRoundEnd(){
+ if(!state.round || !state.wallet) return;
+ if(roundEndState.data && roundEndState.data.round_id===state.round.id && !roundEndState.data.preview){renderRoundEnd();openRoundEnd();return;}
+ roundEndState.wallet=state.wallet;
+ roundEndState.data={round_id:state.round.id,round_number:state.round.round_number,preview:true,
+  your_status:state.resultStatus||"pending",your_result:{score:String(state.frozenResult?.score??state.score)},entries:[],
+  reward:{status:"processing",amount:null,pool_base_units:state.poolWei?.toString()??null}};
+ $("lastRoundBtn").hidden=false;renderRoundEnd();openRoundEnd();
+}
+function applyRoundEndSummary(data){
+ if(!data.available || data.your_status==="not_played" || !state.wallet) return;
+ if(roundEndState.wallet===state.wallet && roundEndState.data && Number(data.round_number)<Number(roundEndState.data.round_number)) return;
+ roundEndState.wallet=state.wallet;roundEndState.data=data;
+ $("lastRoundBtn").hidden=false;renderRoundEnd();openRoundEnd();
+}
+function renderRoundEnd(){
+ const d=roundEndState.data;if(!d) return;
+ $("roundEndTitle").textContent=`Round ${Number(d.round_number)||""} · End scores`;
+ const mine=d.your_result;
+ $("roundEndPlacement").textContent=d.preview?"Final scores syncing…":mine?`You placed ${resultRank(mine)} of ${Number(d.players)} players`:d.your_status==="rejected"?"Your score did not pass validation.":"Your score was not submitted in time.";
+ $("roundEndScore").textContent=mine?resultPoints(mine.score):"—";
+ const pool=d.reward?.pool_base_units;
+ $("roundEndPool").textContent=typeof pool==="string" && /^\d{1,78}$/.test(pool)?`${formatBalance(pool)} HPL`:"— HPL";
+ const rows=(d.entries||[]).filter(r=>Number.isInteger(r.placement)&&r.placement>0);
+ $("roundEndScores").innerHTML=rows.map(r=>{
+  const wallet=/^0x[0-9a-f]{40}$/i.test(r.wallet_address||"")?r.wallet_address.toLowerCase():null;
+  const me=wallet===state.wallet?.toLowerCase(),name=me?"You":wallet?`${wallet.slice(0,6)}…${wallet.slice(-4)}`:"Player";
+  return `<div class="leader-row${me?" you":""}"><span>${resultRank(r)} · ${name}</span><span class="leader-score">${resultPoints(r.score)}</span></div>`;
+ }).join("");
+ const reward=d.reward||{status:"processing"};
+ const reserved=reward.status==="reserved" && typeof reward.amount==="string" && /^\d{1,78}$/.test(reward.amount);
+ $("roundEndRewardStatus").textContent=reserved?`Round reward: ${formatBalance(reward.amount)} HPL · Reserved. View your wallet to claim or check your balance.`:
+  reward.status==="no_rewards"?"No reward payout for this round.":reward.status==="not_eligible"?"No reward: this round has no accepted score for your wallet.":reward.status==="attention"?"Rewards are delayed. Your result is saved; check again later.":"Processing rewards… Your final reward will appear after confirmation.";
+ $("roundEndClaimBtn").hidden=!reserved;
+}
+$("closeRoundEndBtn").addEventListener("click",dismissRoundEnd);$("roundEndContinueBtn").addEventListener("click",dismissRoundEnd);
+$("roundEndDialog").addEventListener("cancel",dismissRoundEnd);
+$("lastRoundBtn").addEventListener("click",()=>openRoundEnd(true));
+$("roundEndClaimBtn").addEventListener("click",()=>{dismissRoundEnd();openWalletOverlay();});
+
 async function refreshServerState(){
   if(!state.sessionToken || !state.gameSessionId || state.stateBusy) return;
   state.stateBusy=true;
   const sessionId=state.gameSessionId;
   try{
     const phase=`${state.round?.id}:${serverNow()>new Date(state.round?.submission_deadline).getTime()?"closed":"open"}`;
-    const includeStandings=false; // Previous results are no longer requested.
+    const ended=serverNow()>=new Date(state.round?.gameplay_ends_at).getTime();
+    const pendingSummary=!!roundEndState.data && ["processing","attention"].includes(roundEndState.data.reward?.status||"processing");
+    const includeStandings=(ended || pendingSummary) && (Date.now()-state.lastStandingsAt>=10000 || state.standingsPhase!==phase);
     if(includeStandings){state.lastStandingsAt=Date.now();state.standingsPhase=phase;}
     const includeLive=Date.now()-state.lastLiveAt>=LIVE_REFRESH_MS || state.liveSessionId!==sessionId;
     const snapshot={};
@@ -909,7 +1000,7 @@ async function refreshServerState(){
     if(data.live_leaderboard) renderLiveLeaderboard(data.live_leaderboard);
     if(data.live_error) $("liveStatus").textContent=data.live_error;
     if(includeStandings) state.standingsError=data.standings_error||null;
-    if(data.round_results) renderRoundResults(data.round_results);
+    if(data.round_results) applyRoundEndSummary(data.round_results);
     updateResultsStatus();
   }catch(error){
     if(sessionId===state.gameSessionId){
@@ -1020,6 +1111,7 @@ async function advanceRound(){
       }
       if(serverNow()>deadline && !state.resultSubmitted) $("apiStatus").textContent="Round submission window closed before score confirmation.";
       state.completed=true;
+      previewRoundEnd();
       await refreshServerState();
     }
     if(state.gameSessionId && serverNow()<new Date(state.round.next_round_at).getTime()) return;
@@ -1803,6 +1895,7 @@ function resetWallet(){
   $("leaderboardTitle").textContent="Round results";$("leaderboard").textContent="Standings appear after submissions close.";
   $("yourRoundResult").hidden=true;$("position").textContent="—";$("positionLabel").textContent="Current position";
   state.recentScores=[];state.landingSequence=0;renderBallHistory();
+  dismissRoundEnd();roundEndState.data=null;roundEndState.wallet=null;roundEndState.shown.clear();$("lastRoundBtn").hidden=true;
   state.sessionToken=null;state.gameSessionId=null;state.wallet=null;state.round=null;
   resetRoundFunding();
   state.lightningMagnetUntil=0;state.lightningMagnetInventory=null;state.lightningMagnetActivations=0;state.paddleExtenderUntil=0;state.paddleExtenderInventory=null;state.paddleExtenderActivations=0;state.doubleDropUntil=0;state.doubleDropInventory=null;state.doubleDropActivations=0;state.powerupsActivated=0;state.powerupBusy=false;
