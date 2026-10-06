@@ -328,7 +328,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.32 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.34 · Testnet only</div>
 </div>
 
 <dialog id="walletOverlay" aria-labelledby="walletOverlayTitle"><div class="wallet-overlay-header"><div><h2 id="walletOverlayTitle">My HPL Wallet</h2><p class="mini">Base Sepolia · Alpha testing</p></div><button id="closeWalletBtn" type="button" class="wallet-refresh">Back to game ✕</button></div><div class="wallet-overlay-content"><div id="walletOverlayControls"></div><section class="card"><h3>Game rewards</h3><div id="gameRewardAmount" class="metric gold">— TEST-HPL</div><button id="claimGameRewardsBtn" type="button" class="wallet-refresh" disabled>Claim game rewards</button> <button id="refreshGameRewardsBtn" type="button" class="wallet-refresh" disabled>Refresh rewards</button><p id="gameRewardStatus" class="mini" role="status">Connect your wallet to view game rewards.</p></section><details class="card"><summary>Wallet feedback</summary><p class="mini">Tell us what feels easy or confusing. Copy your feedback to share with the alpha organizer.</p><textarea id="walletFeedback" rows="5" maxlength="2000" placeholder="I prefer the side panel / full wallet because…"></textarea><button id="copyWalletFeedbackBtn" type="button" class="wallet-refresh">Copy feedback</button><p id="walletFeedbackStatus" class="mini" role="status"></p></details></div></dialog>
@@ -839,6 +839,7 @@ async function startGameSession(){
     next_round_at:data.next_round_at
   };
 
+  resetRoundFunding();
   $("roundNumber").textContent=data.round_number;
   $("hint").textContent=state.rules?"Click anywhere on the board to drop a ball":"Round scoring rules unavailable";
   $("apiStatus").textContent=`Backend session: ACTIVE · Round ${data.round_number}`;
@@ -846,6 +847,21 @@ async function startGameSession(){
   $("connection").textContent=`Live · ${state.wallet.slice(0,6)}…${state.wallet.slice(-4)}`;
   setPowerupButtons(true);
   countdown();
+  return true;
+}
+
+function resetRoundFunding(){
+  state.pool=0;state.poolWei=null;
+  $("pool").textContent="— HPL";$("rewardPool").textContent="— HPL";
+}
+function applyRoundFunding(funding){
+  if(!funding || funding.round_id!==state.round?.id) return false;
+  const raw=funding.is_locked===true?funding.locked_base_units:funding.funded_base_units;
+  if(typeof raw!=="string" || !/^\d{1,78}$/.test(raw)) return false;
+  const units=BigInt(raw);if(units>=2n**256n) return false;
+  state.poolWei=units;state.pool=Number(units)/1e18;
+  const text=`${formatBalance(units)} HPL`;
+  $("pool").textContent=text;$("rewardPool").textContent=text;
   return true;
 }
 
@@ -871,6 +887,7 @@ async function refreshServerState(){
     const row=data.player_state;
     applyDoubleDropState(data);
     if(data.loaded!==true || !row) throw new Error("Player state unavailable");
+    applyRoundFunding(data.round_funding);
     state.serverStateReadable=true;
     state.serverAcceptedDrops=Number(row.accepted_drops||0);
     state.serverScore=Number(row.authoritative_score||0);
@@ -1253,6 +1270,7 @@ async function loadRound(){
   }
 
   if(state.gameSessionId) return true;
+  if(state.round?.id!==round?.id) resetRoundFunding();
   state.round=round || null;
   if(!round){
     $("roundNumber").textContent="—";
@@ -1270,6 +1288,8 @@ async function loadRound(){
     .eq("round_id",round.id)
     .maybeSingle();
 
+  // A preview read may finish after a wallet joined or another round loaded.
+  if(state.gameSessionId || state.round?.id!==round.id) return true;
   if(!fundError && fund){
     state.pool=Number(fund.funded_base_units || 0)/1e18;
     $("pool").textContent=`${money(state.pool)} HPL`;
@@ -1784,6 +1804,7 @@ function resetWallet(){
   $("yourRoundResult").hidden=true;$("position").textContent="—";$("positionLabel").textContent="Current position";
   state.recentScores=[];state.landingSequence=0;renderBallHistory();
   state.sessionToken=null;state.gameSessionId=null;state.wallet=null;state.round=null;
+  resetRoundFunding();
   state.lightningMagnetUntil=0;state.lightningMagnetInventory=null;state.lightningMagnetActivations=0;state.paddleExtenderUntil=0;state.paddleExtenderInventory=null;state.paddleExtenderActivations=0;state.doubleDropUntil=0;state.doubleDropInventory=null;state.doubleDropActivations=0;state.powerupsActivated=0;state.powerupBusy=false;
   state.lightningCharge=0;state.superBalls=0;state.superArmed=false;state.superBusy=false;state.serverStateReadable=false;state.serverScore=null;state.ballsOnBoard=[];state.score=0;state.rules=null;state.claimedPickups=new Set();state.collectingPickups=new Set();$("superBallBtn").disabled=true;
   $("walletBtn").textContent="Connect Wallet";$("connection").textContent="Reconnect wallet";
