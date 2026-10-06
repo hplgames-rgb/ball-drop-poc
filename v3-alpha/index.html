@@ -177,6 +177,9 @@
   #roundEndDialog::backdrop{background:#020915b8;backdrop-filter:blur(4px)}
   .round-end-header{display:flex;align-items:center;justify-content:space-between;gap:12px}.round-end-header h2{margin:0;font-size:23px}
   .round-end-metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0}.round-end-metrics strong{font-size:22px;color:var(--gold);overflow-wrap:anywhere}
+  .results-spinner{display:inline-block;width:18px;height:18px;border:3px solid #456182;border-top-color:var(--gold);border-radius:50%;animation:results-spin .8s linear infinite;vertical-align:middle;margin-right:8px}
+  @keyframes results-spin{to{transform:rotate(360deg)}}
+  @media(prefers-reduced-motion:reduce){.results-spinner{animation:none}}
   #roundEndScores{max-height:240px;overflow:auto;margin:12px 0}#roundEndRewardStatus{line-height:1.5}#roundEndDialog button{min-height:44px}
   @media(min-width:901px) and (min-height:720px) and (min-aspect-ratio:1/1){
     body{height:100dvh;overflow:hidden}
@@ -348,13 +351,13 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.35 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.36 · Testnet only</div>
 </div>
 
 <dialog id="roundEndDialog" aria-labelledby="roundEndTitle">
  <div class="round-end-header"><h2 id="roundEndTitle">Round end scores</h2><button id="closeRoundEndBtn" type="button" class="wallet-refresh" aria-label="Close round results">✕</button></div>
- <p id="roundEndPlacement" class="result-summary">Final scores syncing…</p>
- <div class="round-end-metrics"><div class="mini"><div class="metric-label">Your score</div><strong id="roundEndScore">—</strong></div><div class="mini"><div class="metric-label">Round pool</div><strong id="roundEndPool">— HPL</strong></div></div>
+ <div class="result-summary" role="status" aria-live="polite"><span id="roundEndGather" class="results-spinner" aria-hidden="true" hidden></span><span id="roundEndPlacement">Gathering final scores…</span></div>
+ <div class="round-end-metrics"><div class="mini"><div id="roundEndScoreLabel" class="metric-label">Your score</div><strong id="roundEndScore">—</strong></div><div class="mini"><div class="metric-label">Round pool</div><strong id="roundEndPool">— HPL</strong></div></div>
  <div id="roundEndScores" aria-label="Final round leaderboard"></div>
  <p id="roundEndRewardStatus" role="status" aria-live="polite">Processing rewards…</p>
  <button id="roundEndClaimBtn" type="button" class="wallet-refresh" hidden>View / claim rewards</button>
@@ -933,7 +936,9 @@ function renderRoundEnd(){
  const d=roundEndState.data;if(!d) return;
  $("roundEndTitle").textContent=`Round ${Number(d.round_number)||""} · End scores`;
  const mine=d.your_result;
- $("roundEndPlacement").textContent=d.preview?"Final scores syncing…":mine?`You placed ${resultRank(mine)} of ${Number(d.players)} players`:d.your_status==="rejected"?"Your score did not pass validation.":"Your score was not submitted in time.";
+ $("roundEndGather").hidden=!d.preview;
+ $("roundEndScoreLabel").textContent=d.preview?"Score syncing":"Final score";
+ $("roundEndPlacement").textContent=d.preview?"Gathering final scores…":mine?`You placed ${resultRank(mine)} of ${Number(d.players)} players`:d.your_status==="rejected"?"Your score did not pass validation.":"Your score was not submitted in time.";
  $("roundEndScore").textContent=mine?resultPoints(mine.score):"—";
  const pool=d.reward?.pool_base_units;
  $("roundEndPool").textContent=typeof pool==="string" && /^\d{1,78}$/.test(pool)?`${formatBalance(pool)} HPL`:"— HPL";
@@ -1326,6 +1331,8 @@ function countdown(){
   }
   const now=serverNow(),end=new Date(state.round.gameplay_ends_at).getTime();
   const inBreak=now>=end;
+  // Show immediate feedback locally; final standings still come from the server.
+  if(inBreak && state.gameSessionId && state.wallet && roundEndState.data?.round_id!==state.round.id) previewRoundEnd();
   const next=new Date(state.round.next_round_at).getTime();
   const target=inBreak && Number.isFinite(next)?next:end;
   const sec=Math.ceil(Math.max(0,target-now)/1000);
