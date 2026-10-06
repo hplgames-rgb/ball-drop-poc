@@ -103,6 +103,9 @@
     color:var(--muted);font-size:12px;white-space:nowrap
   }
   .side{display:flex;flex-direction:column;gap:16px}
+  .side-fixed,.side-scroll{display:flex;flex-direction:column;gap:16px;min-width:0}
+  .side-scroll,#liveLeaderboard{scrollbar-width:none}
+  .side-scroll::-webkit-scrollbar,#liveLeaderboard::-webkit-scrollbar{display:none}
   .side .card{padding:16px}
   .metric-label{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
   .metric{font-size:30px;font-weight:900;margin-top:4px}
@@ -192,7 +195,11 @@
     .board-wrap{flex:1;min-height:300px;height:auto}canvas{position:absolute;inset:0;height:100%;min-height:0}
     .score-history{padding:8px;margin-top:8px}.score-history-list{flex-wrap:nowrap;overflow-x:auto;min-height:32px;margin-top:5px}.score-chip{flex:none}
     #apiStatus{flex:none;max-height:35px;overflow:auto;margin-top:6px;font-size:11px}
-    .side{display:flex;min-height:0;overflow-y:auto;overscroll-behavior-y:contain;touch-action:pan-y;scrollbar-gutter:stable;padding-right:4px}
+    .side{display:flex;min-height:0;overflow:hidden}
+    .side-fixed{flex:none}
+    #liveLeaderboard{max-height:20dvh;overflow-y:auto}
+    .side-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior-y:contain;touch-action:pan-y}
+    .side-scroll>*{flex:none}
     .side>.card,.side>#walletControls{flex:none}.footer{flex:none;padding:8px}
   }
 </style>
@@ -268,7 +275,8 @@
       <div id="apiStatus" class="notice" role="status" aria-live="polite">Connecting…</div>
     </section>
 
-    <aside class="side" tabindex="0" aria-label="Player controls and wallet">
+    <aside class="side" aria-label="Player controls and wallet">
+      <div class="side-fixed">
       <div class="card">
         <div class="metric-label" id="scoreLabel">Live Score</div>
         <div class="metric" id="score">—</div>
@@ -286,6 +294,8 @@
         <div id="liveLeaderboard" class="notice">Waiting for players.</div>
         <div id="yourLiveResult" class="result-summary" hidden></div>
       </div>
+      </div>
+      <div class="side-scroll" tabindex="0" aria-label="Wallet, rewards and powerups">
       <div id="walletHome"><div id="walletControls">
       <div class="card">
         <div class="metric-label">Wallet &amp; Reflections</div>
@@ -348,10 +358,11 @@
           <button class="power" data-powerup="EXTRA_SUPER_BALL" disabled><b>Extra Super Ball</b><span>Server-authorized</span></button>
         </div>
       </div>
+      </div>
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.36 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.37 · Testnet only</div>
 </div>
 
 <dialog id="roundEndDialog" aria-labelledby="roundEndTitle">
