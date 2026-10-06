@@ -202,6 +202,9 @@
     .side-scroll>*{flex:none}
     .side>.card,.side>#walletControls{flex:none}.footer{flex:none;padding:8px}
   }
+  #testerGuide{box-sizing:border-box;width:min(720px,calc(100vw - 24px));max-height:90dvh;overflow:auto;padding:24px;color:var(--text);background:#0d2036;border:1px solid #456182;border-radius:20px;scrollbar-width:none}
+  #testerGuide::-webkit-scrollbar{display:none}#testerGuide::backdrop{background:#020915cc;backdrop-filter:blur(4px)}
+  #testerGuide h2{margin:8px 0}#testerGuide p,#testerGuide li{line-height:1.6}#testerGuide section{padding:16px 0;border-top:1px solid var(--line)}#testerGuide h3{margin:0 0 8px}#testerGuide code{overflow-wrap:anywhere}#testerGuide .guide-actions{display:flex;gap:12px;flex-wrap:wrap;position:sticky;bottom:-24px;background:#0d2036;padding:16px 0}#testerGuide button{min-height:44px}
 </style>
 </head>
 <body>
@@ -220,6 +223,7 @@
         <summary aria-label="Open Help menu">☰ Help</summary>
         <div class="help-panel">
           <strong>Help</strong>
+          <button id="testerGuideBtn" type="button" class="wallet-refresh">Welcome &amp; tester guide</button>
           <details class="receipt-help">
             <summary>Missing a powerup purchase?</summary>
             <p>If your purchase succeeded but inventory is missing, first use Retry purchase confirmation beside the shop. You can also paste the purchase transaction hash from MetaMask below.</p>
@@ -362,9 +366,25 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.37 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.38 · Testnet only</div>
 </div>
 
+<dialog id="testerGuide" aria-labelledby="testerGuideTitle">
+  <div class="metric-label gold">HPL Games · Private Alpha · Base Sepolia</div>
+  <h2 id="testerGuideTitle">Welcome to Ball Drop!</h2>
+  <p>Play, try the powerups, and help us test the HPL economy. Everything here uses test tokens. Your feedback helps shape the game.</p>
+  <section><h3>1 · Get ready</h3><ol>
+    <li>Use a desktop browser with MetaMask for this Alpha. Choose the wallet you want to play with.</li>
+    <li>Send your <strong>public wallet address</strong> to the Alpha organizer so it can be allowlisted. Never share your recovery phrase or private key.</li>
+    <li>Ask the organizer for <strong>Base Sepolia test ETH</strong> for network fees and <strong>TEST-HPL</strong> for powerups. Ethereum Sepolia ETH is on a different network.</li>
+    <li>Close this guide and select <strong>Connect Wallet</strong>. Approve the Base Sepolia network prompt if shown, then sign the login message. Signing in does not spend tokens.</li>
+  </ol><p class="mini">If access is denied, check that MetaMask is using the address you submitted. The organizer must allowlist that exact address.</p></section>
+  <section><h3>2 · Play a round</h3><p>Rounds last <strong>90 seconds</strong>, followed by a <strong>30-second intermission</strong>. Click or tap near the top of the board to choose where each ball drops. Bounce through pegs, chase moving multiplier paddles, and land in a bucket to score.</p><p>Collect lightning to fill your bank, up to <strong>5</strong>. Use <strong>Arm Super Ball</strong> when ready: the preview turns purple, and your next click chooses where the 10× ball drops. Unspent lightning carries into the next round. You can use up to <strong>2 super balls per round</strong>.</p></section>
+  <section><h3>3 · Try the marketplace</h3><p>Scroll below the scoreboard and expand <strong>Marketplace</strong>. Use + and − to build your cart, check the total, then select <strong>Checkout</strong>. Purchases are available anytime; activate owned powerups during gameplay.</p><ul><li><strong>Double Drop:</strong> an extra green ball per click for 15 seconds.</li><li><strong>Paddle Extender:</strong> wider paddles for 8 seconds.</li><li><strong>Lightning Magnet:</strong> pulls nearby balls toward lightning for 25 seconds.</li></ul><p class="mini">Up to 2 powerup activations per round. Wide Ball and Extra Super Ball are coming soon. MetaMask may request a token approval before the purchase; wait for confirmation before trying again. If inventory is missing, open Help → Missing a powerup purchase?</p></section>
+  <section><h3>4 · Claim and explore</h3><p>The round-end popup gathers the final scores. Half the round reward pool goes to the top scorer, or is split between tied winners. The other half is split equally among the remaining eligible players. With one player, or when everyone ties for first, that other half stays in the pool. A round without funding has no HPL payout.</p><p>Rewards need time to finalize. Open <strong>My Wallet</strong> to claim game rewards, claim reflections separately, or try buying and selling TEST-HPL. Claims and trades require MetaMask confirmation and test ETH for fees.</p><p class="mini">Player buys and sells include the 10% token tax. In-game powerup purchases are tax-free. A round award shown in the results is separate from your current claimable wallet balance.</p></section>
+  <section><h3>5 · Tell us what happened</h3><p>Report confusing steps, delays, or unexpected results to the Alpha organizer. Include the build number, round number, browser, and what you expected. For a purchase or claim issue, include the public transaction hash. You can draft and copy feedback in <strong>My Wallet → Wallet feedback</strong>.</p><p class="mini">Reopen this guide anytime from <strong>Help → Welcome &amp; tester guide</strong>.</p></section>
+  <div class="guide-actions"><button id="startAlphaBtn" type="button" class="checkout-buy">Got it · Let’s play</button><button id="closeTesterGuideBtn" type="button" class="wallet-refresh">Close guide</button></div>
+</dialog>
 <dialog id="roundEndDialog" aria-labelledby="roundEndTitle">
  <div class="round-end-header"><h2 id="roundEndTitle">Round end scores</h2><button id="closeRoundEndBtn" type="button" class="wallet-refresh" aria-label="Close round results">✕</button></div>
  <div class="result-summary" role="status" aria-live="polite"><span id="roundEndGather" class="results-spinner" aria-hidden="true" hidden></span><span id="roundEndPlacement">Gathering final scores…</span></div>
@@ -1926,6 +1946,14 @@ function openWalletOverlay(){const modal=$("walletOverlay");if(modal.open)return
 function restoreWalletPanel(){$("walletHome").appendChild($("walletControls"));$("quickWalletSummary").hidden=true;document.body.classList.remove("wallet-open");walletReturnFocus?.focus?.();}
 $("myWalletBtn").addEventListener("click",openWalletOverlay);$("walletReturnBtn").addEventListener("click",openWalletOverlay);$("closeWalletBtn").addEventListener("click",()=>$("walletOverlay").close());$("walletOverlay").addEventListener("close",restoreWalletPanel);
 $("copyWalletFeedbackBtn").addEventListener("click",async()=>{const text=$("walletFeedback").value.trim();if(!text){$("walletFeedbackStatus").textContent="Write your feedback first.";return;}try{await navigator.clipboard.writeText(`HPL Wallet Alpha feedback\n${text}`);$("walletFeedbackStatus").textContent="Copied. Paste it into your message to the alpha organizer.";}catch{$("walletFeedback").focus();$("walletFeedback").select();$("walletFeedbackStatus").textContent="Select and copy your feedback to share it.";}});
+const testerGuideKey="hpl-v3-tester-guide-v1";
+function openTesterGuide(){ $("helpMenu").open=false;if(!$("testerGuide").open)$("testerGuide").showModal(); }
+function dismissTesterGuide(){try{localStorage.setItem(testerGuideKey,"seen");}catch{}$("testerGuide").close();}
+$("testerGuideBtn").addEventListener("click",openTesterGuide);
+$("startAlphaBtn").addEventListener("click",dismissTesterGuide);
+$("closeTesterGuideBtn").addEventListener("click",dismissTesterGuide);
+$("testerGuide").addEventListener("cancel",event=>{event.preventDefault();dismissTesterGuide();});
+try{if(localStorage.getItem(testerGuideKey)!=="seen")openTesterGuide();}catch{openTesterGuide();}
 connectBackend().catch(error=>{$("apiStatus").textContent=`Round preview unavailable: ${error.message}. Connect your wallet to join.`;});
 drawBoard();
 </script>
