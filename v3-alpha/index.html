@@ -218,6 +218,7 @@
       <button id="walletBtn" class="config button" style="margin:0;padding:9px 14px;border:1px solid var(--line);border-radius:10px;background:#122942;color:var(--text);cursor:pointer">
         Connect Wallet
       </button>
+      <button id="logoutBtn" type="button" class="wallet-refresh" style="margin:0" hidden>Log Out</button>
       <button id="myWalletBtn" type="button" class="wallet-refresh" style="margin:0">My Wallet</button>
       <details class="help-menu" id="helpMenu">
         <summary aria-label="Open Help menu">☰ Help</summary>
@@ -366,7 +367,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.41 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.42 · Testnet only</div>
 </div>
 
 <dialog id="testerGuide" aria-labelledby="testerGuideTitle">
@@ -1284,6 +1285,7 @@ async function restoreWalletSession(){
     if(!await matches()){forgetWalletSession();return false;}
     if(generation!==walletAuthGeneration)return false;
     state.wallet=saved.wallet;state.sessionToken=saved.token;
+    $("logoutBtn").hidden=false;
     rememberWalletSession(verified.session_expires_at);
     restorePendingPurchase();restoreReflectionClaim();restoreRewardClaim();
     $("walletBtn").textContent=`${state.wallet.slice(0,6)}…${state.wallet.slice(-4)}`;
@@ -1302,6 +1304,25 @@ async function restoreWalletSession(){
     if(!state.sessionToken)$("walletBtn").textContent="Connect Wallet";
   }
 }
+
+async function logoutWallet(){
+  if(state.authBusy || purchaseState.busy || tradeState.busy || rewardState.busy || reflectionState.claimBusy){
+    $("apiStatus").textContent="Finish the current wallet action before logging out.";return;
+  }
+  const token=state.sessionToken;
+  checkpoint();resetWallet();
+  $("connection").textContent="Logged out";
+  $("apiStatus").textContent="Logged out on this browser. Ending your server login…";
+  if(!token){$("apiStatus").textContent="Logged out.";return;}
+  try{
+    const result=await edgeRequest("alpha-auth-session",{session_token:token,action:"logout"});
+    if(result.logged_out!==true)throw new Error("Server logout unavailable");
+    if(!state.sessionToken)$("apiStatus").textContent="Logged out. Connect Wallet to sign in again.";
+  }catch{
+    if(!state.sessionToken)$("apiStatus").textContent="Logged out on this browser. Server logout could not be confirmed; the old login expires automatically.";
+  }
+}
+$("logoutBtn").addEventListener("click",logoutWallet);
 
 async function authenticateWallet(){
   if(state.authBusy || purchaseState.busy || rewardState.busy || reflectionState.claimBusy) return;
@@ -1352,6 +1373,7 @@ async function authenticateWallet(){
     if(verified.authenticated!==true) throw new Error(verified.error||"Wallet verification failed");
 
     state.sessionToken=verified.session_token;
+    $("logoutBtn").hidden=false;
     rememberWalletSession(verified.session_expires_at);
     restorePendingPurchase();
     restoreReflectionClaim();
@@ -2060,6 +2082,7 @@ setInterval(()=>{if($("walletOverlay").open && document.visibilityState!=="hidde
 
 function resetWallet(){
   walletAuthGeneration++;forgetWalletSession();
+  $("logoutBtn").hidden=true;
   Object.assign(rewardState,{loaded:false,readBusy:false,busy:false,amount:null,paused:false,feeExempt:false,pending:null,error:"",notice:"",lastRefresh:0});
   clearTimeout(tradeState.timer);tradeState.quoteVersion++;tradeState.quoting=false;tradeState.busy=false;tradeState.quote=null;tradeState.phase="";
   purchaseState.cart={1:0,2:0,3:0};
