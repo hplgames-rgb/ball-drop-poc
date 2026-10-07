@@ -366,7 +366,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.40 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.41 · Testnet only</div>
 </div>
 
 <dialog id="testerGuide" aria-labelledby="testerGuideTitle">
@@ -1235,6 +1235,74 @@ async function advanceRound(){
   }finally{state.lifecycleBusy=false;countdown();}
 }
 
+const walletSessionKey="hpl-v3-wallet-session:"+CONFIG.url;
+let walletAuthGeneration=0;
+let restoringWalletSession=false;
+const boundWalletProviders=new WeakSet();
+function forgetWalletSession(){try{localStorage.removeItem(walletSessionKey);}catch{}}
+function rememberWalletSession(expiresAt){
+  const expiry=Date.parse(expiresAt);
+  if(!/^0x[0-9a-f]{40}$/.test(state.wallet||"") || !/^[0-9a-f]{64}$/i.test(state.sessionToken||"") || !Number.isFinite(expiry) || expiry<=Date.now())return;
+  try{localStorage.setItem(walletSessionKey,JSON.stringify({version:1,wallet:state.wallet,token:state.sessionToken,expiresAt:new Date(expiry).toISOString()}));}catch{}
+}
+function readWalletSession(){
+  try{
+    const raw=localStorage.getItem(walletSessionKey);if(!raw)return null;
+    const saved=JSON.parse(raw);
+    if(saved.version!==1 || !/^0x[0-9a-f]{40}$/.test(saved.wallet||"") || !/^[0-9a-f]{64}$/i.test(saved.token||"") || !Number.isFinite(Date.parse(saved.expiresAt)) || Date.parse(saved.expiresAt)<=Date.now()){forgetWalletSession();return null;}
+    return saved;
+  }catch{forgetWalletSession();return null;}
+}
+function bindWalletProvider(provider){
+  state.provider=provider;
+  if(boundWalletProviders.has(provider))return;
+  boundWalletProviders.add(provider);
+  const changed=()=>{if(state.provider===provider && (!state.authBusy || restoringWalletSession))resetWallet();};
+  provider.on?.("accountsChanged",changed);provider.on?.("chainChanged",changed);
+}
+async function restoreWalletSession(){
+  if(state.authBusy || state.sessionToken)return false;
+  const saved=readWalletSession();if(!saved)return false;
+  const generation=walletAuthGeneration;
+  state.authBusy=true;restoringWalletSession=true;
+  $("walletBtn").disabled=true;$("walletBtn").textContent="Restoring…";
+  try{
+    window.dispatchEvent(new Event("eip6963:requestProvider"));
+    let provider=selectWalletProvider();
+    if(!provider){await new Promise(resolve=>setTimeout(resolve,400));provider=selectWalletProvider();}
+    if(!provider)return false;
+    bindWalletProvider(provider);
+    const matches=async()=>{
+      const accounts=await provider.request({method:"eth_accounts"});
+      const chain=await provider.request({method:"eth_chainId"});
+      return accounts?.[0]?.toLowerCase()===saved.wallet && chain==="0x14a34";
+    };
+    if(!await matches()){forgetWalletSession();return false;}
+    if(generation!==walletAuthGeneration)return false;
+    const verified=await edgeRequest("alpha-auth-session",{session_token:saved.token});
+    if(verified.authenticated!==true || verified.wallet_address?.toLowerCase()!==saved.wallet || !Number.isFinite(Date.parse(verified.session_expires_at)) || Date.parse(verified.session_expires_at)<=Date.now()){forgetWalletSession();return false;}
+    if(!await matches()){forgetWalletSession();return false;}
+    if(generation!==walletAuthGeneration)return false;
+    state.wallet=saved.wallet;state.sessionToken=saved.token;
+    rememberWalletSession(verified.session_expires_at);
+    restorePendingPurchase();restoreReflectionClaim();restoreRewardClaim();
+    $("walletBtn").textContent=`${state.wallet.slice(0,6)}…${state.wallet.slice(-4)}`;
+    $("connection").textContent="Wallet restored";$("statusDot").classList.add("live");
+    await startGameSession();
+    if(generation!==walletAuthGeneration)return false;
+    await refreshServerState();
+    void refreshPurchaseQuote();void refreshReflections();void refreshGameRewards();
+    return true;
+  }catch(error){
+    if(error.status===401 || error.status===403){resetWallet();}
+    $("apiStatus").textContent=state.sessionToken?`Wallet restored. Round sync will retry: ${error.message}`:"Could not restore your login. Connect Wallet to sign in again.";
+    return false;
+  }finally{
+    restoringWalletSession=false;state.authBusy=false;$("walletBtn").disabled=false;
+    if(!state.sessionToken)$("walletBtn").textContent="Connect Wallet";
+  }
+}
+
 async function authenticateWallet(){
   if(state.authBusy || purchaseState.busy || rewardState.busy || reflectionState.claimBusy) return;
   state.authBusy=true;
@@ -1246,11 +1314,7 @@ async function authenticateWallet(){
     let provider=selectWalletProvider();
     if(!provider){await new Promise(resolve=>setTimeout(resolve,400));provider=selectWalletProvider();}
     if(!provider) throw new Error("MetaMask is not available to this page. Open the MetaMask extension, unlock it, allow access to this website, then refresh. On mobile, open this link inside MetaMask's browser.");
-    if(state.provider!==provider){
-      state.provider=provider;
-      provider.on?.("accountsChanged",()=>{if(!state.authBusy) resetWallet();});
-      provider.on?.("chainChanged",()=>{if(!state.authBusy) resetWallet();});
-    }
+    bindWalletProvider(provider);
     stage="Requesting wallet access";
     $("apiStatus").textContent=stage;
     const accounts=await provider.request({method:"eth_requestAccounts"});
@@ -1288,6 +1352,7 @@ async function authenticateWallet(){
     if(verified.authenticated!==true) throw new Error(verified.error||"Wallet verification failed");
 
     state.sessionToken=verified.session_token;
+    rememberWalletSession(verified.session_expires_at);
     restorePendingPurchase();
     restoreReflectionClaim();
     restoreRewardClaim();
@@ -1994,6 +2059,7 @@ $("refreshGameRewardsBtn").addEventListener("click",()=>{rewardState.notice="";v
 setInterval(()=>{if($("walletOverlay").open && document.visibilityState!=="hidden" && state.sessionToken && Date.now()-rewardState.lastRefresh>=30000)void refreshGameRewards();renderGameRewards();},30000);
 
 function resetWallet(){
+  walletAuthGeneration++;forgetWalletSession();
   Object.assign(rewardState,{loaded:false,readBusy:false,busy:false,amount:null,paused:false,feeExempt:false,pending:null,error:"",notice:"",lastRefresh:0});
   clearTimeout(tradeState.timer);tradeState.quoteVersion++;tradeState.quoting=false;tradeState.busy=false;tradeState.quote=null;tradeState.phase="";
   purchaseState.cart={1:0,2:0,3:0};
@@ -2028,6 +2094,7 @@ $("closeTesterGuideBtn").addEventListener("click",dismissTesterGuide);
 $("testerGuide").addEventListener("cancel",event=>{event.preventDefault();dismissTesterGuide();});
 try{if(localStorage.getItem(testerGuideKey)!=="seen")openTesterGuide();}catch{openTesterGuide();}
 connectBackend().catch(error=>{$("apiStatus").textContent=`Round preview unavailable: ${error.message}. Connect your wallet to join.`;});
+void restoreWalletSession();
 drawBoard();
 </script>
 
