@@ -366,7 +366,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.39 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.40 · Testnet only</div>
 </div>
 
 <dialog id="testerGuide" aria-labelledby="testerGuideTitle">
@@ -569,7 +569,7 @@ async function collectLightning(p){
   finally{if(state.gameSessionId===sessionId) state.collectingPickups.delete(p.index);state.collectionBusy=Math.max(0,state.collectionBusy-1);}
 }
 function superBallReady(){
-  return state.serverStateReadable && !!state.rules?.lightning?.enabled && state.superBalls>0 && !state.superBusy && !state.eventBusy && !state.completed && !state.frozenResult
+  return !state.ballsOnBoard.some(b=>b.recovered) && state.serverStateReadable && !!state.rules?.lightning?.enabled && state.superBalls>0 && !state.superBusy && !state.eventBusy && !state.completed && !state.frozenResult
     && state.superUsed<state.rules.lightning.max_super_balls_used_per_round
     && serverNow()<new Date(state.round?.gameplay_ends_at).getTime();
 }
@@ -665,13 +665,23 @@ async function reconcileRecoveredSuperBalls(){
   state.superBusy=true;
   try{
     for(const ball of balls){
-      let checked=false;
+      let checked=false,retrySent=false,definitelyMissing=false;
       for(let attempt=0;attempt<3;attempt++){
         if(sessionId!==state.gameSessionId || token!==state.sessionToken)return;
         try{
           const data=await edgeRequest("ball-drop-player-state",{session_token:token,game_session_id:sessionId,requested_event_id:ball.authorizationEventId});
           if(sessionId!==state.gameSessionId || token!==state.sessionToken)return;
-          if(data.confirmed_event===true){
+          let accepted=data.confirmed_event===true;
+          definitelyMissing=data.confirmed_event===false;
+          // F5 can cancel the original request before it reaches the server.
+          // Resume that exact action ID, never create a second activation ID.
+          if(definitelyMissing && !retrySent && serverNow()<new Date(state.round?.gameplay_ends_at).getTime()){
+            retrySent=true;
+            if(Number.isInteger(data.last_accepted_sequence))state.clientSequence=data.last_accepted_sequence;
+            try{await submitGameEvent("SUPER_BALL_USE",{},ball.authorizationEventId);accepted=true;definitelyMissing=false;}catch{}
+            if(sessionId!==state.gameSessionId || token!==state.sessionToken)return;
+          }
+          if(accepted){
             ball.pendingApproval=false;ball.recovered=false;checked=true;
             if(ball.dead && !ball.credited && !state.frozenResult){state.score+=ball.finalPoints;state.balls++;ball.credited=true;recordBallScore(ball);}
             break;
@@ -680,7 +690,7 @@ async function reconcileRecoveredSuperBalls(){
         if(attempt<2)await new Promise(resolve=>setTimeout(resolve,1000));
       }
       if(!checked){
-        if(serverNow()>=new Date(state.round?.submission_deadline).getTime()-3000)state.ballsOnBoard=state.ballsOnBoard.filter(b=>b!==ball);
+        if(definitelyMissing || serverNow()>=new Date(state.round?.submission_deadline).getTime()-3000)state.ballsOnBoard=state.ballsOnBoard.filter(b=>b!==ball);
         $("apiStatus").textContent="Checking recovered Super Ball authorization…";
       }
       checkpoint();
