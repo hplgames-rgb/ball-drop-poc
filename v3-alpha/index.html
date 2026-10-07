@@ -366,7 +366,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.38 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.39 · Testnet only</div>
 </div>
 
 <dialog id="testerGuide" aria-labelledby="testerGuideTitle">
@@ -592,12 +592,12 @@ async function launchSuperBall(position=aimPosition){
   const sessionId=state.gameSessionId,eventId=crypto.randomUUID();
   const w=canvas.clientWidth;
   const ball={x:20+position*(w-40),y:70,vx:(Math.random()-.5)*24,vy:70,
-    value:state.rules.base*state.rules.lightning.super_ball_multiplier,paddleHit:false,superBall:true,pendingApproval:true};
+    value:state.rules.base*state.rules.lightning.super_ball_multiplier,paddleHit:false,superBall:true,pendingApproval:true,authorizationEventId:eventId};
   state.superBusy=true;state.superArmed=false;
   state.superBalls--;state.superUsed++;
-  state.ballsOnBoard.push(ball);
+  state.ballsOnBoard.push(ball);checkpoint();
   function confirm(){
-    ball.pendingApproval=false;
+    ball.pendingApproval=false;checkpoint();
     if(ball.dead && ball.finalPoints!==undefined && !ball.credited && !state.frozenResult){
       state.score+=ball.finalPoints;state.balls++;ball.credited=true;recordBallScore(ball);checkpoint();
     }
@@ -629,11 +629,66 @@ function applyPaddle(b,previousX,previousY,w){
   const paddle=paddlesAt(w).find(p=>Math.abs(x-p.x)<=paddleHalfWidth()+7);
   if(paddle){b.value*=paddle.mult;b.paddleHit=true;state.paddleFlashes[paddle.index]=Date.now();}
 }
+let lastBallCheckpoint=0;
 function checkpoint(){
   if(!state.gameSessionId) return;
+  lastBallCheckpoint=Date.now();
+  const width=canvas.clientWidth||600,height=canvas.clientHeight||800;
+  const activeBalls=state.ballsOnBoard.filter(b=>!b.credited && (!b.dead || b.pendingApproval)).slice(0,256).map(b=>({
+    x:b.x/width,y:b.y/height,vx:b.vx,vy:b.vy,value:b.value,paddleHit:!!b.paddleHit,
+    superBall:!!b.superBall,doubleDropBonus:!!b.doubleDropBonus,dead:!!b.dead,
+    authorizationEventId:b.authorizationEventId||null,finalPoints:b.dead?b.finalPoints:null
+  }));
   try{localStorage.setItem(`hpl-v3-score:${state.gameSessionId}`,JSON.stringify({score:state.score,normalDrops:state.normalDrops,lastDropAt:state.lastDropAt,
-    frozenResult:state.frozenResult,resultEventId:state.resultEventId,resultSubmitted:state.resultSubmitted,resultStatus:state.resultStatus}));}catch{}
+    frozenResult:state.frozenResult,resultEventId:state.resultEventId,resultSubmitted:state.resultSubmitted,resultStatus:state.resultStatus,
+    ballSnapshot:{version:1,wallet:state.wallet,sessionId:state.gameSessionId,savedAt:serverNow(),activeBalls}}));}catch{}
 }
+function restoreFallingBalls(saved){
+  const snapshot=saved?.ballSnapshot,now=serverNow(),deadline=new Date(state.round?.submission_deadline).getTime();
+  if(!state.rules || state.frozenResult || state.resultSubmitted || !snapshot || snapshot.version!==1 || snapshot.wallet!==state.wallet || snapshot.sessionId!==state.gameSessionId
+     || !Number.isFinite(snapshot.savedAt) || snapshot.savedAt>now+5000 || snapshot.savedAt<new Date(state.startedAt).getTime()-5000 || now>deadline
+     || !Array.isArray(snapshot.activeBalls) || snapshot.activeBalls.length>256)return;
+  const ids=new Set(),max=state.rules.base*state.rules.max*Number(state.rules.lightning?.super_ball_multiplier||1);
+  for(const b of snapshot.activeBalls){
+    if(!b || ![b.x,b.y,b.vx,b.vy,b.value].every(Number.isFinite) || b.x<0 || b.x>1 || b.y<0 || b.y>1 || Math.abs(b.vx)>4000 || Math.abs(b.vy)>4000 || b.value<=0 || b.value>max)continue;
+    if(b.superBall && (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(b.authorizationEventId||'') || ids.has(b.authorizationEventId)))continue;
+    if(b.superBall)ids.add(b.authorizationEventId);
+    if(b.dead && (!b.superBall || !Number.isSafeInteger(b.finalPoints) || b.finalPoints<0 || b.finalPoints>max*Math.max(...state.rules.buckets)))continue;
+    state.ballsOnBoard.push({x:b.x*canvas.clientWidth,y:b.y*canvas.clientHeight,vx:b.vx,vy:b.vy,value:b.value,paddleHit:!!b.paddleHit,
+      superBall:!!b.superBall,doubleDropBonus:!b.superBall&&!!b.doubleDropBonus,dead:!!b.dead,finalPoints:b.dead?b.finalPoints:undefined,
+      authorizationEventId:b.authorizationEventId,pendingApproval:!!b.superBall,recovered:!!b.superBall});
+  }
+}
+async function reconcileRecoveredSuperBalls(){
+  const balls=state.ballsOnBoard.filter(b=>b.recovered),sessionId=state.gameSessionId,token=state.sessionToken;
+  if(!balls.length)return;
+  state.superBusy=true;
+  try{
+    for(const ball of balls){
+      let checked=false;
+      for(let attempt=0;attempt<3;attempt++){
+        if(sessionId!==state.gameSessionId || token!==state.sessionToken)return;
+        try{
+          const data=await edgeRequest("ball-drop-player-state",{session_token:token,game_session_id:sessionId,requested_event_id:ball.authorizationEventId});
+          if(sessionId!==state.gameSessionId || token!==state.sessionToken)return;
+          if(data.confirmed_event===true){
+            ball.pendingApproval=false;ball.recovered=false;checked=true;
+            if(ball.dead && !ball.credited && !state.frozenResult){state.score+=ball.finalPoints;state.balls++;ball.credited=true;recordBallScore(ball);}
+            break;
+          }
+        }catch{}
+        if(attempt<2)await new Promise(resolve=>setTimeout(resolve,1000));
+      }
+      if(!checked){
+        if(serverNow()>=new Date(state.round?.submission_deadline).getTime()-3000)state.ballsOnBoard=state.ballsOnBoard.filter(b=>b!==ball);
+        $("apiStatus").textContent="Checking recovered Super Ball authorization…";
+      }
+      checkpoint();
+    }
+  }finally{if(sessionId===state.gameSessionId && token===state.sessionToken)state.superBusy=false;}
+}
+window.addEventListener("pagehide",checkpoint);
+document.addEventListener?.("visibilitychange",()=>{if(document.visibilityState==="hidden")checkpoint();});
 function renderBallHistory(freshOrder=null){
   $("ballScoreHistory").innerHTML=state.recentScores.length ? state.recentScores.map(entry=>
     `<span role="listitem" class="score-chip${entry.superBall?" super":entry.doubleDropBonus?" bonus":""}${entry.order===freshOrder?" fresh":""}" aria-label="${entry.superBall?"Super Ball: ":entry.doubleDropBonus?"Double Drop bonus: ":""}${entry.points.toLocaleString()} points">${entry.superBall?"🟣 ":entry.doubleDropBonus?"🟢 ":""}${entry.points.toLocaleString()}${entry.superBall?"!":""}</span>`
@@ -788,6 +843,7 @@ function animate(timestamp){
 
   state.lightningPickups=activeLightning(w,h);
   state.ballsOnBoard.forEach(b=>{
+    if(b.dead || b.recovered)return;
     const before={x:b.x,y:b.y};
     attractToLightning(b,state.lightningPickups,dt);
     stepBall(b,w,h,dt);
@@ -799,7 +855,8 @@ function animate(timestamp){
     });
     if(b.y>h-115) landBall(b,w);
   });
-  state.ballsOnBoard=state.ballsOnBoard.filter(b=>!b.dead);
+  state.ballsOnBoard=state.ballsOnBoard.filter(b=>!b.dead || (b.pendingApproval && !b.credited));
+  if(state.ballsOnBoard.length && Date.now()-lastBallCheckpoint>=250)checkpoint();
   displayScore();
   $("balls").textContent=state.balls;
   $("superBalls").textContent=`${state.superBalls} / 5 ⚡`;
@@ -887,8 +944,10 @@ async function startGameSession(){
 
   state.gameSessionId=data.game_session_id;
   state.clientSequence=0; // Player-state read or a sequence rejection resynchronizes restores.
+  let savedCheckpoint=null;
   try{
     const saved=JSON.parse(localStorage.getItem(`hpl-v3-score:${state.gameSessionId}`)||"null");
+    savedCheckpoint=saved;
     if(saved && Number.isSafeInteger(saved.score) && saved.score>=0 && Number.isSafeInteger(saved.normalDrops) && saved.normalDrops>=0){
       Object.assign(state,{score:saved.score,normalDrops:saved.normalDrops,lastDropAt:saved.lastDropAt??-Infinity,
         frozenResult:saved.frozenResult||null,resultEventId:saved.resultEventId||null,resultSubmitted:!!saved.resultSubmitted,resultStatus:saved.resultStatus||null});
@@ -904,6 +963,9 @@ async function startGameSession(){
     next_round_at:data.next_round_at
   };
 
+  restoreFallingBalls(savedCheckpoint);
+  await reconcileRecoveredSuperBalls();
+  if(authToken!==state.sessionToken)return false;
   resetRoundFunding();
   $("roundNumber").textContent=data.round_number;
   $("hint").textContent=state.rules?"Click anywhere on the board to drop a ball":"Round scoring rules unavailable";
@@ -1012,6 +1074,7 @@ async function refreshServerState(){
       include_standings:includeStandings,include_live:includeLive,...snapshot});
     if(sessionId!==state.gameSessionId) return;
     const row=data.player_state;
+    if(!state.superBusy && !row?.result_status && state.ballsOnBoard.some(b=>b.recovered))void reconcileRecoveredSuperBalls();
     applyDoubleDropState(data);
     if(data.loaded!==true || !row) throw new Error("Player state unavailable");
     applyRoundFunding(data.round_funding);
@@ -1024,7 +1087,7 @@ async function refreshServerState(){
     state.superUsed=Number(data.wallet_bank?.round_used??row.super_balls_used??0);
     for(const index of data.claimed_pickups||[]) state.claimedPickups.add(index);
     $("serverDrops").textContent=state.serverAcceptedDrops;
-    if(row.result_status){state.resultStatus=row.result_status;state.resultSubmitted=true;checkpoint();
+    if(row.result_status){state.ballsOnBoard=[];state.resultStatus=row.result_status;state.resultSubmitted=true;checkpoint();
       if(row.result_status==="rejected") $("apiStatus").textContent=`Round score rejected: ${row.result_rejection_reason||"Validation failed"}`;}
     if(Number.isInteger(data.last_accepted_sequence) && !state.eventBusy) state.clientSequence=data.last_accepted_sequence;
     displayScore();
