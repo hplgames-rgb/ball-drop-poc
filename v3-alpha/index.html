@@ -678,7 +678,7 @@ async function reconcileRecoveredSuperBalls(){
           if(definitelyMissing && !retrySent && serverNow()<new Date(state.round?.gameplay_ends_at).getTime()){
             retrySent=true;
             if(Number.isInteger(data.last_accepted_sequence))state.clientSequence=data.last_accepted_sequence;
-            try{await submitGameEvent("SUPER_BALL_USE",{},ball.authorizationEventId);accepted=true;definitelyMissing=false;}catch{}
+            try{await submitGameEvent("SUPER_BALL_USE",{},ball.authorizationEventId);accepted=true;definitelyMissing=false;state.serverStateReadable=false;}catch{}
             if(sessionId!==state.gameSessionId || token!==state.sessionToken)return;
           }
           if(accepted){
