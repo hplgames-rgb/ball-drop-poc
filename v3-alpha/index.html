@@ -367,7 +367,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.42 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.43 · Testnet only</div>
 </div>
 
 <dialog id="testerGuide" aria-labelledby="testerGuideTitle">
@@ -392,6 +392,7 @@
  <div class="round-end-metrics"><div class="mini"><div id="roundEndScoreLabel" class="metric-label">Your score</div><strong id="roundEndScore">—</strong></div><div class="mini"><div class="metric-label">Round pool</div><strong id="roundEndPool">— HPL</strong></div></div>
  <div id="roundEndScores" aria-label="Final round leaderboard"></div>
  <p id="roundEndRewardStatus" role="status" aria-live="polite">Processing rewards…</p>
+ <section id="roundEndBreakdown" style="border-top:1px solid var(--line);padding-top:12px;margin:16px 0" aria-label="Your round breakdown"></section>
  <button id="roundEndClaimBtn" type="button" class="wallet-refresh" hidden>View / claim rewards</button>
  <button id="roundEndContinueBtn" type="button" class="wallet-refresh">Back to game</button>
  <p class="mini">The next round starts automatically. You can reopen these results from the game controls.</p>
@@ -425,6 +426,7 @@ const state = {
   pool: 0,
   score: 0,
   balls: 0,
+  roundBallStats:{superScores:[],bonusPoints:0,bonusBalls:0,trackedPoints:0},
   recentScores: [],
   landingSequence: 0,
   lastRefresh: 0,
@@ -634,6 +636,7 @@ let lastBallCheckpoint=0;
 function checkpoint(){
   if(!state.gameSessionId) return;
   lastBallCheckpoint=Date.now();
+  saveRoundBreakdown();
   const width=canvas.clientWidth||600,height=canvas.clientHeight||800;
   const activeBalls=state.ballsOnBoard.filter(b=>!b.credited && (!b.dead || b.pendingApproval)).slice(0,256).map(b=>({
     x:b.x/width,y:b.y/height,vx:b.vx,vy:b.vy,value:b.value,paddleHit:!!b.paddleHit,
@@ -642,6 +645,7 @@ function checkpoint(){
   }));
   try{localStorage.setItem(`hpl-v3-score:${state.gameSessionId}`,JSON.stringify({score:state.score,normalDrops:state.normalDrops,lastDropAt:state.lastDropAt,
     frozenResult:state.frozenResult,resultEventId:state.resultEventId,resultSubmitted:state.resultSubmitted,resultStatus:state.resultStatus,
+    roundBallStats:state.roundBallStats,
     ballSnapshot:{version:1,wallet:state.wallet,sessionId:state.gameSessionId,savedAt:serverNow(),activeBalls}}));}catch{}
 }
 function restoreFallingBalls(saved){
@@ -708,6 +712,11 @@ function renderBallHistory(freshOrder=null){
 function recordBallScore(ball){
   if(ball.historyRecorded || !ball.credited) return;
   ball.historyRecorded=true;
+  const stats=state.roundBallStats;
+  stats.trackedPoints+=ball.finalPoints;
+  if(ball.superBall)stats.superScores.push(ball.finalPoints);
+  if(ball.doubleDropBonus){stats.bonusBalls++;stats.bonusPoints+=ball.finalPoints;}
+
   state.recentScores.push({points:ball.finalPoints,superBall:!!ball.superBall,doubleDropBonus:!!ball.doubleDropBonus,order:ball.historyOrder});
   state.recentScores.sort((a,b)=>a.order-b.order);
   state.recentScores=state.recentScores.slice(-12);
@@ -945,6 +954,7 @@ async function startGameSession(){
   state.serverScore=null;
   state.serverStateReadable=false;
   state.ballsOnBoard=[];
+  state.roundBallStats={superScores:[],bonusPoints:0,bonusBalls:0,trackedPoints:0};state.lightningCollected=0;
   state.recentScores=[];state.landingSequence=0;renderBallHistory();
   state.balls=0;state.bucketFlashes=[];state.paddleFlashes=[];state.claimedPickups=new Set();state.collectingPickups=new Set();state.superUsed=0;
   state.score=0;state.normalDrops=0;state.lastDropAt=-Infinity;
@@ -960,6 +970,7 @@ async function startGameSession(){
     const saved=JSON.parse(localStorage.getItem(`hpl-v3-score:${state.gameSessionId}`)||"null");
     savedCheckpoint=saved;
     if(saved && Number.isSafeInteger(saved.score) && saved.score>=0 && Number.isSafeInteger(saved.normalDrops) && saved.normalDrops>=0){
+      const stats=validRoundBallStats(saved.roundBallStats);if(stats)state.roundBallStats=stats;
       Object.assign(state,{score:saved.score,normalDrops:saved.normalDrops,lastDropAt:saved.lastDropAt??-Infinity,
         frozenResult:saved.frozenResult||null,resultEventId:saved.resultEventId||null,resultSubmitted:!!saved.resultSubmitted,resultStatus:saved.resultStatus||null});
     }
@@ -1002,6 +1013,36 @@ function applyRoundFunding(funding){
   const text=`${formatBalance(units)} HPL`;
   $("pool").textContent=text;$("rewardPool").textContent=text;
   return true;
+}
+
+function validRoundBallStats(value){
+ if(!value || !Array.isArray(value.superScores) || value.superScores.length>32)return null;
+ const valid=n=>Number.isSafeInteger(n)&&n>=0;
+ if(!value.superScores.every(valid) || ![value.bonusPoints,value.bonusBalls,value.trackedPoints].every(valid))return null;
+ return {superScores:value.superScores.slice(),bonusPoints:value.bonusPoints,bonusBalls:value.bonusBalls,trackedPoints:value.trackedPoints};
+}
+function currentRoundBreakdown(){
+ return {version:1,wallet:state.wallet,roundId:state.round?.id,score:state.frozenResult?.score??state.score,
+  lightning:state.lightningCollected,superUsed:state.superUsed,
+  powerups:{doubleDrop:state.doubleDropActivations,extender:state.paddleExtenderActivations,magnet:state.lightningMagnetActivations},
+  balls:validRoundBallStats(state.roundBallStats)};
+}
+function roundBreakdownKey(roundId){return `hpl-v3-round-details:${state.wallet}:${roundId}`;}
+function saveRoundBreakdown(){
+ if(!state.wallet || !state.gameSessionId || !state.round?.id)return;
+ try{localStorage.setItem(roundBreakdownKey(state.round.id),JSON.stringify(currentRoundBreakdown()));}catch{}
+}
+function renderRoundBreakdown(roundId){
+ let detail=null;
+ if(state.gameSessionId && state.round?.id===roundId){detail=currentRoundBreakdown();saveRoundBreakdown();}
+ else try{detail=JSON.parse(localStorage.getItem(roundBreakdownKey(roundId))||"null");}catch{}
+ const el=$("roundEndBreakdown");
+ if(detail?.version!==1 || detail.wallet!==state.wallet || detail.roundId!==roundId){el.textContent="Your round breakdown is unavailable for this round.";return;}
+ const count=n=>Number.isSafeInteger(n)&&n>=0?n:0,balls=validRoundBallStats(detail.balls);
+ const used=Object.entries({"Double Drop":detail.powerups?.doubleDrop,"Paddle Extender":detail.powerups?.extender,"Lightning Magnet":detail.powerups?.magnet}).filter(([,n])=>count(n)>0).map(([name,n])=>`${name} ×${count(n)}`).join(" · ")||"None";
+ const complete=balls && balls.trackedPoints===detail.score;
+ const scores=balls?.superScores.map(n=>resultPoints(n)).join(" · ")||"No scored superballs";
+ el.innerHTML=`<h3 style="margin:0 0 10px">Your round breakdown</h3><div class="leader-row"><span>⚡ Lightning collected</span><strong>${count(detail.lightning)}</strong></div><p class="mini">Powerups used: ${used}</p><div class="leader-row"><span>Superballs used</span><strong style="color:#c4a0ff">${count(detail.superUsed)}</strong></div><p style="color:#c4a0ff">Superball scores: ${scores}</p><div class="leader-row"><span>Double Drop bonus points${complete?"":" recorded"}</span><strong style="color:#65e89b">${balls?resultPoints(balls.bonusPoints):"—"}</strong></div><p class="mini" style="color:#65e89b">${balls?count(balls.bonusBalls):0} green bonus balls scored</p>${complete?"":'<p class="mini">Some ball details from this round are unavailable.</p>'}`;
 }
 
 const roundEndState={data:null,wallet:null,shown:new Set()};
@@ -1057,6 +1098,7 @@ function renderRoundEnd(){
  $("roundEndRewardStatus").textContent=reserved?`Round reward: ${formatBalance(reward.amount)} HPL · Reserved. View your wallet to claim or check your balance.`:
   reward.status==="no_rewards"?"No reward payout for this round.":reward.status==="not_eligible"?"No reward: this round has no accepted score for your wallet.":reward.status==="attention"?"Rewards are delayed. Your result is saved; check again later.":"Processing rewards… Your final reward will appear after confirmation.";
  $("roundEndClaimBtn").hidden=!reserved;
+ renderRoundBreakdown(d.round_id);
 }
 $("closeRoundEndBtn").addEventListener("click",dismissRoundEnd);$("roundEndContinueBtn").addEventListener("click",dismissRoundEnd);
 $("roundEndDialog").addEventListener("cancel",dismissRoundEnd);
@@ -1110,6 +1152,7 @@ async function refreshServerState(){
     if(data.live_leaderboard) renderLiveLeaderboard(data.live_leaderboard);
     if(data.live_error) $("liveStatus").textContent=data.live_error;
     if(includeStandings) state.standingsError=data.standings_error||null;
+    saveRoundBreakdown();
     if(data.round_results) applyRoundEndSummary(data.round_results);
     updateResultsStatus();
   }catch(error){
@@ -2094,6 +2137,7 @@ function resetWallet(){
   state.roundResults=null;state.standingsError=null;state.lastStandingsAt=0;state.standingsPhase=null;
   $("leaderboardTitle").textContent="Round results";$("leaderboard").textContent="Standings appear after submissions close.";
   $("yourRoundResult").hidden=true;$("position").textContent="—";$("positionLabel").textContent="Current position";
+  state.roundBallStats={superScores:[],bonusPoints:0,bonusBalls:0,trackedPoints:0};state.lightningCollected=0;
   state.recentScores=[];state.landingSequence=0;renderBallHistory();
   dismissRoundEnd();roundEndState.data=null;roundEndState.wallet=null;roundEndState.shown.clear();$("lastRoundBtn").hidden=true;
   state.sessionToken=null;state.gameSessionId=null;state.wallet=null;state.round=null;
