@@ -367,7 +367,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.43 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.44 · Testnet only</div>
 </div>
 
 <dialog id="testerGuide" aria-labelledby="testerGuideTitle">
@@ -397,13 +397,13 @@
  <button id="roundEndContinueBtn" type="button" class="wallet-refresh">Back to game</button>
  <p class="mini">The next round starts automatically. You can reopen these results from the game controls.</p>
 </dialog>
-<dialog id="walletOverlay" aria-labelledby="walletOverlayTitle"><div class="wallet-overlay-header"><div><h2 id="walletOverlayTitle">My HPL Wallet</h2><p class="mini">Base Sepolia · Alpha testing</p></div><button id="closeWalletBtn" type="button" class="wallet-refresh">Back to game ✕</button></div><div class="wallet-overlay-content"><div id="walletOverlayControls"></div><section class="card"><h3>Game rewards</h3><div id="gameRewardAmount" class="metric gold">— TEST-HPL</div><button id="claimGameRewardsBtn" type="button" class="wallet-refresh" disabled>Claim game rewards</button> <button id="refreshGameRewardsBtn" type="button" class="wallet-refresh" disabled>Refresh rewards</button><p id="gameRewardStatus" class="mini" role="status">Connect your wallet to view game rewards.</p></section><details class="card"><summary>Wallet feedback</summary><p class="mini">Tell us what feels easy or confusing. Copy your feedback to share with the alpha organizer.</p><textarea id="walletFeedback" rows="5" maxlength="2000" placeholder="I prefer the side panel / full wallet because…"></textarea><button id="copyWalletFeedbackBtn" type="button" class="wallet-refresh">Copy feedback</button><p id="walletFeedbackStatus" class="mini" role="status"></p></details></div></dialog>
+<dialog id="walletOverlay" aria-labelledby="walletOverlayTitle"><div class="wallet-overlay-header"><div><h2 id="walletOverlayTitle">My HPL Wallet</h2><p class="mini">Base Sepolia · Alpha testing</p></div><button id="closeWalletBtn" type="button" class="wallet-refresh">Back to game ✕</button></div><div class="wallet-overlay-content"><div id="walletOverlayControls"></div><section class="card"><h3>Game rewards</h3><div id="gameRewardAmount" class="metric gold">— TEST-HPL</div><div id="gameRewardSources" aria-live="polite"></div><button id="claimGameRewardsBtn" type="button" class="wallet-refresh" disabled>Claim game rewards</button> <button id="refreshGameRewardsBtn" type="button" class="wallet-refresh" disabled>Refresh rewards</button><p id="gameRewardStatus" class="mini" role="status">Connect your wallet to view game rewards.</p></section><details class="card"><summary>Wallet feedback</summary><p class="mini">Tell us what feels easy or confusing. Copy your feedback to share with the alpha organizer.</p><textarea id="walletFeedback" rows="5" maxlength="2000" placeholder="I prefer the side panel / full wallet because…"></textarea><button id="copyWalletFeedbackBtn" type="button" class="wallet-refresh">Copy feedback</button><p id="walletFeedbackStatus" class="mini" role="status"></p></details></div></dialog>
 <script>
 const CONFIG={url:"https://brvnzzkatyxfxpevukzt.supabase.co",key:"sb_publishable_N7wjJGUvFGcNznaPN_aFZQ_nnSVYmZ0"};
 const MARKET={address:"0xc92c2f7359e20b336dfe14d6785f307194a14c4a",token:"0x7e8e2fbfdfc4337b926329dcceeb82440f51735c",chain:"0x14a34"};
 const REFLECTIONS={address:"0x073741dfa10cab0d5f02f8dd4d8dbc817046df9a",claimTopic:"0xcaa03033c11df8560eb1a698ca7632211dfb8d82def73ba95db35495cd6a671b"};
-const REWARDS={address:"0x019fb73bf80ce116210bcfb7514412ab99b6c218",claimTopic:"0x152b817a4d4f6150e6d3d4cff286dc596b7c82f44240434ac973fd8338b2a544"};
-const rewardState={loaded:false,readBusy:false,busy:false,amount:null,paused:false,feeExempt:false,pending:null,error:"",notice:"",lastRefresh:0};
+const REWARDS={currentAddress:"0x34a09Bf81563dc8f7Ab796Dd0F4abBE8CFA48Fa2",legacyAddress:"0x019fb73bf80ce116210bcfb7514412ab99b6c218",claimTopic:"0x152b817a4d4f6150e6d3d4cff286dc596b7c82f44240434ac973fd8338b2a544"};
+const rewardState={loaded:false,readBusy:false,busy:false,amount:null,sources:[],pendingByAddress:{},paused:false,feeExempt:false,pending:null,error:"",notice:"",lastRefresh:0};
 const reflectionState={loaded:false,readBusy:false,claimBusy:false,amount:null,balance:null,feeExempt:false,paused:false,excluded:false,pending:null,error:"",notice:"",lastRefresh:0,balanceGeneration:0};
 const SHOP={1:{name:"Double Drop",price:250000000000000000000n},2:{name:"Paddle Extender",price:175000000000000000000n},3:{name:"Lightning Magnet",price:200000000000000000000n}};
 const purchaseState={cart:{1:0,2:0,3:0},prices:{1:250000000000000000000n,2:175000000000000000000n,3:200000000000000000000n},itemId:1,busy:false,pending:null,epoch:0,unitPrice:250000000000000000000n,balance:null,balanceError:false,quoteBusy:false,refreshAfterCredit:false};
@@ -2012,47 +2012,104 @@ $("tradeQuoteBtn").addEventListener("click",()=>void getTradeQuote());$("tradeSe
 setInterval(()=>{renderTrade();if($("tradeCard").open && document.visibilityState!=="hidden" && state.sessionToken && !tradeState.busy && !tradeState.quoting && !tradePending() && tradeState.quote && Date.now()-tradeState.quote.at>=25000)void getTradeQuote();},2000);
 
 
-function rewardClaimKey(wallet){return `hpl-v3-game-claim:${MARKET.chain}:${REWARDS.address}:${wallet}`;}
+function rewardTargets(){
+ const targets=[{address:REWARDS.legacyAddress,label:REWARDS.currentAddress?"Earlier rewards":"Game rewards"}];
+ if(REWARDS.currentAddress){
+  const address=REWARDS.currentAddress.toLowerCase();
+  if(!/^0x[0-9a-f]{40}$/.test(address) || /^0x0{40}$/.test(address) || address===REWARDS.legacyAddress)throw new Error("Invalid current rewards configuration.");
+  targets.unshift({address,label:"Current rewards"});
+ }
+ return targets;
+}
+function rewardClaimKey(wallet,address=REWARDS.legacyAddress){return `hpl-v3-game-claim:${MARKET.chain}:${address}:${wallet}`;}
 function restoreRewardClaim(){
- try{const hash=localStorage.getItem(rewardClaimKey(state.wallet));rewardState.pending=/^0x[0-9a-f]{64}$/i.test(hash||"")?hash:null;}catch{rewardState.pending=null;}
- renderGameRewards();
+ rewardState.pendingByAddress={};
+ for(const target of rewardTargets()){
+  try{const hash=localStorage.getItem(rewardClaimKey(state.wallet,target.address));if(/^0x[0-9a-f]{64}$/i.test(hash||""))rewardState.pendingByAddress[target.address]=hash;}catch{}
+ }
+ rewardState.pending=nextSavedRewardClaim();renderGameRewards();
+}
+function nextSavedRewardClaim(){
+ for(const target of rewardTargets())if(rewardState.pendingByAddress[target.address])return {...target,hash:rewardState.pendingByAddress[target.address]};
+ return null;
+}
+function clearRewardClaim(wallet,address){
+ delete rewardState.pendingByAddress[address];
+ try{localStorage.removeItem(rewardClaimKey(wallet,address));}catch{}
+ rewardState.pending=nextSavedRewardClaim();
+}
+function nextRewardTarget(){
+ const pending=nextSavedRewardClaim();if(pending)return pending;
+ for(const target of rewardTargets()){
+  const row=rewardState.sources.find(r=>r.address===target.address);
+  if(row?.loaded && !row.paused && row.feeExempt && row.amount>0n)return target;
+ }
+ return null;
+}
+function applyRewardSnapshot(snapshot){
+ rewardState.sources=snapshot.sources;rewardState.amount=snapshot.amount;rewardState.loaded=snapshot.sources.some(s=>s.loaded);
+ rewardState.pending=nextSavedRewardClaim();rewardState.lastRefresh=Date.now();
 }
 function renderGameRewards(){
- $("gameRewardAmount").textContent=rewardState.amount===null?"— TEST-HPL":`${formatBalance(rewardState.amount)} TEST-HPL`;
- $("claimGameRewardsBtn").disabled=!state.sessionToken || !state.provider || rewardState.busy || rewardState.readBusy || tradeState.busy || purchaseState.busy || reflectionState.claimBusy || (!rewardState.pending && (!rewardState.loaded || rewardState.paused || !rewardState.feeExempt || !(rewardState.amount>0n)));
- $("claimGameRewardsBtn").textContent=rewardState.busy?"Confirming claim…":rewardState.pending?"Check claim confirmation":"Claim game rewards";
+ const known=rewardState.sources.filter(r=>r.loaded),partial=known.length<rewardTargets().length;
+ const total=known.reduce((sum,r)=>sum+r.amount,0n);
+ $("gameRewardAmount").textContent=known.length?`${partial?"At least ":""}${formatBalance(total)} TEST-HPL`:"— TEST-HPL";
+ const breakdown=$("gameRewardSources");breakdown.replaceChildren();
+ if(REWARDS.currentAddress){
+  for(const target of rewardTargets()){
+   const source=rewardState.sources.find(r=>r.address===target.address),line=document.createElement("p");line.className="mini";
+   const amount=source?.loaded?`${formatBalance(source.amount)} TEST-HPL`:"—";
+   line.textContent=`${target.label}: ${amount}${rewardState.pendingByAddress[target.address]?" · confirmation pending":source?.error?" · refresh unavailable":source?.loaded && (source.paused || !source.feeExempt)?" · claims temporarily unavailable":""}`;
+   breakdown.appendChild(line);
+  }
+ }
+ const target=nextRewardTarget();
+ $("claimGameRewardsBtn").disabled=!state.sessionToken || !state.provider || rewardState.busy || rewardState.readBusy || tradeState.busy || purchaseState.busy || reflectionState.claimBusy || !target;
+ $("claimGameRewardsBtn").textContent=rewardState.busy?"Confirming claim…":rewardState.pending?"Check claim confirmation":target?`Claim ${target.label.toLowerCase()}`:"Claim game rewards";
  $("refreshGameRewardsBtn").disabled=!state.sessionToken || !state.provider || rewardState.busy || rewardState.readBusy;
- $("gameRewardStatus").textContent=!state.wallet?"Connect your wallet to view game rewards.":rewardState.error||rewardState.notice|| (rewardState.readBusy?"Refreshing rewards…":rewardState.pending?"Claim receipt saved. Check its confirmation before sending another claim.":!rewardState.loaded?"Rewards unavailable · try Refresh rewards":rewardState.paused || !rewardState.feeExempt?"Claims temporarily unavailable.":rewardState.amount===0n?"No reserved rewards yet. Finalized round payouts appear after onchain confirmation.":"Claim up to 25 reward records at a time. Network fee shown in MetaMask.");
+ $("gameRewardStatus").textContent=!state.wallet?"Connect your wallet to view game rewards.":rewardState.error||rewardState.notice||
+  (rewardState.readBusy?"Refreshing rewards…":rewardState.pending?"A claim is saved. Check its confirmation before sending another.":
+   partial?"Some rewards could not be refreshed. Available rewards can still be claimed.":!rewardState.loaded?"Rewards unavailable · try Refresh rewards":
+   total===0n?"No reserved rewards yet. Finalized round payouts appear after onchain confirmation.":
+   !target?"Claims temporarily unavailable. Your rewards remain reserved.":
+   REWARDS.currentAddress?"Current and earlier rewards are claimed separately. Each claim needs MetaMask confirmation.":"Claim up to 25 reward records at a time. Network fee shown in MetaMask.");
+}
+async function rewardSourceSnapshot(wallet,provider,address,block){
+ const aw=wallet.slice(2).padStart(64,"0"),rw=address.slice(2).padStart(64,"0");
+ const specs=[[address,"0x720ec7cc"],[address,"0x402914f5"+aw],[address,"0x4a2ae305"],[MARKET.token,"0x4fbee193"+rw]];
+ const values=await Promise.all(specs.map(([to,data])=>walletRpc(provider,"eth_call",[{to,data},block])));
+ if(values.some(v=>!/^0x[0-9a-f]{64}$/i.test(v)))throw new Error("Invalid Rewards response.");
+ if("0x"+values[0].slice(-40).toLowerCase()!==MARKET.token)throw new Error("Rewards token configuration mismatch.");
+ return {block,address,loaded:true,amount:BigInt(values[1]),paused:BigInt(values[2])!==0n,feeExempt:BigInt(values[3])!==0n,error:""};
 }
 async function rewardSnapshot(wallet,provider,receiptBlock=null){
  if(!/^0x[0-9a-f]{40}$/i.test(wallet))throw new Error("Invalid wallet address");
  if(await walletRpc(provider,"eth_chainId")!==MARKET.chain)throw new Error("Switch to Base Sepolia.");
- const block=receiptBlock || await walletRpc(provider,"eth_blockNumber"),aw=wallet.slice(2).padStart(64,"0"),rw=REWARDS.address.slice(2).padStart(64,"0");
- const specs=[[REWARDS.address,"0x720ec7cc"],[REWARDS.address,"0x402914f5"+aw],[REWARDS.address,"0x4a2ae305"],[MARKET.token,"0x4fbee193"+rw]];
- const values=await Promise.all(specs.map(([to,data])=>walletRpc(provider,"eth_call",[{to,data},block])));
- if(values.some(v=>!/^0x[0-9a-f]{64}$/i.test(v)))throw new Error("Invalid Rewards response.");
- if("0x"+values[0].slice(-40).toLowerCase()!==MARKET.token)throw new Error("Rewards token configuration mismatch.");
- return {block,amount:BigInt(values[1]),paused:BigInt(values[2])!==0n,feeExempt:BigInt(values[3])!==0n};
+ const block=receiptBlock || await walletRpc(provider,"eth_blockNumber"),targets=rewardTargets();
+ const results=await Promise.allSettled(targets.map(t=>rewardSourceSnapshot(wallet,provider,t.address,block)));
+ const sources=results.map((r,i)=>r.status==="fulfilled"?{...targets[i],...r.value}:{...targets[i],loaded:false,amount:null,paused:false,feeExempt:false,error:"Rewards read unavailable"});
+ return {block,sources,amount:sources.every(s=>s.loaded)?sources.reduce((sum,s)=>sum+s.amount,0n):null};
 }
 async function refreshGameRewards(){
  if(!state.sessionToken || !state.provider || !state.wallet || rewardState.readBusy || rewardState.busy)return;
  const wallet=state.wallet,token=state.sessionToken,epoch=purchaseState.epoch,provider=state.provider;
  rewardState.readBusy=true;renderGameRewards();
- try{const snapshot=await rewardSnapshot(wallet,provider);if(epoch!==purchaseState.epoch || wallet!==state.wallet || token!==state.sessionToken || rewardState.busy)return;Object.assign(rewardState,snapshot,{loaded:true,error:"",lastRefresh:Date.now()});}
- catch(error){if(epoch===purchaseState.epoch){rewardState.loaded=false;rewardState.error=error.message;rewardState.lastRefresh=Date.now();}}
+ try{const snapshot=await rewardSnapshot(wallet,provider);if(epoch!==purchaseState.epoch || wallet!==state.wallet || token!==state.sessionToken || rewardState.busy)return;applyRewardSnapshot(snapshot);rewardState.error="";}
+ catch(error){if(epoch===purchaseState.epoch && wallet===state.wallet && token===state.sessionToken){rewardState.sources=[];rewardState.loaded=false;rewardState.amount=null;rewardState.error=error.message;rewardState.lastRefresh=Date.now();}}
  finally{if(epoch===purchaseState.epoch){rewardState.readBusy=false;renderGameRewards();}}
 }
-async function waitRewardClaim(hash,wallet,token,epoch,provider){
+async function waitRewardClaim(hash,address,wallet,token,epoch,provider){
  for(let n=0;n<30;n++){
   if(epoch!==purchaseState.epoch || wallet!==state.wallet || token!==state.sessionToken)return null;
   if(await walletRpc(provider,"eth_chainId")!==MARKET.chain)throw new Error("Reconnect on Base Sepolia to check this claim.");
   const receipt=await walletRpc(provider,"eth_getTransactionReceipt",[hash]);
+  if(epoch!==purchaseState.epoch || wallet!==state.wallet || token!==state.sessionToken)return null;
   if(receipt){
    if(receipt.transactionHash?.toLowerCase()!==hash.toLowerCase())throw new Error("Claim receipt mismatch.");
-   if(BigInt(receipt.status)!==1n){rewardState.pending=null;localStorage.removeItem?.(rewardClaimKey(wallet));throw new Error("Claim reverted. Your rewards remain onchain.");}
-   const claimed=(receipt.logs||[]).some(log=>!log.removed && log.address?.toLowerCase()===REWARDS.address && log.topics?.[0]?.toLowerCase()===REWARDS.claimTopic && "0x"+log.topics?.[3]?.slice(-40).toLowerCase()===wallet);
+   if(BigInt(receipt.status)!==1n){clearRewardClaim(wallet,address);throw new Error("Claim reverted. Your rewards remain onchain.");}
+   const claimed=(receipt.logs||[]).some(log=>!log.removed && log.address?.toLowerCase()===address && log.topics?.length===4 && log.topics[0]?.toLowerCase()===REWARDS.claimTopic && "0x"+log.topics[3]?.slice(-40).toLowerCase()===wallet);
    if(!claimed)throw new Error("No game reward claim for this wallet in the receipt. Keep the saved hash for troubleshooting.");
-   rewardState.pending=null;localStorage.removeItem?.(rewardClaimKey(wallet));return receipt;
+   clearRewardClaim(wallet,address);return receipt;
   }
   rewardState.notice="Claim sent · waiting for confirmation…";renderGameRewards();
   await new Promise(resolve=>setTimeout(resolve,2000));
@@ -2073,7 +2130,7 @@ async function refreshConfirmedGameClaim(receipt,wallet,token,epoch,provider){
   ]);
   if(!current())return;
   if(rewardRead.status==="fulfilled" && rewardRead.value){
-   Object.assign(rewardState,rewardRead.value,{loaded:true,error:"",lastRefresh:Date.now()});rewardsUpdated=true;
+   applyRewardSnapshot(rewardRead.value);rewardState.error="";rewardsUpdated=rewardRead.value.sources.every(r=>r.loaded);
   }
   if(balanceRead.status==="fulfilled" && balanceRead.value){
    Object.assign(reflectionState,balanceRead.value,{loaded:true,error:"",lastRefresh:Date.now()});
@@ -2083,37 +2140,35 @@ async function refreshConfirmedGameClaim(receipt,wallet,token,epoch,provider){
   renderGameRewards();
   if(attempt<2)await new Promise(resolve=>setTimeout(resolve,1500));
  }
- if(current()){
-  rewardState.notice="Claim confirmed · refresh delayed. Use Refresh rewards or Refresh wallet; your claim is saved onchain.";
-  renderGameRewards();
- }
+ if(current()){rewardState.notice="Claim confirmed · refresh delayed. Use Refresh rewards or Refresh wallet; your claim is saved onchain.";renderGameRewards();}
 }
 async function claimGameRewards(){
  if(!state.sessionToken || !state.wallet || !state.provider || rewardState.busy || rewardState.readBusy || tradeState.busy || purchaseState.busy || reflectionState.claimBusy)return;
- const wallet=state.wallet,token=state.sessionToken,epoch=purchaseState.epoch,provider=state.provider;
+ const wallet=state.wallet,token=state.sessionToken,epoch=purchaseState.epoch,provider=state.provider,requested=nextRewardTarget();
  let receipt=null;rewardState.busy=true;rewardState.error="";rewardState.notice="Checking your rewards…";renderGameRewards();renderReflections();updatePurchaseButton();
  try{
   await assertPurchaseWallet(wallet,epoch);
-  if(rewardState.pending){receipt=await waitRewardClaim(rewardState.pending,wallet,token,epoch,provider);return;}
+  const saved=nextSavedRewardClaim();
+  if(saved){receipt=await waitRewardClaim(saved.hash,saved.address,wallet,token,epoch,provider);return;}
   const snapshot=await rewardSnapshot(wallet,provider);
   if(epoch!==purchaseState.epoch || wallet!==state.wallet || token!==state.sessionToken)return;
-  Object.assign(rewardState,snapshot,{loaded:true});
-  if(snapshot.paused || !snapshot.feeExempt)throw new Error("Claims temporarily unavailable.");
-  if(snapshot.amount<=0n)throw new Error("No rewards to claim yet.");
-  const key=rewardClaimKey(wallet);localStorage.setItem(key,"");localStorage.removeItem?.(key);
-  // Simulate first: default claim scans only 25 records, including expired ones.
-  const tx={from:wallet,to:REWARDS.address,data:"0x4e71d92d",value:"0x0"};
-  await walletRpc(provider,"eth_call",[tx,"latest"]);
-  await assertPurchaseWallet(wallet,epoch);
-  rewardState.notice="Confirm the game reward claim in MetaMask.";renderGameRewards();
+  applyRewardSnapshot(snapshot);
+  const target=requested || nextRewardTarget(),source=snapshot.sources.find(s=>s.address===target?.address);
+  if(!source?.loaded)throw new Error("Rewards could not be verified. Try Refresh rewards.");
+  if(source.paused || !source.feeExempt)throw new Error("Claims temporarily unavailable for these rewards.");
+  if(source.amount<=0n)throw new Error("No rewards to claim here yet.");
+  const address=source.address,key=rewardClaimKey(wallet,address);localStorage.setItem(key,"");localStorage.removeItem(key);
+  const tx={from:wallet,to:address,data:"0x4e71d92d",value:"0x0"};
+  await walletRpc(provider,"eth_call",[tx,"latest"]);await assertPurchaseWallet(wallet,epoch);
+  rewardState.notice=`Confirm the ${source.label.toLowerCase()} claim in MetaMask.`;renderGameRewards();
   const hash=await provider.request({method:"eth_sendTransaction",params:[tx]});
   if(!/^0x[0-9a-f]{64}$/i.test(hash))throw new Error("Wallet returned an invalid claim hash.");
   try{localStorage.setItem(key,hash);}catch{if(epoch===purchaseState.epoch)rewardState.notice=`Save this claim hash: ${hash}`;}
   if(epoch!==purchaseState.epoch || wallet!==state.wallet || token!==state.sessionToken)return;
-  rewardState.pending=hash;receipt=await waitRewardClaim(hash,wallet,token,epoch,provider);
- }catch(error){if(epoch===purchaseState.epoch)rewardState.error=error.code===4001?"Claim cancelled.":error.message;}
+  rewardState.pendingByAddress[address]=hash;rewardState.pending=nextSavedRewardClaim();
+  receipt=await waitRewardClaim(hash,address,wallet,token,epoch,provider);
+ }catch(error){if(epoch===purchaseState.epoch && wallet===state.wallet && token===state.sessionToken)rewardState.error=error.code===4001?"Claim cancelled.":error.message;}
  finally{if(epoch===purchaseState.epoch){
-  // Keep wallet transaction controls locked until these confirmed-block reads finish.
   if(receipt)await refreshConfirmedGameClaim(receipt,wallet,token,epoch,provider);
   if(epoch===purchaseState.epoch){rewardState.busy=false;renderGameRewards();renderReflections();updatePurchaseButton();}
  }}
@@ -2126,7 +2181,7 @@ setInterval(()=>{if($("walletOverlay").open && document.visibilityState!=="hidde
 function resetWallet(){
   walletAuthGeneration++;forgetWalletSession();
   $("logoutBtn").hidden=true;
-  Object.assign(rewardState,{loaded:false,readBusy:false,busy:false,amount:null,paused:false,feeExempt:false,pending:null,error:"",notice:"",lastRefresh:0});
+  Object.assign(rewardState,{loaded:false,readBusy:false,busy:false,amount:null,sources:[],pendingByAddress:{},paused:false,feeExempt:false,pending:null,error:"",notice:"",lastRefresh:0});
   clearTimeout(tradeState.timer);tradeState.quoteVersion++;tradeState.quoting=false;tradeState.busy=false;tradeState.quote=null;tradeState.phase="";
   purchaseState.cart={1:0,2:0,3:0};
   Object.assign(reflectionState,{loaded:false,readBusy:false,claimBusy:false,amount:null,balance:null,feeExempt:false,paused:false,excluded:false,pending:null,error:"",notice:"",lastRefresh:0,balanceGeneration:0});
