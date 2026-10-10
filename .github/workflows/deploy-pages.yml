@@ -28,6 +28,8 @@ jobs:
           cp index.html dist/index.html
           mkdir -p dist/v3-alpha
           cp v3-alpha/index.html dist/v3-alpha/index.html
+          mkdir -p dist/admin
+          cp admin/index.html dist/admin/index.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
