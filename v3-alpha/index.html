@@ -302,7 +302,7 @@
       </div>
       </div>
       <div class="side-scroll" tabindex="0" aria-label="Wallet, rewards and powerups">
-      <div id="walletHome"><div id="walletControls">
+      <div class="card" id="tournamentCard" hidden><div class="metric-label" id="tournamentTitle">Tournament</div><p id="tournamentClock" class="mini"></p><strong id="tournamentPool"></strong><p id="tournamentMine" class="mini"></p><div id="tournamentScores" class="mini" style="white-space:pre-wrap"></div><p class="mini">Scores are provisional until accepted. Zero scores do not qualify. Base Sepolia test rewards have no monetary value.</p></div><div id="walletHome"><div id="walletControls">
       <div class="card">
         <div class="metric-label">Your HPL wallet</div>
         <div class="mini">TEST-HPL balance</div>
@@ -368,7 +368,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.47 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.48 · Testnet only</div>
 </div>
 
 <dialog id="testerGuide" aria-labelledby="testerGuideTitle">
@@ -1096,8 +1096,8 @@ function renderRoundEnd(){
  }).join("");
  const reward=d.reward||{status:"processing"};
  const reserved=reward.status==="reserved" && typeof reward.amount==="string" && /^\d{1,78}$/.test(reward.amount);
- $("roundEndRewardStatus").textContent=reserved?`Round reward: ${formatBalance(reward.amount)} HPL · Reserved. View your wallet to claim or check your balance.`:
-  reward.status==="no_rewards"?"No reward payout for this round.":reward.status==="not_eligible"?"No reward: a positive accepted score is required.":reward.status==="attention"?"Rewards are delayed. Your result is saved; check again later.":"Processing rewards… Your final reward will appear after confirmation.";
+ $("roundEndRewardStatus").textContent=reserved?`${reward.window_mode==="hour"?"Tournament":"Round"} reward: ${formatBalance(reward.amount)} HPL · Reserved. View your wallet to claim or check your balance.`:
+  reward.status==="tournament_pending"?"Your score counts toward the tournament. Rewards are calculated after the one-hour window ends and scores are accepted.":reward.status==="no_rewards"?"No reward payout for this round.":reward.status==="not_eligible"?"No reward: a positive accepted score is required.":reward.status==="attention"?"Rewards are delayed. Your result is saved; check again later.":"Processing rewards… Your final reward will appear after confirmation.";
  $("roundEndClaimBtn").hidden=!reserved;
  renderRoundBreakdown(d.round_id);
 }
@@ -1132,6 +1132,7 @@ async function refreshServerState(){
     applyDoubleDropState(data);
     if(data.loaded!==true || !row) throw new Error("Player state unavailable");
     applyRoundFunding(data.round_funding);
+    if(data.reward_window)applyRewardWindow(data.reward_window);
     state.serverStateReadable=true;
     state.serverAcceptedDrops=Number(row.accepted_drops||0);
     state.serverScore=Number(row.authoritative_score||0);
@@ -2191,7 +2192,7 @@ function resetWallet(){
   Object.assign(reflectionState,{loaded:false,readBusy:false,claimBusy:false,amount:null,balance:null,feeExempt:false,paused:false,excluded:false,pending:null,error:"",notice:"",lastRefresh:0,balanceGeneration:0});
   purchaseState.epoch++;purchaseState.busy=false;purchaseState.pending=null;purchaseState.balance=null;purchaseState.balanceError=false;purchaseState.refreshAfterCredit=false;purchaseState.unitPrice=250000000000000000000n;purchaseState.quoteBusy=false;$("purchaseReceiptHash").value="";$("purchaseStatus").textContent="Add powerups to your cart.";updatePurchaseButton();
   state.liveResults=null;state.lastLiveAt=0;state.liveSessionId=null;
-  $("liveLeaderboardTitle").textContent="Current round leaderboard";$("liveLeaderboard").textContent="Waiting for players.";
+  displayedRewardWindow=null;$("tournamentCard").hidden=true;$("liveLeaderboardTitle").textContent="Current round leaderboard";$("liveLeaderboard").textContent="Waiting for players.";
   $("liveStatus").textContent="Connect your wallet to see current standings.";$("yourLiveResult").hidden=true;
   state.roundResults=null;state.standingsError=null;state.lastStandingsAt=0;state.standingsPhase=null;
   $("leaderboardTitle").textContent="Round results";$("leaderboard").textContent="Standings appear after submissions close.";
@@ -2222,6 +2223,12 @@ try{if(localStorage.getItem(testerGuideKey)!=="seen")openTesterGuide();}catch{op
 connectBackend().catch(error=>{$("apiStatus").textContent=`Round preview unavailable: ${error.message}. Connect your wallet to join.`;});
 void restoreWalletSession();
 drawBoard();
+
+let displayedRewardWindow=null;
+function renderRewardWindowClock(){const w=displayedRewardWindow;if(!w)return;const seconds=Math.max(0,Math.ceil((new Date(w.ends_at).getTime()-serverNow())/1000));$('tournamentClock').textContent=w.status==='open'?(seconds?Math.floor(seconds/60)+'m '+(seconds%60)+'s remaining':'Window ended · accepting final scores and preparing rewards'):w.status==='complete'?'Rewards reserved · claim from your wallet':w.status==='skipped'?'No eligible payout in this window':'Rewards are being confirmed';}
+function applyRewardWindow(w){displayedRewardWindow=w.active?w:null;$('tournamentCard').hidden=!w.active;if(!w.active)return;$('tournamentTitle').textContent=w.mode==='hour'?'One-hour tournament':'Round prizes';$('tournamentPool').textContent=formatBalance(w.pool||'0')+' HPL reward pot';$('tournamentMine').textContent=w.your_result?'Your total: '+w.your_result.score+' · position '+w.your_result.placement:'Score above zero to join the standings.';$('tournamentScores').textContent=(w.entries||[]).map(r=>r.placement+'. '+r.wallet.slice(0,6)+'…'+r.wallet.slice(-4)+' · '+r.score).join('\n')||'Waiting for positive scores.';renderRewardWindowClock();}
+setInterval(renderRewardWindowClock,1000);
+
 </script>
 
 </body>
