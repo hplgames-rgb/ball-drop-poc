@@ -206,6 +206,7 @@
   #testerGuide{box-sizing:border-box;width:min(720px,calc(100vw - 24px));max-height:90dvh;overflow:auto;padding:24px;color:var(--text);background:#0d2036;border:1px solid #456182;border-radius:20px;scrollbar-width:none}
   #testerGuide::-webkit-scrollbar{display:none}#testerGuide::backdrop{background:#020915cc;backdrop-filter:blur(4px)}
   #testerGuide h2{margin:8px 0}#testerGuide p,#testerGuide li{line-height:1.6}#testerGuide section{padding:16px 0;border-top:1px solid var(--line)}#testerGuide h3{margin:0 0 8px}#testerGuide code{overflow-wrap:anywhere}#testerGuide .guide-actions{display:flex;gap:12px;flex-wrap:wrap;position:sticky;bottom:-24px;background:#0d2036;padding:16px 0}#testerGuide button{min-height:44px}
+  .reward-history-list{display:grid;gap:8px;margin:14px 0}.reward-history-row{display:flex;justify-content:space-between;align-items:center;gap:16px;border:1px solid var(--line);background:#081625;border-radius:12px;padding:12px}.reward-history-row strong{display:block}.reward-history-row small{display:block;color:var(--muted);margin-top:5px;font-size:12px}.reward-history-amount{text-align:right;flex-shrink:0}.reward-history-amount strong{color:var(--gold)}.reward-history-row[data-status="claimed"] .reward-history-amount strong{color:var(--muted)}@media(max-width:450px){.reward-history-row{align-items:flex-start;gap:8px}.reward-history-amount{max-width:46%;overflow-wrap:anywhere}}
 </style>
 </head>
 <body>
@@ -368,7 +369,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.48 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.49 · Testnet only</div>
 </div>
 
 <dialog id="testerGuide" aria-labelledby="testerGuideTitle">
@@ -398,7 +399,7 @@
  <button id="roundEndContinueBtn" type="button" class="wallet-refresh">Back to game</button>
  <p class="mini">The next round starts automatically. You can reopen these results from the game controls.</p>
 </dialog>
-<dialog id="walletOverlay" aria-labelledby="walletOverlayTitle"><div class="wallet-overlay-header"><div><h2 id="walletOverlayTitle">My HPL Wallet</h2><p class="mini">Base Sepolia · Alpha testing</p></div><button id="closeWalletBtn" type="button" class="wallet-refresh">Back to game ✕</button></div><div class="wallet-overlay-content"><div id="walletOverlayControls"></div><section class="card"><h3>Game rewards</h3><div class="wallet-value"><strong id="gameRewardDollarValue" class="sim-value">—</strong><div id="gameRewardAmount" class="metric gold">— TEST-HPL</div></div><p class="sim-disclaimer">Simulated $0.01 per test HPL · <strong>No monetary value.</strong></p><div id="gameRewardSources" aria-live="polite"></div><button id="claimGameRewardsBtn" type="button" class="wallet-refresh" disabled>Claim game rewards</button> <button id="refreshGameRewardsBtn" type="button" class="wallet-refresh" disabled>Refresh rewards</button><p id="gameRewardStatus" class="mini" role="status">Connect your wallet to view game rewards.</p></section><details class="card"><summary>Wallet feedback</summary><p class="mini">Tell us what feels easy or confusing. Copy your feedback to share with the alpha organizer.</p><textarea id="walletFeedback" rows="5" maxlength="2000" placeholder="I prefer the side panel / full wallet because…"></textarea><button id="copyWalletFeedbackBtn" type="button" class="wallet-refresh">Copy feedback</button><p id="walletFeedbackStatus" class="mini" role="status"></p></details></div></dialog>
+<dialog id="walletOverlay" aria-labelledby="walletOverlayTitle"><div class="wallet-overlay-header"><div><h2 id="walletOverlayTitle">My HPL Wallet</h2><p class="mini">Base Sepolia · Alpha testing</p></div><button id="closeWalletBtn" type="button" class="wallet-refresh">Back to game ✕</button></div><div class="wallet-overlay-content"><div id="walletOverlayControls"></div><section class="card"><h3>Game rewards</h3><div class="wallet-value"><strong id="gameRewardDollarValue" class="sim-value">—</strong><div id="gameRewardAmount" class="metric gold">— TEST-HPL</div></div><p class="sim-disclaimer">Simulated $0.01 per test HPL · <strong>No monetary value.</strong></p><div id="gameRewardSources" aria-live="polite"></div><button id="claimGameRewardsBtn" type="button" class="wallet-refresh" disabled>Claim game rewards</button> <button id="refreshGameRewardsBtn" type="button" class="wallet-refresh" disabled>Refresh rewards</button><p id="gameRewardStatus" class="mini" role="status">Connect your wallet to view game rewards.</p></section><section class="card" aria-labelledby="rewardHistoryTitle"><h3 id="rewardHistoryTitle">Rewards history</h3><p class="notice">See which rounds earned your rewards. Unclaimed rewards accumulate in the total above. Dates and times use your device’s timezone.</p><button id="refreshRewardHistoryBtn" type="button" class="wallet-refresh">Refresh history</button><p id="rewardHistoryStatus" class="notice" role="status">Connect your wallet to view rewards history.</p><div id="rewardHistoryList" class="reward-history-list"></div><button id="moreRewardHistoryBtn" type="button" class="wallet-refresh" hidden>Load older rewards</button></section><details class="card"><summary>Wallet feedback</summary><p class="mini">Tell us what feels easy or confusing. Copy your feedback to share with the alpha organizer.</p><textarea id="walletFeedback" rows="5" maxlength="2000" placeholder="I prefer the side panel / full wallet because…"></textarea><button id="copyWalletFeedbackBtn" type="button" class="wallet-refresh">Copy feedback</button><p id="walletFeedbackStatus" class="mini" role="status"></p></details></div></dialog>
 <script>
 const CONFIG={url:"https://brvnzzkatyxfxpevukzt.supabase.co",key:"sb_publishable_N7wjJGUvFGcNznaPN_aFZQ_nnSVYmZ0"};
 const MARKET={address:"0xc92c2f7359e20b336dfe14d6785f307194a14c4a",token:"0x7e8e2fbfdfc4337b926329dcceeb82440f51735c",chain:"0x14a34"};
@@ -2174,16 +2175,54 @@ async function claimGameRewards(){
   receipt=await waitRewardClaim(hash,address,wallet,token,epoch,provider);
  }catch(error){if(epoch===purchaseState.epoch && wallet===state.wallet && token===state.sessionToken)rewardState.error=error.code===4001?"Claim cancelled.":error.message;}
  finally{if(epoch===purchaseState.epoch){
-  if(receipt)await refreshConfirmedGameClaim(receipt,wallet,token,epoch,provider);
+  if(receipt){await refreshConfirmedGameClaim(receipt,wallet,token,epoch,provider);if(epoch===purchaseState.epoch){rewardHistory.generation++;rewardHistory.busy=false;void refreshRewardHistory();}}
   if(epoch===purchaseState.epoch){rewardState.busy=false;renderGameRewards();renderReflections();updatePurchaseButton();}
  }}
 }
 $("claimGameRewardsBtn").addEventListener("click",()=>void claimGameRewards());
-$("refreshGameRewardsBtn").addEventListener("click",()=>{rewardState.notice="";void refreshGameRewards();});
+$("refreshGameRewardsBtn").addEventListener("click",()=>{rewardState.notice="";void refreshGameRewards();if($("walletOverlay").open)void refreshRewardHistory();});
 // Only poll while the full wallet is open; no per-ball or extra Supabase requests.
 setInterval(()=>{if($("walletOverlay").open && document.visibilityState!=="hidden" && state.sessionToken && Date.now()-rewardState.lastRefresh>=30000)void refreshGameRewards();renderGameRewards();},30000);
 
+const rewardHistory={rows:[],loaded:false,busy:false,error:"",offset:0,more:false,generation:0};
+function renderRewardHistory(){
+ const list=$("rewardHistoryList");list.replaceChildren();
+ $("refreshRewardHistoryBtn").disabled=!state.sessionToken||rewardHistory.busy;
+ $("moreRewardHistoryBtn").hidden=!state.sessionToken||!rewardHistory.more;
+ $("moreRewardHistoryBtn").disabled=rewardHistory.busy;
+ $("rewardHistoryStatus").textContent=!state.wallet?"Connect your wallet to view rewards history.":rewardHistory.error||(rewardHistory.busy?"Loading reward history…":!rewardHistory.loaded?"Open your wallet or refresh to load rewards history.":!rewardHistory.rows.length?"No game rewards earned yet. Your confirmed awards will appear here.":`${rewardHistory.rows.length} reward records shown · newest first. Time shown is when each reward was awarded.`);
+ for(const row of rewardHistory.rows){
+  const item=document.createElement("div");item.className="reward-history-row";item.dataset.status=row.status;
+  const left=document.createElement("div"),title=document.createElement("strong"),date=document.createElement("small");
+  title.textContent=row.round_number!==null?`${row.tournament?"Tournament ending at round":"Ball Drop · Round"} ${row.round_number}`:`Ball Drop · Reward event ${row.event_id}`;
+  const when=new Date(row.awarded_at);date.textContent=Number.isFinite(when.getTime())?when.toLocaleString(undefined,{year:"numeric",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",second:"2-digit",timeZoneName:"short"}):"Award date unavailable";
+  left.appendChild(title);left.appendChild(date);
+  const right=document.createElement("div"),amount=document.createElement("strong"),status=document.createElement("small");right.className="reward-history-amount";
+  amount.textContent=`${formatBalance(BigInt(row.amount))} HPL`;
+  status.textContent=({claimed:"Claimed",unclaimed:"Unclaimed",expired:"Expired",reclaimed:"Expired · reclaimed"})[row.status]||"Status unavailable";
+  right.appendChild(amount);right.appendChild(status);item.appendChild(left);item.appendChild(right);list.appendChild(item);
+ }
+}
+async function refreshRewardHistory(older=false){
+ if(!state.sessionToken||!state.wallet||rewardHistory.busy)return;
+ const wallet=state.wallet,token=state.sessionToken,generation=++rewardHistory.generation;
+ const offset=older?rewardHistory.offset:0;
+ rewardHistory.busy=true;rewardHistory.error="";renderRewardHistory();
+ try{
+  const data=await edgeRequest("game-reward-history",{session_token:token,offset});
+  if(generation!==rewardHistory.generation||wallet!==state.wallet||token!==state.sessionToken)return;
+  if(!Array.isArray(data.rows)||data.rows.some(r=>typeof r.id!=="string"||!/^\d+$/.test(r.amount)||!Number.isFinite(Date.parse(r.awarded_at))))throw new Error("Invalid reward history. Please refresh.");
+  const rows=new Map((older?rewardHistory.rows:[]).map(r=>[r.id,r]));for(const row of data.rows)rows.set(row.id,row);
+  rewardHistory.rows=[...rows.values()].sort((a,b)=>b.awarded_at.localeCompare(a.awarded_at)||a.id.localeCompare(b.id));
+  rewardHistory.offset=data.next_offset;rewardHistory.more=data.has_more===true;rewardHistory.loaded=true;
+ }catch(error){if(generation===rewardHistory.generation)rewardHistory.error=error.message;}
+ finally{if(generation===rewardHistory.generation){rewardHistory.busy=false;renderRewardHistory();}}
+}
+$("refreshRewardHistoryBtn").addEventListener("click",()=>void refreshRewardHistory());
+$("moreRewardHistoryBtn").addEventListener("click",()=>void refreshRewardHistory(true));
+
 function resetWallet(){
+  rewardHistory.generation++;Object.assign(rewardHistory,{rows:[],loaded:false,busy:false,error:"",offset:0,more:false});renderRewardHistory();
   walletAuthGeneration++;forgetWalletSession();
   $("logoutBtn").hidden=true;
   Object.assign(rewardState,{loaded:false,readBusy:false,busy:false,amount:null,sources:[],pendingByAddress:{},paused:false,feeExempt:false,pending:null,error:"",notice:"",lastRefresh:0});
@@ -2200,7 +2239,7 @@ function resetWallet(){
   state.roundBallStats={superScores:[],bonusPoints:0,bonusBalls:0,trackedPoints:0};state.lightningCollected=0;
   state.recentScores=[];state.landingSequence=0;renderBallHistory();
   dismissRoundEnd();roundEndState.data=null;roundEndState.wallet=null;roundEndState.shown.clear();$("lastRoundBtn").hidden=true;
-  state.sessionToken=null;state.gameSessionId=null;state.wallet=null;state.round=null;
+  state.sessionToken=null;state.gameSessionId=null;state.wallet=null;state.round=null;renderRewardHistory();
   resetRoundFunding();
   state.lightningMagnetUntil=0;state.lightningMagnetInventory=null;state.lightningMagnetActivations=0;state.paddleExtenderUntil=0;state.paddleExtenderInventory=null;state.paddleExtenderActivations=0;state.doubleDropUntil=0;state.doubleDropInventory=null;state.doubleDropActivations=0;state.powerupsActivated=0;state.powerupBusy=false;
   state.lightningCharge=0;state.superBalls=0;state.superArmed=false;state.superBusy=false;state.serverStateReadable=false;state.serverScore=null;state.ballsOnBoard=[];state.score=0;state.rules=null;state.claimedPickups=new Set();state.collectingPickups=new Set();$("superBallBtn").disabled=true;
@@ -2208,7 +2247,7 @@ function resetWallet(){
   $("statusDot").classList.remove("live");setPowerupButtons(false);updatePurchaseButton();renderReflections();renderGameRewards();
 }
 let walletReturnFocus=null;
-function openWalletOverlay(){const modal=$("walletOverlay");if(modal.open)return;walletReturnFocus=document.activeElement;modal.showModal();$("walletOverlayControls").appendChild($("walletControls"));$("walletControls").querySelector("details").open=true;$("quickWalletSummary").hidden=false;document.body.classList.add("wallet-open");$("closeWalletBtn").focus();void refreshReflections();void refreshGameRewards();}
+function openWalletOverlay(){const modal=$("walletOverlay");if(modal.open)return;walletReturnFocus=document.activeElement;modal.showModal();$("walletOverlayControls").appendChild($("walletControls"));$("walletControls").querySelector("details").open=true;$("quickWalletSummary").hidden=false;document.body.classList.add("wallet-open");$("closeWalletBtn").focus();void refreshReflections();void refreshGameRewards();void refreshRewardHistory();}
 function restoreWalletPanel(){$("walletHome").appendChild($("walletControls"));$("quickWalletSummary").hidden=true;document.body.classList.remove("wallet-open");walletReturnFocus?.focus?.();}
 $("myWalletBtn").addEventListener("click",openWalletOverlay);$("walletReturnBtn").addEventListener("click",openWalletOverlay);$("closeWalletBtn").addEventListener("click",()=>$("walletOverlay").close());$("walletOverlay").addEventListener("close",restoreWalletPanel);
 $("copyWalletFeedbackBtn").addEventListener("click",async()=>{const text=$("walletFeedback").value.trim();if(!text){$("walletFeedbackStatus").textContent="Write your feedback first.";return;}try{await navigator.clipboard.writeText(`HPL Wallet Alpha feedback\n${text}`);$("walletFeedbackStatus").textContent="Copied. Paste it into your message to the alpha organizer.";}catch{$("walletFeedback").focus();$("walletFeedback").select();$("walletFeedbackStatus").textContent="Select and copy your feedback to share it.";}});
@@ -2233,4 +2272,5 @@ setInterval(renderRewardWindowClock,1000);
 
 </body>
 </html>
+
 
