@@ -369,7 +369,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.49 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.50 · Testnet only</div>
 </div>
 
 <dialog id="testerGuide" aria-labelledby="testerGuideTitle">
@@ -401,6 +401,7 @@
 </dialog>
 <dialog id="walletOverlay" aria-labelledby="walletOverlayTitle"><div class="wallet-overlay-header"><div><h2 id="walletOverlayTitle">My HPL Wallet</h2><p class="mini">Base Sepolia · Alpha testing</p></div><button id="closeWalletBtn" type="button" class="wallet-refresh">Back to game ✕</button></div><div class="wallet-overlay-content"><div id="walletOverlayControls"></div><section class="card"><h3>Game rewards</h3><div class="wallet-value"><strong id="gameRewardDollarValue" class="sim-value">—</strong><div id="gameRewardAmount" class="metric gold">— TEST-HPL</div></div><p class="sim-disclaimer">Simulated $0.01 per test HPL · <strong>No monetary value.</strong></p><div id="gameRewardSources" aria-live="polite"></div><button id="claimGameRewardsBtn" type="button" class="wallet-refresh" disabled>Claim game rewards</button> <button id="refreshGameRewardsBtn" type="button" class="wallet-refresh" disabled>Refresh rewards</button><p id="gameRewardStatus" class="mini" role="status">Connect your wallet to view game rewards.</p></section><section class="card" aria-labelledby="rewardHistoryTitle"><h3 id="rewardHistoryTitle">Rewards history</h3><p class="notice">See which rounds earned your rewards. Unclaimed rewards accumulate in the total above. Dates and times use your device’s timezone.</p><button id="refreshRewardHistoryBtn" type="button" class="wallet-refresh">Refresh history</button><p id="rewardHistoryStatus" class="notice" role="status">Connect your wallet to view rewards history.</p><div id="rewardHistoryList" class="reward-history-list"></div><button id="moreRewardHistoryBtn" type="button" class="wallet-refresh" hidden>Load older rewards</button></section><details class="card"><summary>Wallet feedback</summary><p class="mini">Tell us what feels easy or confusing. Copy your feedback to share with the alpha organizer.</p><textarea id="walletFeedback" rows="5" maxlength="2000" placeholder="I prefer the side panel / full wallet because…"></textarea><button id="copyWalletFeedbackBtn" type="button" class="wallet-refresh">Copy feedback</button><p id="walletFeedbackStatus" class="mini" role="status"></p></details></div></dialog>
 <script>
+let testingPaused=true;
 const CONFIG={url:"https://brvnzzkatyxfxpevukzt.supabase.co",key:"sb_publishable_N7wjJGUvFGcNznaPN_aFZQ_nnSVYmZ0"};
 const MARKET={address:"0xc92c2f7359e20b336dfe14d6785f307194a14c4a",token:"0x7e8e2fbfdfc4337b926329dcceeb82440f51735c",chain:"0x14a34"};
 const REFLECTIONS={address:"0x073741dfa10cab0d5f02f8dd4d8dbc817046df9a",claimTopic:"0xcaa03033c11df8560eb1a698ca7632211dfb8d82def73ba95db35495cd6a671b"};
@@ -1107,7 +1108,7 @@ $("roundEndDialog").addEventListener("cancel",dismissRoundEnd);
 $("lastRoundBtn").addEventListener("click",()=>openRoundEnd(true));
 $("roundEndClaimBtn").addEventListener("click",()=>{dismissRoundEnd();openWalletOverlay();});
 
-async function refreshServerState(){
+async function refreshServerState(){if(testingPaused)return;
   if(!state.sessionToken || !state.gameSessionId || state.stateBusy) return;
   state.stateBusy=true;
   const sessionId=state.gameSessionId;
@@ -1226,6 +1227,7 @@ function updateResultsStatus(){
 }
 
 async function edgeRequest(name,body){
+  if(testingPaused)throw new Error("Alpha testing is paused. Testing resumes when the administrator enables it.");
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),15000);
   try{
@@ -1239,7 +1241,7 @@ async function edgeRequest(name,body){
     return data;
   }finally{clearTimeout(timeout);}
 }
-async function advanceRound(){
+async function advanceRound(){if(testingPaused)return;
   if(!state.sessionToken || state.authBusy || state.eventBusy || state.collectionBusy || state.superBusy || state.powerupBusy || state.lifecycleBusy || Date.now()<state.retryAt) return;
   if(state.gameSessionId && serverNow()<new Date(state.round?.gameplay_ends_at).getTime()) return;
   state.lifecycleBusy=true;
@@ -1585,7 +1587,7 @@ function countdown(){
 }
 setInterval(countdown,250);
 
-async function loadRound(){
+async function loadRound(){if(testingPaused)return;
   if(state.gameSessionId) return true;
   if(!state.supabase) return false;
   $("apiStatus").innerHTML="<strong>Status:</strong> Testing Supabase connection…";
@@ -1835,6 +1837,7 @@ function renderReflections(){ $("walletDollarValue").textContent=simulatedDollar
     reflectionState.paused || !reflectionState.feeExempt?"Claims temporarily unavailable.":reflectionState.amount===0n?"No reflections to claim yet.":"Unclaimed reflections continue earning. Network fee shown in MetaMask.");
 }
 async function walletRpc(provider,method,params=[]){
+  if(testingPaused)throw new Error("Alpha testing is paused. Ask the administrator to resume testing.");
   let timer;try{return await Promise.race([provider.request({method,params}),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error("Wallet read timed out. Try Refresh wallet.")),12000);})]);}finally{clearTimeout(timer);}
 }
 async function reflectionSnapshot(wallet,provider,receiptBlock=null){
@@ -1852,7 +1855,7 @@ async function reflectionSnapshot(wallet,provider,receiptBlock=null){
   if("0x"+values[0].slice(-40).toLowerCase()!==MARKET.token || "0x"+values[1].slice(-40).toLowerCase()!==REFLECTIONS.address) throw new Error("Reflections configuration mismatch.");
   return {block,amount:BigInt(values[2]),paused:BigInt(values[3])!==0n,excluded:BigInt(values[4])!==0n,feeExempt:BigInt(values[5])!==0n,balance:BigInt(values[6])};
 }
-async function refreshReflections(){
+async function refreshReflections(){if(testingPaused)return;
   if(!state.sessionToken || !state.wallet || !state.provider || reflectionState.readBusy || reflectionState.claimBusy || rewardState.busy) return;
   const wallet=state.wallet,token=state.sessionToken,epoch=purchaseState.epoch,provider=state.provider,generation=reflectionState.balanceGeneration;
   reflectionState.readBusy=true;renderReflections();
@@ -1945,7 +1948,7 @@ async function dexQuote(wallet,epoch){
  const gross=decodeQuoteAmounts(out)[1],net=side==="buy"?tradeNet(gross,taxed):gross,min=target===null?net*95n/100n:target;if(min<=0n || net<min)throw new Error("Trade amount is too small or target cannot be reached.");
  await assertPurchaseWallet(wallet,epoch);return {side,amount,net,min,taxed,wallet,epoch,at:Date.now(),text,mode,target};
 }
-async function getTradeQuote(){if(tradeState.busy || purchaseState.busy || rewardState.busy || reflectionState.claimBusy || !state.sessionToken || tradePending())return;clearTimeout(tradeState.timer);const epoch=purchaseState.epoch,version=++tradeState.quoteVersion;tradeState.quoting=true;tradeState.quote=null;$("tradeQuote").textContent="Estimating…";renderTrade();try{const q=await dexQuote(state.wallet,epoch);if(epoch!==purchaseState.epoch || version!==tradeState.quoteVersion)return;if(q.side!==$("tradeSide").value || q.text!==$("tradeAmount").value || q.mode!==tradeState.mode)return;tradeState.quote=q;displayTradeQuote(q);$("tradeStatus").textContent=q.target!==null?"Your HPL target is the minimum receive amount. If the price moves against you, the trade reverts; refresh the estimate. Gas is additional.":"Estimate valid for 30 seconds · 5% slippage tolerance · gas additional.";}catch(e){if(epoch===purchaseState.epoch && version===tradeState.quoteVersion){$("tradeQuote").textContent="Estimate unavailable";$("tradeStatus").textContent=e.message;}}finally{if(epoch===purchaseState.epoch && version===tradeState.quoteVersion){tradeState.quoting=false;renderTrade();}}}
+async function getTradeQuote(){if(testingPaused)return;if(tradeState.busy || purchaseState.busy || rewardState.busy || reflectionState.claimBusy || !state.sessionToken || tradePending())return;clearTimeout(tradeState.timer);const epoch=purchaseState.epoch,version=++tradeState.quoteVersion;tradeState.quoting=true;tradeState.quote=null;$("tradeQuote").textContent="Estimating…";renderTrade();try{const q=await dexQuote(state.wallet,epoch);if(epoch!==purchaseState.epoch || version!==tradeState.quoteVersion)return;if(q.side!==$("tradeSide").value || q.text!==$("tradeAmount").value || q.mode!==tradeState.mode)return;tradeState.quote=q;displayTradeQuote(q);$("tradeStatus").textContent=q.target!==null?"Your HPL target is the minimum receive amount. If the price moves against you, the trade reverts; refresh the estimate. Gas is additional.":"Estimate valid for 30 seconds · 5% slippage tolerance · gas additional.";}catch(e){if(epoch===purchaseState.epoch && version===tradeState.quoteVersion){$("tradeQuote").textContent="Estimate unavailable";$("tradeStatus").textContent=e.message;}}finally{if(epoch===purchaseState.epoch && version===tradeState.quoteVersion){tradeState.quoting=false;renderTrade();}}}
 
 async function refreshTradeBalance(wallet,epoch,receiptBlock){
  reflectionState.balanceGeneration++;const generation=reflectionState.balanceGeneration;
@@ -2096,7 +2099,7 @@ async function rewardSnapshot(wallet,provider,receiptBlock=null){
  const sources=results.map((r,i)=>r.status==="fulfilled"?{...targets[i],...r.value}:{...targets[i],loaded:false,amount:null,paused:false,feeExempt:false,error:"Rewards read unavailable"});
  return {block,sources,amount:sources.every(s=>s.loaded)?sources.reduce((sum,s)=>sum+s.amount,0n):null};
 }
-async function refreshGameRewards(){
+async function refreshGameRewards(){if(testingPaused)return;
  if(!state.sessionToken || !state.provider || !state.wallet || rewardState.readBusy || rewardState.busy)return;
  const wallet=state.wallet,token=state.sessionToken,epoch=purchaseState.epoch,provider=state.provider;
  rewardState.readBusy=true;renderGameRewards();
@@ -2259,14 +2262,17 @@ $("startAlphaBtn").addEventListener("click",dismissTesterGuide);
 $("closeTesterGuideBtn").addEventListener("click",dismissTesterGuide);
 $("testerGuide").addEventListener("cancel",event=>{event.preventDefault();dismissTesterGuide();});
 try{if(localStorage.getItem(testerGuideKey)!=="seen")openTesterGuide();}catch{openTesterGuide();}
-connectBackend().catch(error=>{$("apiStatus").textContent=`Round preview unavailable: ${error.message}. Connect your wallet to join.`;});
-void restoreWalletSession();
+refreshTestingStatus().then(()=>connectBackend()).catch(error=>{$("apiStatus").textContent=`Round preview unavailable: ${error.message}. Connect your wallet to join.`;});
+refreshTestingStatus().then(()=>{if(!testingPaused)void restoreWalletSession();});
 drawBoard();
 
 let displayedRewardWindow=null;
 function renderRewardWindowClock(){const w=displayedRewardWindow;if(!w)return;const seconds=Math.max(0,Math.ceil((new Date(w.ends_at).getTime()-serverNow())/1000));$('tournamentClock').textContent=w.status==='open'?(seconds?Math.floor(seconds/60)+'m '+(seconds%60)+'s remaining':'Window ended · accepting final scores and preparing rewards'):w.status==='complete'?'Rewards reserved · claim from your wallet':w.status==='skipped'?'No eligible payout in this window':'Rewards are being confirmed';}
 function applyRewardWindow(w){displayedRewardWindow=w.active?w:null;$('tournamentCard').hidden=!w.active;if(!w.active)return;$('tournamentTitle').textContent=w.mode==='hour'?'One-hour tournament':'Round prizes';$('tournamentPool').textContent=formatBalance(w.pool||'0')+' HPL reward pot';$('tournamentMine').textContent=w.your_result?'Your total: '+w.your_result.score+' · position '+w.your_result.placement:'Score above zero to join the standings.';$('tournamentScores').textContent=(w.entries||[]).map(r=>r.placement+'. '+r.wallet.slice(0,6)+'…'+r.wallet.slice(-4)+' · '+r.score).join('\n')||'Waiting for positive scores.';renderRewardWindowClock();}
 setInterval(renderRewardWindowClock,1000);
+
+async function refreshTestingStatus(){try{const response=await fetch(CONFIG.url+'/rest/v1/rpc/hpl_testing_status',{method:'POST',headers:{apikey:CONFIG.key,'Content-Type':'application/json'},body:'{}',signal:AbortSignal.timeout(5000),cache:'no-store'});if(!response.ok)throw Error('Testing status unavailable');const data=await response.json();testingPaused=data.paused!==false;}catch{testingPaused=true;}let banner=document.getElementById('alphaTestingPause');if(!banner){banner=document.createElement('div');banner.id='alphaTestingPause';banner.className='notice';banner.setAttribute('role','status');banner.style.cssText='position:sticky;top:0;z-index:100;text-align:center;margin:0;border-radius:0';document.body.prepend(banner);}banner.hidden=!testingPaused;banner.textContent='Alpha testing is paused · automatic blockchain reads are stopped. Testing will resume when the administrator enables it.';}
+setInterval(()=>{if(document.visibilityState!=='hidden')void refreshTestingStatus();},20000);
 
 </script>
 
