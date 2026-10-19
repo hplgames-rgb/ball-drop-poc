@@ -30,6 +30,8 @@ jobs:
           cp v3-alpha/index.html dist/v3-alpha/index.html
           mkdir -p dist/admin
           cp admin/index.html dist/admin/index.html
+          mkdir -p dist/wallet
+          cp wallet/index.html wallet/wallet.css wallet/wallet.js wallet/shared-wallet.js wallet/manifest.webmanifest wallet/icon.svg wallet/icon-192.png wallet/icon-512.png dist/wallet/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
