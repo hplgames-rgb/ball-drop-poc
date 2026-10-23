@@ -213,8 +213,8 @@
   @media(max-width:900px), (pointer:coarse) and (max-width:1366px){
     html,body{height:100%;overflow:hidden;overscroll-behavior:none}body{height:100dvh;display:flex;flex-direction:column;touch-action:manipulation}#alphaTestingPause{flex:none;font-size:10px;line-height:1.3;padding:3px 8px;max-height:38px;overflow:auto}.mobile-only{display:block}
     .app{width:100%;max-width:none;height:auto;flex:1;min-height:0;padding:max(6px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(6px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));display:flex;flex-direction:column;gap:5px;overflow:hidden}
-    .app>header{flex:none;flex-wrap:nowrap;padding:0;gap:6px;min-height:42px}.brand{gap:7px;min-width:0}.logo{flex-shrink:0;width:30px;height:30px;border-radius:9px;font-size:14px}.brand h1{font-size:13px;white-space:nowrap;max-width:calc(100vw - 165px);overflow:hidden;text-overflow:ellipsis}.brand small{font-size:10px}.header-actions{flex-wrap:nowrap!important;gap:0!important;flex-shrink:0}.header-actions>#myWalletBtn,.header-actions>#logoutBtn,.header-actions>#helpMenu,.header-actions>.status{display:none}.header-actions>#walletBtn{max-width:145px;font-size:11px;padding:9px!important;min-height:42px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .mobile-nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;flex:none}.mobile-nav button{min-width:0;min-height:44px;border:1px solid #29435e;border-radius:10px;background:#102238;color:#bdcee2;font-size:11px;font-weight:700;padding:4px 2px;overflow:hidden;text-overflow:ellipsis}.mobile-nav button[aria-current="page"]{color:#ffe18b;border-color:#caa341;background:#392e17}.mobile-nav button:focus-visible{outline:2px solid var(--gold);outline-offset:-3px}
+    .app>header{flex:none;flex-wrap:nowrap;padding:0;gap:6px;min-height:42px}.brand{gap:7px;min-width:0}.logo{flex-shrink:0;width:30px;height:30px;border-radius:9px;font-size:14px}.brand h1{font-size:13px;white-space:nowrap;max-width:calc(100vw - 165px);overflow:hidden;text-overflow:ellipsis}.brand small{font-size:10px}.header-actions{flex-wrap:nowrap!important;gap:0!important;flex-shrink:0}.header-actions>#fullscreenBtn,.header-actions>#myWalletBtn,.header-actions>#logoutBtn,.header-actions>#helpMenu,.header-actions>.status{display:none}.header-actions>#walletBtn{max-width:145px;font-size:11px;padding:9px!important;min-height:42px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .mobile-nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr)) 44px;gap:4px;flex:none}.mobile-nav button{min-width:0;min-height:44px;border:1px solid #29435e;border-radius:10px;background:#102238;color:#bdcee2;font-size:10px;font-weight:700;padding:4px 2px;overflow:hidden;text-overflow:ellipsis}.mobile-nav button[aria-current="page"]{color:#ffe18b;border-color:#caa341;background:#392e17}.mobile-nav button:focus-visible{outline:2px solid var(--gold);outline-offset:-3px}
     .layout{display:flex;flex:1;min-height:0;margin:0}.side,.app>.footer{display:none!important}.game-card{display:flex;flex-direction:column;gap:5px;flex:1;width:100%;min-height:0;padding:7px;border-radius:13px;overflow:hidden}
     .roundbar{display:flex;justify-content:space-between;padding:0 2px;gap:5px;flex:none}.round{font-size:10px}.phase{display:none}.timer{display:flex;gap:6px;align-items:center;font-size:15px}.timer-caption{font-size:9px;margin:0}
     .game-controls{display:grid;grid-template-columns:.85fr .85fr 1.65fr;gap:5px;margin:0;flex:none;align-items:stretch}.game-controls .mini{padding:5px;border-radius:9px;gap:3px;justify-content:center;min-width:0}.game-controls .metric-label{font-size:8px;letter-spacing:.05em}.game-controls strong{font-size:14px;margin:0}.game-controls #superControls{order:2;display:grid;grid-template-columns:1fr auto;align-items:center}.game-controls #lightningControls{order:1;display:flex;flex-direction:column}.game-controls #superBallBtn{grid-column:1/-1;width:100%;min-height:44px;font-size:10px;padding:4px;border-radius:7px}.game-controls>#mobileScoreHome{order:0;min-width:0;display:flex}.game-controls #liveScoreCard{padding:5px;border:1px solid var(--line);border-radius:9px;box-shadow:none;width:100%;display:flex;flex-direction:column;justify-content:center}.game-controls #scoreLabel{font-size:8px;letter-spacing:.05em}.game-controls #score{font-size:18px;margin:0;overflow-wrap:anywhere}.game-controls #liveScoreCard .stat-grid{display:none}.game-controls>#doubleDropStatus,.game-controls>#paddleExtenderStatus,.game-controls>#lightningMagnetStatus{order:3;grid-column:1/-1;font-size:10px;padding:3px;min-height:0;line-height:1.2}
@@ -227,6 +227,7 @@
   @media(max-height:500px) and (max-width:1366px) and (pointer:coarse){
     .app>header{display:none}.app{gap:3px}.mobile-nav button{min-height:36px}.game-card{display:grid;grid-template-columns:160px minmax(0,1fr);grid-template-rows:22px minmax(0,1fr) auto;gap:4px}.roundbar{grid-column:1/-1}.game-controls{grid-column:1;grid-row:2;display:flex;flex-direction:column;gap:3px;overflow:auto;scrollbar-width:none}.game-controls #superControls{display:grid;order:2}.game-controls #lightningControls{flex-direction:row}.game-controls #liveScoreCard{flex-direction:row;justify-content:space-between;align-items:center;gap:8px}.game-controls>#mobileScoreHome{flex:none}.game-controls #superBallBtn{min-height:32px}.game-controls #superControls>.metric-label{display:none}.game-controls #superControls>strong{grid-column:1/-1;text-align:center;font-size:12px}.board-wrap{grid-column:2;grid-row:2/4;width:100%;height:100%}.mobile-powerup-dock{grid-column:1;grid-row:3}.mobile-powerup-dock .powerups{grid-template-columns:1fr;gap:3px}.mobile-powerup-dock .power{min-height:32px;display:flex;align-items:center;justify-content:space-between;gap:4px}.mobile-powerup-dock .power b,.mobile-powerup-dock .power span{font-size:9px}.mobile-powerup-dock [data-powerup="WIDE_BALL"],.mobile-powerup-dock [data-powerup="EXTRA_SUPER_BALL"]{display:none}
   }
+  .fullscreen-notice{position:fixed;bottom:max(12px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:min(440px,calc(100vw - 24px));z-index:120;display:flex;gap:10px;align-items:center;padding:12px;background:#172b43;color:var(--text);border:1px solid #809bb7;border-radius:12px;box-shadow:0 8px 35px #0009;font-size:13px;line-height:1.5}.fullscreen-notice button{flex:none;min-width:44px;min-height:44px;border:1px solid var(--line);border-radius:9px;background:#071525;color:var(--text);font-size:24px}#mobileFullscreenBtn{font-size:22px;padding:0}
 </style>
 </head>
 <body>
@@ -241,6 +242,7 @@
         Connect Wallet
       </button>
       <button id="logoutBtn" type="button" class="wallet-refresh" style="margin:0" hidden>Log Out</button>
+      <button id="fullscreenBtn" type="button" class="wallet-refresh" style="margin:0" aria-pressed="false">Full screen</button>
       <button id="myWalletBtn" type="button" class="wallet-refresh" style="margin:0">My Wallet</button>
       <details class="help-menu" id="helpMenu">
         <summary aria-label="Open Help menu">☰ Help</summary>
@@ -266,8 +268,9 @@
     <button type="button" id="mobileGameBtn" aria-current="page">Game</button>
     <button type="button" id="mobileMarketBtn" aria-haspopup="dialog">Market</button>
     <button type="button" id="mobileWalletBtn" aria-haspopup="dialog">Wallet</button>
-    <button type="button" id="mobileStandingsBtn" aria-haspopup="dialog">Standings</button>
+    <button type="button" id="mobileStandingsBtn" aria-haspopup="dialog" aria-label="Open current round standings">Ranks</button>
     <button type="button" id="mobileMoreBtn" aria-haspopup="dialog">More ☰</button>
+    <button type="button" id="mobileFullscreenBtn" aria-label="Enter full screen" title="Enter full screen" aria-pressed="false">⛶</button>
   </nav>
   <div class="layout">
     <section class="card game-card">
@@ -397,14 +400,15 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.52 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.53 · Testnet only</div>
 </div>
 
+<div id="fullscreenNotice" class="fullscreen-notice" role="status" hidden><span id="fullscreenNoticeText"></span><button id="dismissFullscreenNoticeBtn" type="button" aria-label="Dismiss fullscreen message">×</button></div>
 <dialog id="mobilePanel" class="mobile-panel" aria-labelledby="mobilePanelTitle">
   <div class="mobile-panel-header"><div><h2 id="mobilePanelTitle">Marketplace</h2><p class="mobile-round-clock" data-mobile-clock>Round continues while you browse</p></div><button id="closeMobilePanelBtn" class="wallet-refresh" type="button">Back to game ✕</button></div>
   <div id="mobileMarketContent" hidden><p class="notice">Stock up anytime. Your round keeps running. Return to the game to activate owned powerups.</p><div id="mobileMarketHome"></div></div>
   <div id="mobileStandingsContent" hidden><div id="mobileStandingsHome"></div><div id="mobileTournamentHome"></div><p class="notice">Standings update while you browse. Final results appear after score validation.</p></div>
-  <div id="mobileMoreContent" hidden><button id="mobileConnectBtn" type="button" class="wallet-refresh">Connect / change wallet</button><a href="../wallet/" target="_blank" rel="noopener" class="wallet-refresh" style="display:inline-block;color:var(--text)">Open standalone HPL wallet ↗</a><div id="mobileLogoutHome"></div><div id="mobileHelpHome"></div><div id="mobileLastRoundHome"></div><div id="mobileHistoryHome"></div><div id="mobileStatusHome"></div><p class="notice">V3 Alpha · Build 3.52 · Base Sepolia test tokens have no monetary value.</p></div>
+  <div id="mobileMoreContent" hidden><p id="fullscreenHelpStatus" class="notice">Use the fullscreen button at the top to try it. Your browser and phone control which system bars can hide.</p><button id="mobileConnectBtn" type="button" class="wallet-refresh">Connect / change wallet</button><a href="../wallet/" target="_blank" rel="noopener" class="wallet-refresh" style="display:inline-block;color:var(--text)">Open standalone HPL wallet ↗</a><div id="mobileLogoutHome"></div><div id="mobileHelpHome"></div><div id="mobileLastRoundHome"></div><div id="mobileHistoryHome"></div><div id="mobileStatusHome"></div><p class="notice">V3 Alpha · Build 3.53 · Base Sepolia test tokens have no monetary value.</p></div>
 </dialog>
 <dialog id="testerGuide" aria-labelledby="testerGuideTitle">
   <div class="metric-label gold">HPL Games · Private Alpha · Base Sepolia</div>
@@ -2302,6 +2306,40 @@ function openWalletOverlay(){if($("mobilePanel").open)$("mobilePanel").close();s
 function restoreWalletPanel(){setMobileNav("game");$("walletHome").appendChild($("walletControls"));$("quickWalletSummary").hidden=true;document.body.classList.remove("wallet-open");walletReturnFocus?.focus?.();}
 $("myWalletBtn").addEventListener("click",openWalletOverlay);$("walletReturnBtn").addEventListener("click",openWalletOverlay);$("closeWalletBtn").addEventListener("click",()=>$("walletOverlay").close());$("walletOverlay").addEventListener("close",restoreWalletPanel);
 $("copyWalletFeedbackBtn").addEventListener("click",async()=>{const text=$("walletFeedback").value.trim();if(!text){$("walletFeedbackStatus").textContent="Write your feedback first.";return;}try{await navigator.clipboard.writeText(`HPL Wallet Alpha feedback\n${text}`);$("walletFeedbackStatus").textContent="Copied. Paste it into your message to the alpha organizer.";}catch{$("walletFeedback").focus();$("walletFeedback").select();$("walletFeedbackStatus").textContent="Select and copy your feedback to share it.";}});
+let fullscreenBusy=false;
+function isGameFullscreen(){return !!(document.fullscreenElement || document.webkitFullscreenElement);}
+function syncFullscreenUI(){
+ const active=isGameFullscreen();
+ $("fullscreenBtn").textContent=active?"Exit full screen":"Full screen";
+ $("mobileFullscreenBtn").innerHTML='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="'+(active?'M4 9h5V4M20 9h-5V4M4 15h5v5M20 15h-5v5':'M9 4H4v5M15 4h5v5M4 15v5h5M20 15v5h-5')+'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+ for(const id of ["fullscreenBtn","mobileFullscreenBtn"]){const button=$(id);button.disabled=fullscreenBusy;button.setAttribute?.("aria-pressed",String(active));button.setAttribute?.("aria-label",active?"Exit full screen":"Enter full screen");button.title=active?"Exit full screen":"Enter full screen";}
+ if(active)$("fullscreenHelpStatus").textContent="Full screen is on. Tap the fullscreen button again to exit. Your phone may reveal its navigation controls when you swipe an edge.";
+ else if(!fullscreenBusy)$("fullscreenHelpStatus").textContent="Tap the fullscreen button at the top to try it. Your browser and phone control which system bars can hide.";
+}
+function showFullscreenProblem(message){$("fullscreenNoticeText").textContent=message;$("fullscreenNotice").hidden=false;$("fullscreenHelpStatus").textContent=message;}
+async function toggleGameFullscreen(){
+ if(fullscreenBusy)return;
+ const root=document.documentElement,active=isGameFullscreen();
+ const enter=root?.requestFullscreen || root?.webkitRequestFullscreen;
+ const exit=document.exitFullscreen || document.webkitExitFullscreen;
+ if(!active && (!enter || document.fullscreenEnabled===false || (!root.requestFullscreen && document.webkitFullscreenEnabled===false))){showFullscreenProblem("This browser does not support fullscreen for the game. You can keep playing in the current view.");return;}
+ if(active && !exit){showFullscreenProblem("Use your browser’s fullscreen exit control to return to the normal view.");return;}
+ fullscreenBusy=true;syncFullscreenUI();$("fullscreenNotice").hidden=true;
+ let problem="";
+ try{
+  if(active)await exit.call(document);
+  else if(root.requestFullscreen)await enter.call(root,{navigationUI:"hide"});
+  else await enter.call(root);
+ }catch{problem=active?"The browser could not exit fullscreen. Use its exit control or try again.":"This browser did not allow fullscreen. You can keep playing normally; hiding the phone’s system bars depends on the browser.";}
+ finally{fullscreenBusy=false;syncFullscreenUI();if(problem)showFullscreenProblem(problem);resize();}
+}
+$("fullscreenBtn").addEventListener("click",()=>void toggleGameFullscreen());
+$("mobileFullscreenBtn").addEventListener("click",()=>void toggleGameFullscreen());
+$("dismissFullscreenNoticeBtn").addEventListener("click",()=>{$("fullscreenNotice").hidden=true;});
+for(const event of ["fullscreenchange","webkitfullscreenchange"])document.addEventListener?.(event,()=>{syncFullscreenUI();resize();});
+for(const event of ["fullscreenerror","webkitfullscreenerror"])document.addEventListener?.(event,()=>{showFullscreenProblem("This browser did not allow fullscreen. You can keep playing in the current view.");});
+syncFullscreenUI();
+
 const mobileMounts=[];
 let mobileMounted=false,mobilePanelReturnFocus=null,marketPreviouslyOpen=false;
 function setMobileNav(name){for(const key of ["game","market","wallet","standings","more"]){const el=$("mobile"+key[0].toUpperCase()+key.slice(1)+"Btn");if(key===name)el.setAttribute?.("aria-current","page");else el.removeAttribute?.("aria-current");}}
