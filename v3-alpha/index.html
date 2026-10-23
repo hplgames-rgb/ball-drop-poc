@@ -228,6 +228,11 @@
     .app>header{display:none}.app{gap:3px}.mobile-nav button{min-height:36px}.game-card{display:grid;grid-template-columns:160px minmax(0,1fr);grid-template-rows:22px minmax(0,1fr) auto;gap:4px}.roundbar{grid-column:1/-1}.game-controls{grid-column:1;grid-row:2;display:flex;flex-direction:column;gap:3px;overflow:auto;scrollbar-width:none}.game-controls #superControls{display:grid;order:2}.game-controls #lightningControls{flex-direction:row}.game-controls #liveScoreCard{flex-direction:row;justify-content:space-between;align-items:center;gap:8px}.game-controls>#mobileScoreHome{flex:none}.game-controls #superBallBtn{min-height:32px}.game-controls #superControls>.metric-label{display:none}.game-controls #superControls>strong{grid-column:1/-1;text-align:center;font-size:12px}.board-wrap{grid-column:2;grid-row:2/4;width:100%;height:100%}.mobile-powerup-dock{grid-column:1;grid-row:3}.mobile-powerup-dock .powerups{grid-template-columns:1fr;gap:3px}.mobile-powerup-dock .power{min-height:32px;display:flex;align-items:center;justify-content:space-between;gap:4px}.mobile-powerup-dock .power b,.mobile-powerup-dock .power span{font-size:9px}.mobile-powerup-dock [data-powerup="WIDE_BALL"],.mobile-powerup-dock [data-powerup="EXTRA_SUPER_BALL"]{display:none}
   }
   .fullscreen-notice{position:fixed;bottom:max(12px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:min(440px,calc(100vw - 24px));z-index:120;display:flex;gap:10px;align-items:center;padding:12px;background:#172b43;color:var(--text);border:1px solid #809bb7;border-radius:12px;box-shadow:0 8px 35px #0009;font-size:13px;line-height:1.5}.fullscreen-notice button{flex:none;min-width:44px;min-height:44px;border:1px solid var(--line);border-radius:9px;background:#071525;color:var(--text);font-size:24px}#mobileFullscreenBtn{font-size:22px;padding:0}
+  @media(max-width:900px), (pointer:coarse) and (max-width:1366px){
+    .brand h1{font-size:14px}.brand small{font-size:11px}.header-actions>#walletBtn{font-size:12px}.mobile-nav button{font-size:11px}#mobileFullscreenBtn{font-size:22px}
+    .round{font-size:12px}.timer{font-size:17px}.timer-caption{font-size:10px}.game-controls .metric-label,.game-controls #scoreLabel{font-size:10px}.game-controls strong{font-size:16px}.game-controls #score{font-size:22px}.game-controls #superBallBtn{font-size:11px}.mobile-active-effects .mini{font-size:10px}
+    .pool-chip small{font-size:10px}.pool-chip strong{font-size:15px}.hint{font-size:10.5px}.mobile-powerup-dock .power b,.mobile-powerup-dock .power span{font-size:10.5px}
+  }
 </style>
 </head>
 <body>
@@ -400,7 +405,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.53 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.54 · Testnet only</div>
 </div>
 
 <div id="fullscreenNotice" class="fullscreen-notice" role="status" hidden><span id="fullscreenNoticeText"></span><button id="dismissFullscreenNoticeBtn" type="button" aria-label="Dismiss fullscreen message">×</button></div>
@@ -408,7 +413,7 @@
   <div class="mobile-panel-header"><div><h2 id="mobilePanelTitle">Marketplace</h2><p class="mobile-round-clock" data-mobile-clock>Round continues while you browse</p></div><button id="closeMobilePanelBtn" class="wallet-refresh" type="button">Back to game ✕</button></div>
   <div id="mobileMarketContent" hidden><p class="notice">Stock up anytime. Your round keeps running. Return to the game to activate owned powerups.</p><div id="mobileMarketHome"></div></div>
   <div id="mobileStandingsContent" hidden><div id="mobileStandingsHome"></div><div id="mobileTournamentHome"></div><p class="notice">Standings update while you browse. Final results appear after score validation.</p></div>
-  <div id="mobileMoreContent" hidden><p id="fullscreenHelpStatus" class="notice">Use the fullscreen button at the top to try it. Your browser and phone control which system bars can hide.</p><button id="mobileConnectBtn" type="button" class="wallet-refresh">Connect / change wallet</button><a href="../wallet/" target="_blank" rel="noopener" class="wallet-refresh" style="display:inline-block;color:var(--text)">Open standalone HPL wallet ↗</a><div id="mobileLogoutHome"></div><div id="mobileHelpHome"></div><div id="mobileLastRoundHome"></div><div id="mobileHistoryHome"></div><div id="mobileStatusHome"></div><p class="notice">V3 Alpha · Build 3.53 · Base Sepolia test tokens have no monetary value.</p></div>
+  <div id="mobileMoreContent" hidden><p id="fullscreenHelpStatus" class="notice">Use the fullscreen button at the top to try it. Your browser and phone control which system bars can hide.</p><button id="mobileConnectBtn" type="button" class="wallet-refresh">Connect / change wallet</button><a href="../wallet/" target="_blank" rel="noopener" class="wallet-refresh" style="display:inline-block;color:var(--text)">Open standalone HPL wallet ↗</a><div id="mobileLogoutHome"></div><div id="mobileHelpHome"></div><div id="mobileLastRoundHome"></div><div id="mobileHistoryHome"></div><div id="mobileStatusHome"></div><p class="notice">V3 Alpha · Build 3.54 · Base Sepolia test tokens have no monetary value.</p></div>
 </dialog>
 <dialog id="testerGuide" aria-labelledby="testerGuideTitle">
   <div class="metric-label gold">HPL Games · Private Alpha · Base Sepolia</div>
@@ -516,7 +521,7 @@ function money(n){ return Number(n || 0).toLocaleString(undefined,{minimumFracti
 function mobileGameLayout(){return typeof window.matchMedia==="function" && window.matchMedia("(max-width:900px), (pointer:coarse) and (max-width:1366px)").matches;}
 function boardWidth(){return mobileGameLayout()?600:canvas.clientWidth;}
 function boardHeight(){return mobileGameLayout()?(window.innerHeight<650?600:800):canvas.clientHeight;}
-function boardFont(size,minMobile=9){return mobileGameLayout()?Math.max(size,minMobile/((canvas.getBoundingClientRect().width/boardWidth())||1)):size;}
+function boardFont(size,minMobile=10.5){return mobileGameLayout()?Math.max(size,minMobile/((canvas.getBoundingClientRect().width/boardWidth())||1)):size;}
 function boardPointerAim(event){const rect=canvas.getBoundingClientRect(),w=boardWidth();return Math.max(0,Math.min(1,((event.clientX-rect.left)*w/rect.width-20)/(w-40)));}
 let lastBoardDimensions=null;
 function resize(){
@@ -856,7 +861,7 @@ function drawBoard(){
     ctx.fillText(`x${mult}`,x,paddleY-16);
 
     ctx.fillStyle="#6887a4";
-    ctx.font="600 9px Segoe UI";
+    ctx.font="600 "+boardFont(9,8)+"px Segoe UI";
     ctx.fillText(paddleNames[i],x,paddleY+20);
   });
 
@@ -903,7 +908,7 @@ function drawBoard(){
     ctx.beginPath();ctx.arc(b.x,b.y,7,0,Math.PI*2);
     ctx.fillStyle=ballColor(b);ctx.shadowColor=ballColor(b);ctx.shadowBlur=14;ctx.fill();
     ctx.shadowBlur=0;
-    ctx.fillStyle=b.doubleDropBonus?"#9affcf":"#fff0a3";ctx.font="bold "+boardFont(12,10)+"px Segoe UI";ctx.textAlign="left";
+    ctx.fillStyle=b.doubleDropBonus?"#9affcf":"#fff0a3";ctx.font="bold "+boardFont(12,11)+"px Segoe UI";ctx.textAlign="left";
     ctx.fillText(Math.floor(b.value||state.rules?.base||100).toLocaleString(),b.x+11,b.y-8);
   });
 }
