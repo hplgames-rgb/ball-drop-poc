@@ -405,7 +405,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.54 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.55 · Testnet only</div>
 </div>
 
 <div id="fullscreenNotice" class="fullscreen-notice" role="status" hidden><span id="fullscreenNoticeText"></span><button id="dismissFullscreenNoticeBtn" type="button" aria-label="Dismiss fullscreen message">×</button></div>
@@ -413,14 +413,14 @@
   <div class="mobile-panel-header"><div><h2 id="mobilePanelTitle">Marketplace</h2><p class="mobile-round-clock" data-mobile-clock>Round continues while you browse</p></div><button id="closeMobilePanelBtn" class="wallet-refresh" type="button">Back to game ✕</button></div>
   <div id="mobileMarketContent" hidden><p class="notice">Stock up anytime. Your round keeps running. Return to the game to activate owned powerups.</p><div id="mobileMarketHome"></div></div>
   <div id="mobileStandingsContent" hidden><div id="mobileStandingsHome"></div><div id="mobileTournamentHome"></div><p class="notice">Standings update while you browse. Final results appear after score validation.</p></div>
-  <div id="mobileMoreContent" hidden><p id="fullscreenHelpStatus" class="notice">Use the fullscreen button at the top to try it. Your browser and phone control which system bars can hide.</p><button id="mobileConnectBtn" type="button" class="wallet-refresh">Connect / change wallet</button><a href="../wallet/" target="_blank" rel="noopener" class="wallet-refresh" style="display:inline-block;color:var(--text)">Open standalone HPL wallet ↗</a><div id="mobileLogoutHome"></div><div id="mobileHelpHome"></div><div id="mobileLastRoundHome"></div><div id="mobileHistoryHome"></div><div id="mobileStatusHome"></div><p class="notice">V3 Alpha · Build 3.54 · Base Sepolia test tokens have no monetary value.</p></div>
+  <div id="mobileMoreContent" hidden><p class="notice">Connect Wallet uses your MetaMask extension when available, or connects to the MetaMask mobile app. Approve connection and signing requests in MetaMask, then return here.</p><a class="wallet-refresh" style="display:inline-block;color:var(--text)" href="https://link.metamask.io/dapp/hplgames-rgb.github.io/ball-drop-poc/v3-alpha/">Open game inside MetaMask</a><p id="fullscreenHelpStatus" class="notice">Use the fullscreen button at the top to try it. Your browser and phone control which system bars can hide.</p><button id="mobileConnectBtn" type="button" class="wallet-refresh">Connect / change wallet</button><a href="../wallet/" target="_blank" rel="noopener" class="wallet-refresh" style="display:inline-block;color:var(--text)">Open standalone HPL wallet ↗</a><div id="mobileLogoutHome"></div><div id="mobileHelpHome"></div><div id="mobileLastRoundHome"></div><div id="mobileHistoryHome"></div><div id="mobileStatusHome"></div><p class="notice">Wallet connection uses MetaMask Connect, copyright ConsenSys Software Inc. <a href="./assets/metamask-connect-notices.txt" target="_blank" rel="noopener" style="color:var(--muted)">Third-party notices</a></p><p class="notice">V3 Alpha · Build 3.55 · Base Sepolia test tokens have no monetary value.</p></div>
 </dialog>
 <dialog id="testerGuide" aria-labelledby="testerGuideTitle">
   <div class="metric-label gold">HPL Games · Private Alpha · Base Sepolia</div>
   <h2 id="testerGuideTitle">Welcome to Ball Drop!</h2>
   <p>Play, try the powerups, and help us test the HPL economy. Everything here uses test tokens. Your feedback helps shape the game.</p>
   <section><h3>1 · Get ready</h3><ol>
-    <li>On a phone, open this game in MetaMask’s in-app browser. On desktop, use the MetaMask extension. Choose the wallet you want to play with.</li>
+    <li>On your phone or tablet, Connect Wallet can open the MetaMask app. Approve there, then return to this game. On desktop, use the MetaMask extension or scan the connection QR code with MetaMask. Choose your allowlisted wallet.</li>
     <li>Send your <strong>public wallet address</strong> to the Alpha organizer so it can be allowlisted. Never share your recovery phrase or private key.</li>
     <li>Ask the organizer for <strong>Base Sepolia test ETH</strong> for network fees and <strong>TEST-HPL</strong> for powerups. Ethereum Sepolia ETH is on a different network.</li>
     <li>Close this guide and select <strong>Connect Wallet</strong>. Approve the Base Sepolia network prompt if shown, then sign the login message. Signing in does not spend tokens.</li>
@@ -466,6 +466,51 @@ function selectWalletProvider(){
   const injected=window.ethereum;
   return injected?.providers?.find(x=>x.isMetaMask) || (injected?.isMetaMask ? injected : null);
 }
+const metaMaskConnectState={client:null,promise:null};
+const metaMaskConnectProviders=new WeakSet();
+async function loadMetaMaskConnect(){
+ if(testingPaused)throw new Error("Alpha testing is paused. Resume testing in the admin panel before connecting.");
+ if(!metaMaskConnectState.promise)metaMaskConnectState.promise=(async()=>{
+  if(!window.HPLMetaMaskConnect?.createClient){
+   await new Promise((resolve,reject)=>{
+    const script=document.createElement("script");let finished=false;
+    const finish=error=>{if(finished)return;finished=true;clearTimeout(timer);script.onload=null;script.onerror=null;if(error){script.remove();reject(error);}else resolve();};
+    const timer=setTimeout(()=>finish(new Error("The mobile wallet connector took too long to load. Please try Connect Wallet again.")),20000);
+    script.src="./assets/metamask-connect-2.1.1.js?v=3.55";script.async=true;
+    script.onload=()=>finish();script.onerror=()=>finish(new Error("Could not load the mobile wallet connector. Check your connection and try again."));
+    document.head.appendChild(script);
+   });
+  }
+  if(!window.HPLMetaMaskConnect?.createClient)throw new Error("The mobile wallet connector is unavailable. Please refresh and try again.");
+  const client=await window.HPLMetaMaskConnect.createClient(),provider=client.getProvider();
+  if(typeof provider?.request!=="function")throw new Error("MetaMask returned an invalid connection.");
+  metaMaskConnectState.client=client;metaMaskConnectProviders.add(provider);return client;
+ })().catch(error=>{metaMaskConnectState.promise=null;throw error;});
+ return metaMaskConnectState.promise;
+}
+async function findWalletConnection(interactive=false,saved=null){
+ window.dispatchEvent(new Event("eip6963:requestProvider"));
+ let provider=selectWalletProvider();
+ if(!provider){await new Promise(resolve=>setTimeout(resolve,400));provider=selectWalletProvider();}
+ if(provider)return {provider,accounts:null};
+ if(!interactive && saved?.transport!=="metamask-connect")return null;
+ const client=await loadMetaMaskConnect();
+ if(!interactive){if(!client.getAccount())return null;return {provider:client.getProvider(),accounts:null};}
+ $("apiStatus").textContent="Approve the connection in MetaMask, then return here. On desktop you can scan the QR code with MetaMask.";
+ const result=await client.connect({chainIds:[MARKET.chain]});
+ return {provider:client.getProvider(),accounts:result.accounts};
+}
+async function ensureBaseSepolia(provider){
+ if(await provider.request({method:"eth_chainId"})===MARKET.chain)return;
+ try{await provider.request({method:"wallet_switchEthereumChain",params:[{chainId:MARKET.chain}]});}
+ catch(error){
+  if(Number(error.code)!==4902)throw error;
+  await provider.request({method:"wallet_addEthereumChain",params:[{chainId:MARKET.chain,chainName:"Base Sepolia",nativeCurrency:{name:"Ether",symbol:"ETH",decimals:18},rpcUrls:["https://sepolia.base.org"],blockExplorerUrls:["https://sepolia.basescan.org"]}]});
+  await provider.request({method:"wallet_switchEthereumChain",params:[{chainId:MARKET.chain}]});
+ }
+ if(await provider.request({method:"eth_chainId"})!==MARKET.chain)throw new Error("Select Base Sepolia in MetaMask, then connect again.");
+}
+
 const state = {
   supabase: null,
   round: null,
@@ -1349,7 +1394,7 @@ function forgetWalletSession(){try{localStorage.removeItem(walletSessionKey);}ca
 function rememberWalletSession(expiresAt){
   const expiry=Date.parse(expiresAt);
   if(!/^0x[0-9a-f]{40}$/.test(state.wallet||"") || !/^[0-9a-f]{64}$/i.test(state.sessionToken||"") || !Number.isFinite(expiry) || expiry<=Date.now())return;
-  try{localStorage.setItem(walletSessionKey,JSON.stringify({version:1,wallet:state.wallet,token:state.sessionToken,expiresAt:new Date(expiry).toISOString()}));}catch{}
+  try{localStorage.setItem(walletSessionKey,JSON.stringify({version:1,wallet:state.wallet,token:state.sessionToken,expiresAt:new Date(expiry).toISOString(),transport:metaMaskConnectProviders.has(state.provider)?"metamask-connect":"injected"}));}catch{}
 }
 function readWalletSession(){
   try{
@@ -1365,6 +1410,7 @@ function bindWalletProvider(provider){
   boundWalletProviders.add(provider);
   const changed=()=>{if(state.provider===provider && (!state.authBusy || restoringWalletSession))resetWallet();};
   provider.on?.("accountsChanged",changed);provider.on?.("chainChanged",changed);
+  provider.on?.("disconnect",()=>{if(state.provider===provider)resetWallet();});
 }
 async function restoreWalletSession(){
   if(state.authBusy || state.sessionToken)return false;
@@ -1373,10 +1419,9 @@ async function restoreWalletSession(){
   state.authBusy=true;restoringWalletSession=true;
   $("walletBtn").disabled=true;$("walletBtn").textContent="Restoring…";
   try{
-    window.dispatchEvent(new Event("eip6963:requestProvider"));
-    let provider=selectWalletProvider();
-    if(!provider){await new Promise(resolve=>setTimeout(resolve,400));provider=selectWalletProvider();}
-    if(!provider)return false;
+    const connection=await findWalletConnection(false,saved);
+    if(!connection)return false;
+    const provider=connection.provider;
     bindWalletProvider(provider);
     const matches=async()=>{
       const accounts=await provider.request({method:"eth_accounts"});
@@ -1434,21 +1479,19 @@ async function authenticateWallet(){
   state.authBusy=true;
   $("walletBtn").disabled=true;
   $("walletBtn").textContent="Connecting…";
-  let stage="Finding MetaMask";
+  let stage="Connecting to MetaMask";
   try{
-    window.dispatchEvent(new Event("eip6963:requestProvider"));
-    let provider=selectWalletProvider();
-    if(!provider){await new Promise(resolve=>setTimeout(resolve,400));provider=selectWalletProvider();}
-    if(!provider) throw new Error("MetaMask is not available to this page. Open the MetaMask extension, unlock it, allow access to this website, then refresh. On mobile, open this link inside MetaMask's browser.");
+    if(testingPaused)throw new Error("Alpha testing is paused. Resume testing in the admin panel before connecting.");
+    const connection=await findWalletConnection(true);
+    const provider=connection.provider;
     bindWalletProvider(provider);
     stage="Requesting wallet access";
     $("apiStatus").textContent=stage;
-    const accounts=await provider.request({method:"eth_requestAccounts"});
+    const accounts=connection.accounts || await provider.request({method:"eth_requestAccounts"});
     if(!accounts?.length) throw new Error("No wallet account returned.");
     state.wallet=accounts[0].toLowerCase();
     stage="Switching to Base Sepolia";
-    const chain=await provider.request({method:"eth_chainId"});
-    if(chain!=="0x14a34") await provider.request({method:"wallet_switchEthereumChain",params:[{chainId:"0x14a34"}]});
+    await ensureBaseSepolia(provider);
     $("connection").textContent="Authenticating wallet…";
     $("apiStatus").textContent="Backend session: requesting wallet challenge…";
 
