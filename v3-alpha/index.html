@@ -233,6 +233,8 @@
     .round{font-size:12px}.timer{font-size:17px}.timer-caption{font-size:10px}.game-controls .metric-label,.game-controls #scoreLabel{font-size:10px}.game-controls strong{font-size:16px}.game-controls #score{font-size:22px}.game-controls #superBallBtn{font-size:11px}.mobile-active-effects .mini{font-size:10px}
     .pool-chip small{font-size:10px}.pool-chip strong{font-size:15px}.hint{font-size:10.5px}.mobile-powerup-dock .power b,.mobile-powerup-dock .power span{font-size:10.5px}
   }
+
+  #walletHome #walletControls{display:grid;gap:10px}.section-card{padding:0!important}.section-card>summary{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:48px;padding:13px 14px;cursor:pointer;font-size:14px;font-weight:750;list-style:none}.section-card>summary::-webkit-details-marker{display:none}.section-card>summary::after{content:"+";font-size:20px;color:var(--muted);margin-left:auto}.section-card[open]>summary::after{content:"−"}.section-card[open]>summary{border-bottom:1px solid var(--line)}.section-body{padding:14px;min-width:0}.section-body>.wallet-value:first-child{margin-top:0}.claim-badge{font-size:10px;font-weight:800;color:#9affcf;background:#123e2c;border:1px solid #38e39b88;padding:4px 6px;border-radius:999px;white-space:nowrap}.section-card.claim-ready{border-color:var(--green)!important;box-shadow:0 0 0 1px #38e39b55,0 0 16px #38e39b22!important}.section-card.claim-ready>summary{color:#c0ffe0}.side-scroll>.marketplace-panel{margin:0}.side-scroll>.marketplace-panel>summary span{display:none}#walletControls>#tradeCard>summary{font-size:14px}#walletOverlayControls .section-card{margin-bottom:0}#walletOverlayControls #walletControls{gap:16px}#walletControls>details{min-width:0;align-self:start}
 </style>
 </head>
 <body>
@@ -340,17 +342,17 @@
       </div>
       <div class="side-scroll" tabindex="0" aria-label="Wallet, rewards and powerups">
       <div class="card" id="tournamentCard" hidden><div class="metric-label" id="tournamentTitle">Tournament</div><p id="tournamentClock" class="mini"></p><strong id="tournamentPool"></strong><p id="tournamentMine" class="mini"></p><div id="tournamentScores" class="mini" style="white-space:pre-wrap"></div><p class="mini">Scores are provisional until accepted. Zero scores do not qualify. Base Sepolia test rewards have no monetary value.</p></div><div id="walletHome"><div id="walletControls">
-      <div class="card">
-        <div class="metric-label">Your HPL wallet</div>
-        <div class="mini">TEST-HPL balance</div>
+      <details id="walletBalanceSection" class="card section-card"><summary>HPL Wallet</summary><div class="section-body">        <div class="mini">TEST-HPL balance</div>
         <div class="wallet-value"><strong id="walletDollarValue" class="sim-value">—</strong><strong id="reflectionWalletBalance">Connect your wallet</strong></div>
-        <div class="mini" style="margin-top:12px">Claimable reflections</div>
+</div></details>
+      <details id="reflectionsSection" class="card section-card"><summary><span>Reflections</span><span id="reflectionClaimBadge" class="claim-badge" hidden>Claim available</span></summary><div class="section-body">        <div class="mini" style="margin-top:12px">Claimable reflections</div>
         <div class="wallet-value reflection-value"><strong id="reflectionDollarValue" class="sim-value">—</strong><div id="reflectionAmount" class="checkout-total">— TEST-HPL</div></div>
         <button id="claimReflectionsBtn" class="checkout-buy" disabled>Claim reflections</button>
         <button id="refreshReflectionsBtn" type="button" class="wallet-refresh" disabled>Refresh wallet</button>
         <p class="sim-disclaimer">Simulated value: $0.01 per test HPL.<br><strong>Base Sepolia · No monetary value.</strong></p><div id="reflectionStatus" class="mini" role="status" aria-live="polite">Connect your wallet to view reflections.</div>
-      </div>
-      <details id="tradeCard" class="card" open><summary>Buy &amp; sell HPL</summary>
+</div></details>
+      <details id="gameRewardsSection" class="card section-card"><summary><span>Game Rewards</span><span id="gameRewardClaimBadge" class="claim-badge" hidden>Claim available</span></summary><div class="section-body"><div class="wallet-value"><strong id="gameRewardDollarValue" class="sim-value">—</strong><div id="gameRewardAmount" class="metric gold">— TEST-HPL</div></div><p class="sim-disclaimer">Simulated $0.01 per test HPL · <strong>No monetary value.</strong></p><div id="gameRewardSources" aria-live="polite"></div><button id="claimGameRewardsBtn" type="button" class="wallet-refresh" disabled>Claim game rewards</button> <button id="refreshGameRewardsBtn" type="button" class="wallet-refresh" disabled>Refresh rewards</button><p id="gameRewardStatus" class="mini" role="status">Connect your wallet to view game rewards.</p></div></details>
+      <details id="tradeCard" class="card section-card"><summary>Buy &amp; sell HPL</summary><div class="section-body">
         <p class="mini">Trade test tokens on Base Sepolia. Quotes include applicable tax and pool fees.</p>
         <div class="trade-tabs" role="group" aria-label="Trade direction"><button id="tradeBuyTab" type="button" aria-pressed="true">Buy HPL</button><button id="tradeSellTab" type="button" aria-pressed="false">Sell HPL</button></div><input id="tradeSide" type="hidden" value="buy" />
         <div id="buyModeControls" class="trade-tabs" role="group" aria-label="Buy amount type"><button id="spendModeBtn" type="button" aria-pressed="false">Test ETH</button><button id="receiveModeBtn" type="button" aria-pressed="true">HPL</button><button id="usdModeBtn" type="button" aria-pressed="false">USD (simulated)</button></div><label><span id="tradeAmountLabel">HPL you want to receive</span> <input id="tradeAmount" type="text" inputmode="decimal" placeholder="25000" /></label><p id="tradeAmountHelp" class="trade-help">This is the amount you receive AFTER tax.</p>
@@ -358,13 +360,12 @@
         <button id="tradeQuoteBtn" type="button" class="wallet-refresh">Refresh estimate</button>
         <button id="tradeSendBtn" type="button" class="checkout-buy" disabled>Review quote first</button>
         <p id="tradeStatus" class="mini" role="status" aria-live="polite">Slippage tolerance: 5% of the estimated amount after tax. Gas is additional.</p>
-      </details>
-      </div></div><div id="quickWalletSummary" class="card" hidden><strong id="quickWalletBalance"></strong><p id="quickReflections"></p><button id="walletReturnBtn" type="button" class="wallet-refresh">Manage wallet</button></div>
-      <div class="card">
-        <div class="metric-label">Round Rewards</div>
+      </div></details>
+      <details id="rewardHistorySection" class="card section-card"><summary id="rewardHistoryTitle">Rewards history</summary><div class="section-body"><p class="notice">See which rounds earned your rewards. Unclaimed rewards accumulate in the total above. Dates and times use your device’s timezone.</p><button id="refreshRewardHistoryBtn" type="button" class="wallet-refresh">Refresh history</button><p id="rewardHistoryStatus" class="notice" role="status">Connect your wallet to view rewards history.</p><div id="rewardHistoryList" class="reward-history-list"></div><button id="moreRewardHistoryBtn" type="button" class="wallet-refresh" hidden>Load older rewards</button></div></details></div></div><div id="quickWalletSummary" class="card" hidden><strong id="quickWalletBalance"></strong><p id="quickReflections"></p><button id="walletReturnBtn" type="button" class="wallet-refresh">Manage wallet</button></div>
+      <details class="card section-card"><summary>Round reward pool</summary><div class="section-body">
         <div class="metric gold" id="rewardPool">— HPL</div>
         <div class="notice">The number above is read from the live round funding record — no seeded reward value.</div>
-      </div>
+</div></details>
 
       <div class="card" hidden>
         <div class="metric-label" id="leaderboardTitle">Round results</div>
@@ -373,10 +374,8 @@
         <div id="yourRoundResult" class="result-summary" hidden></div>
       </div>
 
-      <div class="card">
-        <div class="metric-label">Power-Ups</div>
-        <details id="marketplacePanel" class="marketplace-panel">
-          <summary>🛒 Marketplace <span id="cartSummary">Add powerups</span></summary>
+        <details id="marketplacePanel" class="marketplace-panel card section-card">
+          <summary>🛒 Marketplace <span id="cartSummary">Add powerups</span></summary><div class="section-body">
           <p>Stock up anytime. Activate owned powerups below during gameplay.</p>
           <div class="shop-grid">
             <article class="shop-item"><b>🟢 Double Drop</b><p>Two balls per normal click for 15 seconds.</p><div id="shopPrice1">250 TEST-HPL each</div><div class="quantity-controls"><button data-cart-id="1" data-cart-step="-1" aria-label="Remove one Double Drop">−</button><output id="cartQuantity1">0</output><button data-cart-id="1" data-cart-step="1" aria-label="Add one Double Drop">+</button></div></article>
@@ -391,8 +390,10 @@
           <button id="refreshPurchaseQuoteBtn" type="button" disabled>Refresh prices & balance</button>
           <button id="buyDoubleDropBtn" class="checkout-buy" disabled>Checkout</button>
           <div id="purchaseStatus" role="status" aria-live="polite">Add powerups to your cart.</div>
-        </details>
-        <div class="metric-label" style="margin-top:16px">Owned powerups · Activate</div>
+        </div></details>
+      <details id="powerupsSection" class="card section-card"><summary>Owned powerups</summary><div class="section-body">
+
+
         <div class="powerups" id="ownedPowerups">
           <button class="power" data-powerup="DOUBLE_DROP" disabled><b id="doubleDropTitle">Double Drop · 15s</b><span id="doubleDropLabel">Loading inventory…</span></button>
           <button class="power" data-powerup="WIDE_BALL" disabled><b>Wide Ball</b><span>Server-authorized</span></button>
@@ -400,12 +401,12 @@
           <button class="power" data-powerup="LIGHTNING_MAGNET" disabled><b id="lightningMagnetTitle">Lightning Magnet · 25s</b><span id="lightningMagnetLabel">Loading inventory…</span></button>
           <button class="power" data-powerup="EXTRA_SUPER_BALL" disabled><b>Extra Super Ball</b><span>Server-authorized</span></button>
         </div>
-      </div>
+      </div></details>
       </div>
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.55 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.56 · Testnet only</div>
 </div>
 
 <div id="fullscreenNotice" class="fullscreen-notice" role="status" hidden><span id="fullscreenNoticeText"></span><button id="dismissFullscreenNoticeBtn" type="button" aria-label="Dismiss fullscreen message">×</button></div>
@@ -413,7 +414,7 @@
   <div class="mobile-panel-header"><div><h2 id="mobilePanelTitle">Marketplace</h2><p class="mobile-round-clock" data-mobile-clock>Round continues while you browse</p></div><button id="closeMobilePanelBtn" class="wallet-refresh" type="button">Back to game ✕</button></div>
   <div id="mobileMarketContent" hidden><p class="notice">Stock up anytime. Your round keeps running. Return to the game to activate owned powerups.</p><div id="mobileMarketHome"></div></div>
   <div id="mobileStandingsContent" hidden><div id="mobileStandingsHome"></div><div id="mobileTournamentHome"></div><p class="notice">Standings update while you browse. Final results appear after score validation.</p></div>
-  <div id="mobileMoreContent" hidden><p class="notice">Connect Wallet uses your MetaMask extension when available, or connects to the MetaMask mobile app. Approve connection and signing requests in MetaMask, then return here.</p><a class="wallet-refresh" style="display:inline-block;color:var(--text)" href="https://link.metamask.io/dapp/hplgames-rgb.github.io/ball-drop-poc/v3-alpha/">Open game inside MetaMask</a><p id="fullscreenHelpStatus" class="notice">Use the fullscreen button at the top to try it. Your browser and phone control which system bars can hide.</p><button id="mobileConnectBtn" type="button" class="wallet-refresh">Connect / change wallet</button><a href="../wallet/" target="_blank" rel="noopener" class="wallet-refresh" style="display:inline-block;color:var(--text)">Open standalone HPL wallet ↗</a><div id="mobileLogoutHome"></div><div id="mobileHelpHome"></div><div id="mobileLastRoundHome"></div><div id="mobileHistoryHome"></div><div id="mobileStatusHome"></div><p class="notice">Wallet connection uses MetaMask Connect, copyright ConsenSys Software Inc. <a href="./assets/metamask-connect-notices.txt" target="_blank" rel="noopener" style="color:var(--muted)">Third-party notices</a></p><p class="notice">V3 Alpha · Build 3.55 · Base Sepolia test tokens have no monetary value.</p></div>
+  <div id="mobileMoreContent" hidden><p class="notice">Connect Wallet uses your MetaMask extension when available, or connects to the MetaMask mobile app. Approve connection and signing requests in MetaMask, then return here.</p><a class="wallet-refresh" style="display:inline-block;color:var(--text)" href="https://link.metamask.io/dapp/hplgames-rgb.github.io/ball-drop-poc/v3-alpha/">Open game inside MetaMask</a><p id="fullscreenHelpStatus" class="notice">Use the fullscreen button at the top to try it. Your browser and phone control which system bars can hide.</p><button id="mobileConnectBtn" type="button" class="wallet-refresh">Connect / change wallet</button><a href="../wallet/" target="_blank" rel="noopener" class="wallet-refresh" style="display:inline-block;color:var(--text)">Open standalone HPL wallet ↗</a><div id="mobileLogoutHome"></div><div id="mobileHelpHome"></div><div id="mobileLastRoundHome"></div><div id="mobileHistoryHome"></div><div id="mobileStatusHome"></div><p class="notice">Wallet connection uses MetaMask Connect, copyright ConsenSys Software Inc. <a href="./assets/metamask-connect-notices.txt" target="_blank" rel="noopener" style="color:var(--muted)">Third-party notices</a></p><p class="notice">V3 Alpha · Build 3.56 · Base Sepolia test tokens have no monetary value.</p></div>
 </dialog>
 <dialog id="testerGuide" aria-labelledby="testerGuideTitle">
   <div class="metric-label gold">HPL Games · Private Alpha · Base Sepolia</div>
@@ -442,7 +443,7 @@
  <button id="roundEndContinueBtn" type="button" class="wallet-refresh">Back to game</button>
  <p class="mini">The next round starts automatically. You can reopen these results from the game controls.</p>
 </dialog>
-<dialog id="walletOverlay" aria-labelledby="walletOverlayTitle"><div class="wallet-overlay-header"><div><h2 id="walletOverlayTitle">My HPL Wallet</h2><p class="mini">Base Sepolia · Alpha testing</p><p class="mobile-only mobile-round-clock" data-mobile-clock>Round continues while you browse</p></div><a href="../wallet/" target="_blank" rel="noopener" class="wallet-refresh" style="color:var(--text);font-size:12px">Open standalone wallet ↗</a><button id="closeWalletBtn" type="button" class="wallet-refresh">Back to game ✕</button></div><div class="wallet-overlay-content"><div id="walletOverlayControls"></div><section class="card"><h3>Game rewards</h3><div class="wallet-value"><strong id="gameRewardDollarValue" class="sim-value">—</strong><div id="gameRewardAmount" class="metric gold">— TEST-HPL</div></div><p class="sim-disclaimer">Simulated $0.01 per test HPL · <strong>No monetary value.</strong></p><div id="gameRewardSources" aria-live="polite"></div><button id="claimGameRewardsBtn" type="button" class="wallet-refresh" disabled>Claim game rewards</button> <button id="refreshGameRewardsBtn" type="button" class="wallet-refresh" disabled>Refresh rewards</button><p id="gameRewardStatus" class="mini" role="status">Connect your wallet to view game rewards.</p></section><section class="card" aria-labelledby="rewardHistoryTitle"><h3 id="rewardHistoryTitle">Rewards history</h3><p class="notice">See which rounds earned your rewards. Unclaimed rewards accumulate in the total above. Dates and times use your device’s timezone.</p><button id="refreshRewardHistoryBtn" type="button" class="wallet-refresh">Refresh history</button><p id="rewardHistoryStatus" class="notice" role="status">Connect your wallet to view rewards history.</p><div id="rewardHistoryList" class="reward-history-list"></div><button id="moreRewardHistoryBtn" type="button" class="wallet-refresh" hidden>Load older rewards</button></section><details class="card"><summary>Wallet feedback</summary><p class="mini">Tell us what feels easy or confusing. Copy your feedback to share with the alpha organizer.</p><textarea id="walletFeedback" rows="5" maxlength="2000" placeholder="I prefer the side panel / full wallet because…"></textarea><button id="copyWalletFeedbackBtn" type="button" class="wallet-refresh">Copy feedback</button><p id="walletFeedbackStatus" class="mini" role="status"></p></details></div></dialog>
+<dialog id="walletOverlay" aria-labelledby="walletOverlayTitle"><div class="wallet-overlay-header"><div><h2 id="walletOverlayTitle">My HPL Wallet</h2><p class="mini">Base Sepolia · Alpha testing</p><p class="mobile-only mobile-round-clock" data-mobile-clock>Round continues while you browse</p></div><a href="../wallet/" target="_blank" rel="noopener" class="wallet-refresh" style="color:var(--text);font-size:12px">Open standalone wallet ↗</a><button id="closeWalletBtn" type="button" class="wallet-refresh">Back to game ✕</button></div><div class="wallet-overlay-content"><div id="walletOverlayControls"></div><details class="card"><summary>Wallet feedback</summary><p class="mini">Tell us what feels easy or confusing. Copy your feedback to share with the alpha organizer.</p><textarea id="walletFeedback" rows="5" maxlength="2000" placeholder="I prefer the side panel / full wallet because…"></textarea><button id="copyWalletFeedbackBtn" type="button" class="wallet-refresh">Copy feedback</button><p id="walletFeedbackStatus" class="mini" role="status"></p></details></div></dialog>
 <script>
 let testingPaused=true;
 const CONFIG={url:"https://brvnzzkatyxfxpevukzt.supabase.co",key:"sb_publishable_N7wjJGUvFGcNznaPN_aFZQ_nnSVYmZ0"};
@@ -1151,6 +1152,7 @@ function renderRoundBreakdown(roundId){
 }
 
 const roundEndState={data:null,wallet:null,shown:new Set()};
+let rewardSidebarRefreshKey=null;
 function roundEndStorageKey(){return `hpl-v3-round-end:${state.wallet||""}`;}
 function dismissRoundEnd(){
  if(roundEndState.data){roundEndState.shown.add(roundEndState.data.round_id);try{localStorage.setItem(roundEndStorageKey(),roundEndState.data.round_id);}catch{}}
@@ -1180,6 +1182,9 @@ function applyRoundEndSummary(data){
  if(!data.available || data.your_status==="not_played" || !state.wallet) return;
  if(roundEndState.wallet===state.wallet && roundEndState.data && Number(data.round_number)<Number(roundEndState.data.round_number)) return;
  roundEndState.wallet=state.wallet;roundEndState.data=data;
+ const reward=data.reward,key=state.wallet+":"+data.round_id;
+ if(reward?.status==="reserved" && /^\d{1,78}$/.test(reward.amount||"") && BigInt(reward.amount)>0n && state.sessionToken && state.provider && !rewardState.busy && !rewardState.readBusy && rewardSidebarRefreshKey!==key){rewardSidebarRefreshKey=key;void refreshGameRewards();}
+
  $("lastRoundBtn").hidden=false;renderRoundEnd();openRoundEnd();
 }
 function renderRoundEnd(){
@@ -1922,7 +1927,7 @@ function restoreReflectionClaim(){
   renderReflections();
 }
 function simulatedDollar(amount){if(amount===null)return "—";const cents=(amount+10n**18n/2n)/10n**18n;return "$"+(cents/100n).toLocaleString("en-US")+"."+(cents%100n).toString().padStart(2,"0");}
-function renderReflections(){ $("walletDollarValue").textContent=simulatedDollar(reflectionState.balance);$("reflectionDollarValue").textContent=simulatedDollar(reflectionState.amount);
+function renderReflections(){renderClaimSections(); $("walletDollarValue").textContent=simulatedDollar(reflectionState.balance);$("reflectionDollarValue").textContent=simulatedDollar(reflectionState.amount);
   $("quickWalletBalance").textContent=reflectionState.balance===null?"Connect your wallet":`${formatBalance(reflectionState.balance)} TEST-HPL`;$("quickReflections").textContent=reflectionState.amount===null?"Reflections: —":`Claimable reflections: ${formatBalance(reflectionState.amount)} TEST-HPL`;
   $("reflectionWalletBalance").textContent=reflectionState.balance===null?state.wallet?"Loading…":"Connect your wallet":`${formatBalance(reflectionState.balance)} TEST-HPL`;
   $("reflectionAmount").textContent=reflectionState.amount===null?"— TEST-HPL":`${formatBalance(reflectionState.amount)} TEST-HPL`;
@@ -2158,7 +2163,15 @@ function applyRewardSnapshot(snapshot){
  rewardState.sources=snapshot.sources;rewardState.amount=snapshot.amount;rewardState.loaded=snapshot.sources.some(s=>s.loaded);
  rewardState.pending=nextSavedRewardClaim();rewardState.lastRefresh=Date.now();
 }
+function renderClaimSections(){
+ const reflectionReady=!!(!testingPaused && state.sessionToken && state.wallet && state.provider && reflectionState.loaded && reflectionState.amount>0n && reflectionState.feeExempt && !reflectionState.paused && !reflectionState.excluded && !reflectionState.pending && !reflectionState.claimBusy);
+ const rewardsReady=!!(!testingPaused && state.sessionToken && state.wallet && state.provider && !rewardState.busy && !Object.values(rewardState.pendingByAddress).some(Boolean) && rewardState.sources.some(r=>r.loaded && r.amount>0n && r.feeExempt && !r.paused && !rewardState.pendingByAddress[r.address]));
+ for(const [id,badge,ready] of [["reflectionsSection","reflectionClaimBadge",reflectionReady],["gameRewardsSection","gameRewardClaimBadge",rewardsReady]]){
+  if(ready)$(id).classList.add("claim-ready");else $(id).classList.remove("claim-ready");$(badge).hidden=!ready;
+ }
+}
 function renderGameRewards(){
+ renderClaimSections();
  const known=rewardState.sources.filter(r=>r.loaded),partial=known.length<rewardTargets().length;
  const total=known.reduce((sum,r)=>sum+r.amount,0n);
  $("gameRewardDollarValue").textContent=known.length?`${partial?"At least ":""}${simulatedDollar(total)}`:"—";
@@ -2326,7 +2339,7 @@ $("moreRewardHistoryBtn").addEventListener("click",()=>void refreshRewardHistory
 
 function resetWallet(){
   rewardHistory.generation++;Object.assign(rewardHistory,{rows:[],loaded:false,busy:false,error:"",offset:0,more:false});renderRewardHistory();
-  walletAuthGeneration++;forgetWalletSession();
+  walletAuthGeneration++;forgetWalletSession();rewardSidebarRefreshKey=null;
   $("logoutBtn").hidden=true;
   Object.assign(rewardState,{loaded:false,readBusy:false,busy:false,amount:null,sources:[],pendingByAddress:{},paused:false,feeExempt:false,pending:null,error:"",notice:"",lastRefresh:0});
   clearTimeout(tradeState.timer);tradeState.quoteVersion++;tradeState.quoting=false;tradeState.busy=false;tradeState.quote=null;tradeState.phase="";
@@ -2350,8 +2363,9 @@ function resetWallet(){
   $("statusDot").classList.remove("live");setPowerupButtons(false);updatePurchaseButton();renderReflections();renderGameRewards();
 }
 let walletReturnFocus=null;
-function openWalletOverlay(){if($("mobilePanel").open)$("mobilePanel").close();setMobileNav("wallet");const modal=$("walletOverlay");if(modal.open)return;walletReturnFocus=document.activeElement;modal.showModal();modal.scrollTop=0;$("walletOverlayControls").appendChild($("walletControls"));$("walletControls").querySelector("details").open=true;$("quickWalletSummary").hidden=false;document.body.classList.add("wallet-open");$("closeWalletBtn").focus();void refreshReflections();void refreshGameRewards();void refreshRewardHistory();}
-function restoreWalletPanel(){setMobileNav("game");$("walletHome").appendChild($("walletControls"));$("quickWalletSummary").hidden=true;document.body.classList.remove("wallet-open");walletReturnFocus?.focus?.();}
+let walletSectionOpenStates=[];
+function openWalletOverlay(){if($("mobilePanel").open)$("mobilePanel").close();setMobileNav("wallet");const modal=$("walletOverlay");if(modal.open)return;walletReturnFocus=document.activeElement;modal.showModal();modal.scrollTop=0;$("walletOverlayControls").appendChild($("walletControls"));walletSectionOpenStates=[...document.querySelectorAll("#walletControls > details")].map(el=>({el,open:el.open}));for(const {el} of walletSectionOpenStates)el.open=true;$("quickWalletSummary").hidden=false;document.body.classList.add("wallet-open");$("closeWalletBtn").focus();void refreshReflections();void refreshGameRewards();void refreshRewardHistory();}
+function restoreWalletPanel(){for(const {el,open} of walletSectionOpenStates)el.open=open;walletSectionOpenStates=[];setMobileNav("game");$("walletHome").appendChild($("walletControls"));$("quickWalletSummary").hidden=true;document.body.classList.remove("wallet-open");walletReturnFocus?.focus?.();}
 $("myWalletBtn").addEventListener("click",openWalletOverlay);$("walletReturnBtn").addEventListener("click",openWalletOverlay);$("closeWalletBtn").addEventListener("click",()=>$("walletOverlay").close());$("walletOverlay").addEventListener("close",restoreWalletPanel);
 $("copyWalletFeedbackBtn").addEventListener("click",async()=>{const text=$("walletFeedback").value.trim();if(!text){$("walletFeedbackStatus").textContent="Write your feedback first.";return;}try{await navigator.clipboard.writeText(`HPL Wallet Alpha feedback\n${text}`);$("walletFeedbackStatus").textContent="Copied. Paste it into your message to the alpha organizer.";}catch{$("walletFeedback").focus();$("walletFeedback").select();$("walletFeedbackStatus").textContent="Select and copy your feedback to share it.";}});
 let fullscreenBusy=false;
@@ -2427,6 +2441,9 @@ $("closeMobilePanelBtn").addEventListener("click",()=>$("mobilePanel").close());
 $("mobilePanel").addEventListener("close",()=>{if(!$("walletOverlay").open)setMobileNav("game");mobilePanelReturnFocus?.focus?.();});
 if(typeof window.matchMedia==="function"){window.addEventListener("resize",syncMobileLayout);window.visualViewport?.addEventListener("resize",resize);syncMobileLayout();setInterval(renderMobileRoundClock,1000);}
 
+$("reflectionsSection").addEventListener("toggle",()=>{if($("reflectionsSection").open && !$("walletOverlay").open)void refreshReflections();});
+$("gameRewardsSection").addEventListener("toggle",()=>{if($("gameRewardsSection").open && !$("walletOverlay").open)void refreshGameRewards();});
+$("rewardHistorySection").addEventListener("toggle",()=>{if($("rewardHistorySection").open && !rewardHistory.loaded && !$("walletOverlay").open)void refreshRewardHistory();});
 const testerGuideKey="hpl-v3-tester-guide-v1";
 function openTesterGuide(){ if($("mobilePanel").open)$("mobilePanel").close();$("helpMenu").open=false;if(!$("testerGuide").open)$("testerGuide").showModal(); }
 function dismissTesterGuide(){try{localStorage.setItem(testerGuideKey,"seen");}catch{}$("testerGuide").close();}
@@ -2444,13 +2461,14 @@ function renderRewardWindowClock(){const w=displayedRewardWindow;if(!w)return;co
 function applyRewardWindow(w){displayedRewardWindow=w.active?w:null;$('tournamentCard').hidden=!w.active;if(!w.active)return;$('tournamentTitle').textContent=w.mode==='hour'?'One-hour tournament':'Round prizes';$('tournamentPool').textContent=formatBalance(w.pool||'0')+' HPL reward pot';$('tournamentMine').textContent=w.your_result?'Your total: '+w.your_result.score+' · position '+w.your_result.placement:'Score above zero to join the standings.';$('tournamentScores').textContent=(w.entries||[]).map(r=>r.placement+'. '+r.wallet.slice(0,6)+'…'+r.wallet.slice(-4)+' · '+r.score).join('\n')||'Waiting for positive scores.';renderRewardWindowClock();}
 setInterval(renderRewardWindowClock,1000);
 
-async function refreshTestingStatus(){try{const response=await fetch(CONFIG.url+'/rest/v1/rpc/hpl_testing_status',{method:'POST',headers:{apikey:CONFIG.key,'Content-Type':'application/json'},body:'{}',signal:AbortSignal.timeout(5000),cache:'no-store'});if(!response.ok)throw Error('Testing status unavailable');const data=await response.json();testingPaused=data.paused!==false;}catch{testingPaused=true;}let banner=document.getElementById('alphaTestingPause');if(!banner){banner=document.createElement('div');banner.id='alphaTestingPause';banner.className='notice';banner.setAttribute('role','status');banner.style.cssText='position:sticky;top:0;z-index:100;text-align:center;margin:0;border-radius:0';document.body.prepend(banner);}banner.hidden=!testingPaused;banner.textContent='Alpha testing is paused · automatic blockchain reads are stopped. Testing will resume when the administrator enables it.';}
+async function refreshTestingStatus(){try{const response=await fetch(CONFIG.url+'/rest/v1/rpc/hpl_testing_status',{method:'POST',headers:{apikey:CONFIG.key,'Content-Type':'application/json'},body:'{}',signal:AbortSignal.timeout(5000),cache:'no-store'});if(!response.ok)throw Error('Testing status unavailable');const data=await response.json();testingPaused=data.paused!==false;}catch{testingPaused=true;}let banner=document.getElementById('alphaTestingPause');if(!banner){banner=document.createElement('div');banner.id='alphaTestingPause';banner.className='notice';banner.setAttribute('role','status');banner.style.cssText='position:sticky;top:0;z-index:100;text-align:center;margin:0;border-radius:0';document.body.prepend(banner);}banner.hidden=!testingPaused;renderClaimSections();banner.textContent='Alpha testing is paused · automatic blockchain reads are stopped. Testing will resume when the administrator enables it.';}
 setInterval(()=>{if(document.visibilityState!=='hidden')void refreshTestingStatus();},20000);
 
 </script>
 
 </body>
 </html>
+
 
 
 
