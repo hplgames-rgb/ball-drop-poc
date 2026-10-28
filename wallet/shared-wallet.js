@@ -46,6 +46,7 @@ function renderReflections(){ $("walletDollarValue").textContent=simulatedDollar
     reflectionState.paused || !reflectionState.feeExempt?"Claims temporarily unavailable.":reflectionState.amount===0n?"No reflections to claim yet.":"Unclaimed reflections continue earning. Network fee shown in MetaMask.");
 }
 async function walletRpc(provider,method,params=[]){
+  if(!hplClientActive())throw new Error("Wallet is idle. Return to this page and interact to refresh.");
   if(testingPaused)throw new Error("Alpha testing is paused. Ask the administrator to resume testing.");
   let timer;try{return await Promise.race([provider.request({method,params}),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error("Wallet read timed out. Try Refresh wallet.")),12000);})]);}finally{clearTimeout(timer);}
 }
@@ -64,7 +65,7 @@ async function reflectionSnapshot(wallet,provider,receiptBlock=null){
   if("0x"+values[0].slice(-40).toLowerCase()!==MARKET.token || "0x"+values[1].slice(-40).toLowerCase()!==REFLECTIONS.address) throw new Error("Reflections configuration mismatch.");
   return {block,amount:BigInt(values[2]),paused:BigInt(values[3])!==0n,excluded:BigInt(values[4])!==0n,feeExempt:BigInt(values[5])!==0n,balance:BigInt(values[6])};
 }
-async function refreshReflections(){if(testingPaused)return;
+async function refreshReflections(){if(!hplClientActive())return;if(testingPaused)return;
   if(!state.sessionToken || !state.wallet || !state.provider || reflectionState.readBusy || reflectionState.claimBusy || rewardState.busy) return;
   const wallet=state.wallet,token=state.sessionToken,epoch=purchaseState.epoch,provider=state.provider,generation=reflectionState.balanceGeneration;
   reflectionState.readBusy=true;renderReflections();
@@ -157,7 +158,7 @@ async function dexQuote(wallet,epoch){
  const gross=decodeQuoteAmounts(out)[1],net=side==="buy"?tradeNet(gross,taxed):gross,min=target===null?net*95n/100n:target;if(min<=0n || net<min)throw new Error("Trade amount is too small or target cannot be reached.");
  await assertPurchaseWallet(wallet,epoch);return {side,amount,net,min,taxed,wallet,epoch,at:Date.now(),text,mode,target};
 }
-async function getTradeQuote(){if(testingPaused)return;if(tradeState.busy || purchaseState.busy || rewardState.busy || reflectionState.claimBusy || !state.sessionToken || tradePending())return;clearTimeout(tradeState.timer);const epoch=purchaseState.epoch,version=++tradeState.quoteVersion;tradeState.quoting=true;tradeState.quote=null;$("tradeQuote").textContent="Estimating…";renderTrade();try{const q=await dexQuote(state.wallet,epoch);if(epoch!==purchaseState.epoch || version!==tradeState.quoteVersion)return;if(q.side!==$("tradeSide").value || q.text!==$("tradeAmount").value || q.mode!==tradeState.mode)return;tradeState.quote=q;displayTradeQuote(q);$("tradeStatus").textContent=q.target!==null?"Your HPL target is the minimum receive amount. If the price moves against you, the trade reverts; refresh the estimate. Gas is additional.":"Estimate valid for 30 seconds · 5% slippage tolerance · gas additional.";}catch(e){if(epoch===purchaseState.epoch && version===tradeState.quoteVersion){$("tradeQuote").textContent="Estimate unavailable";$("tradeStatus").textContent=e.message;}}finally{if(epoch===purchaseState.epoch && version===tradeState.quoteVersion){tradeState.quoting=false;renderTrade();}}}
+async function getTradeQuote(){if(!hplClientActive())return;if(testingPaused)return;if(tradeState.busy || purchaseState.busy || rewardState.busy || reflectionState.claimBusy || !state.sessionToken || tradePending())return;clearTimeout(tradeState.timer);const epoch=purchaseState.epoch,version=++tradeState.quoteVersion;tradeState.quoting=true;tradeState.quote=null;$("tradeQuote").textContent="Estimating…";renderTrade();try{const q=await dexQuote(state.wallet,epoch);if(epoch!==purchaseState.epoch || version!==tradeState.quoteVersion)return;if(q.side!==$("tradeSide").value || q.text!==$("tradeAmount").value || q.mode!==tradeState.mode)return;tradeState.quote=q;displayTradeQuote(q);$("tradeStatus").textContent=q.target!==null?"Your HPL target is the minimum receive amount. If the price moves against you, the trade reverts; refresh the estimate. Gas is additional.":"Estimate valid for 30 seconds · 5% slippage tolerance · gas additional.";}catch(e){if(epoch===purchaseState.epoch && version===tradeState.quoteVersion){$("tradeQuote").textContent="Estimate unavailable";$("tradeStatus").textContent=e.message;}}finally{if(epoch===purchaseState.epoch && version===tradeState.quoteVersion){tradeState.quoting=false;renderTrade();}}}
 
 async function refreshTradeBalance(wallet,epoch,receiptBlock){
  reflectionState.balanceGeneration++;const generation=reflectionState.balanceGeneration;
@@ -308,7 +309,7 @@ async function rewardSnapshot(wallet,provider,receiptBlock=null){
  const sources=results.map((r,i)=>r.status==="fulfilled"?{...targets[i],...r.value}:{...targets[i],loaded:false,amount:null,paused:false,feeExempt:false,error:"Rewards read unavailable"});
  return {block,sources,amount:sources.every(s=>s.loaded)?sources.reduce((sum,s)=>sum+s.amount,0n):null};
 }
-async function refreshGameRewards(){if(testingPaused)return;
+async function refreshGameRewards(){if(!hplClientActive())return;if(testingPaused)return;
  if(!state.sessionToken || !state.provider || !state.wallet || rewardState.readBusy || rewardState.busy)return;
  const wallet=state.wallet,token=state.sessionToken,epoch=purchaseState.epoch,provider=state.provider;
  rewardState.readBusy=true;renderGameRewards();
