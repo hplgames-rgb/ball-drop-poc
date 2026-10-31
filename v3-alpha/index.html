@@ -4,7 +4,16 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>HPL Games — Ball Drop V3 Alpha</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+// Local synthesized effects only: no audio downloads, network requests, or game state changes.
+let hplAudio=null,hplSoundEnabled=false,hplSoundVoices=0;const hplSoundTimes={};
+try{hplSoundEnabled=localStorage.getItem('hpl-v3-sound')==='on';}catch{}
+function hplSound(kind,variant=0){try{if(!hplSoundEnabled||document.visibilityState==='hidden'||!hplAudio||hplAudio.state!=='running'||hplSoundVoices>=8)return;const now=hplAudio.currentTime;if(now-(hplSoundTimes[kind]??-10)<(kind==='peg'?.075:.04))return;hplSoundTimes[kind]=now;const notes={drop:[240,130,.075,.08],peg:[650+(Math.floor(variant)%5)*85,460,.035,.025],paddle:[380+variant*95,900,.10,.06],bucket:[440+variant*55,660+variant*55,.14,.07],lightning:[880,1760,.18,.05],super:[330,1320,.25,.06]};const n=notes[kind];if(!n)return;const oscillator=hplAudio.createOscillator(),gain=hplAudio.createGain();oscillator.type=kind==='peg'?'sine':'triangle';oscillator.frequency.setValueAtTime(n[0],now);oscillator.frequency.exponentialRampToValueAtTime(n[1],now+n[2]);gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(n[3],now+.006);gain.gain.exponentialRampToValueAtTime(.0001,now+n[2]);oscillator.connect(gain);gain.connect(hplAudio.destination);hplSoundVoices++;oscillator.onended=()=>{hplSoundVoices--;oscillator.disconnect();gain.disconnect();};oscillator.start(now);oscillator.stop(now+n[2]+.01);}catch{}}
+function hplUnlockAudio(){try{if(!hplSoundEnabled)return;const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return;if(!hplAudio)hplAudio=new Audio();if(hplAudio.state==='suspended')void hplAudio.resume().catch(()=>{});}catch{}}
+function hplRenderSound(){const b=document.getElementById('soundToggle');if(!b)return;b.textContent=hplSoundEnabled?'Sound: On':'Sound: Off';b.setAttribute('aria-pressed',String(hplSoundEnabled));b.setAttribute('aria-label',hplSoundEnabled?'Mute game sound':'Enable game sound');}
+document.addEventListener('pointerdown',hplUnlockAudio,{capture:true,passive:true});document.addEventListener('keydown',hplUnlockAudio,{capture:true,passive:true});
+window.addEventListener('DOMContentLoaded',()=>{const b=document.getElementById('soundToggle');b.onclick=()=>{hplSoundEnabled=!hplSoundEnabled;try{localStorage.setItem('hpl-v3-sound',hplSoundEnabled?'on':'off');}catch{}hplRenderSound();if(hplSoundEnabled){hplUnlockAudio();hplSound('bucket',3);}};if(!window.AudioContext&&!window.webkitAudioContext){b.disabled=true;b.textContent='Sound unavailable';}else hplRenderSound();});
+</script>
 <style>
   :root{
     --bg:#07111f;
@@ -235,7 +244,7 @@
   }
 
   #walletHome #walletControls{display:grid;gap:10px}.section-card{padding:0!important}.section-card>summary{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:48px;padding:13px 14px;cursor:pointer;font-size:14px;font-weight:750;list-style:none}.section-card>summary::-webkit-details-marker{display:none}.section-card>summary::after{content:"+";font-size:20px;color:var(--muted);margin-left:auto}.section-card[open]>summary::after{content:"−"}.section-card[open]>summary{border-bottom:1px solid var(--line)}.section-body{padding:14px;min-width:0}.section-body>.wallet-value:first-child{margin-top:0}.claim-badge{font-size:10px;font-weight:800;color:#9affcf;background:#123e2c;border:1px solid #38e39b88;padding:4px 6px;border-radius:999px;white-space:nowrap}.section-card.claim-ready{border-color:var(--green)!important;box-shadow:0 0 0 1px #38e39b55,0 0 16px #38e39b22!important}.section-card.claim-ready>summary{color:#c0ffe0}.side-scroll>.marketplace-panel{margin:0}.side-scroll>.marketplace-panel>summary span{display:none}#walletControls>#tradeCard>summary{font-size:14px}#walletOverlayControls .section-card{margin-bottom:0}#walletOverlayControls #walletControls{gap:16px}#walletControls>details{min-width:0;align-self:start}
-</style>
+#soundToggle{position:fixed;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:90;padding:8px 12px;font-size:12px}</style>
 </head>
 <body>
 <div class="app">
@@ -406,7 +415,7 @@
     </aside>
   </div>
 
-  <div class="footer">HPL Games · V3 Alpha · Build 3.57 · Testnet only</div>
+  <div class="footer">HPL Games · V3 Alpha · Build 3.58 · Testnet only</div>
 </div>
 
 <div id="fullscreenNotice" class="fullscreen-notice" role="status" hidden><span id="fullscreenNoticeText"></span><button id="dismissFullscreenNoticeBtn" type="button" aria-label="Dismiss fullscreen message">×</button></div>
@@ -414,7 +423,7 @@
   <div class="mobile-panel-header"><div><h2 id="mobilePanelTitle">Marketplace</h2><p class="mobile-round-clock" data-mobile-clock>Round continues while you browse</p></div><button id="closeMobilePanelBtn" class="wallet-refresh" type="button">Back to game ✕</button></div>
   <div id="mobileMarketContent" hidden><p class="notice">Stock up anytime. Your round keeps running. Return to the game to activate owned powerups.</p><div id="mobileMarketHome"></div></div>
   <div id="mobileStandingsContent" hidden><div id="mobileStandingsHome"></div><div id="mobileTournamentHome"></div><p class="notice">Standings update while you browse. Final results appear after score validation.</p></div>
-  <div id="mobileMoreContent" hidden><p class="notice">Connect Wallet uses your MetaMask extension when available, or connects to the MetaMask mobile app. Approve connection and signing requests in MetaMask, then return here.</p><a class="wallet-refresh" style="display:inline-block;color:var(--text)" href="https://link.metamask.io/dapp/hplgames-rgb.github.io/ball-drop-poc/v3-alpha/">Open game inside MetaMask</a><p id="fullscreenHelpStatus" class="notice">Use the fullscreen button at the top to try it. Your browser and phone control which system bars can hide.</p><button id="mobileConnectBtn" type="button" class="wallet-refresh">Connect / change wallet</button><a href="../wallet/" target="_blank" rel="noopener" class="wallet-refresh" style="display:inline-block;color:var(--text)">Open standalone HPL wallet ↗</a><div id="mobileLogoutHome"></div><div id="mobileHelpHome"></div><div id="mobileLastRoundHome"></div><div id="mobileHistoryHome"></div><div id="mobileStatusHome"></div><p class="notice">Wallet connection uses MetaMask Connect, copyright ConsenSys Software Inc. <a href="./assets/metamask-connect-notices.txt" target="_blank" rel="noopener" style="color:var(--muted)">Third-party notices</a></p><p class="notice">V3 Alpha · Build 3.57 · Base Sepolia test tokens have no monetary value.</p></div>
+  <div id="mobileMoreContent" hidden><p class="notice">Connect Wallet uses your MetaMask extension when available, or connects to the MetaMask mobile app. Approve connection and signing requests in MetaMask, then return here.</p><a class="wallet-refresh" style="display:inline-block;color:var(--text)" href="https://link.metamask.io/dapp/hplgames-rgb.github.io/ball-drop-poc/v3-alpha/">Open game inside MetaMask</a><p id="fullscreenHelpStatus" class="notice">Use the fullscreen button at the top to try it. Your browser and phone control which system bars can hide.</p><button id="mobileConnectBtn" type="button" class="wallet-refresh">Connect / change wallet</button><a href="../wallet/" target="_blank" rel="noopener" class="wallet-refresh" style="display:inline-block;color:var(--text)">Open standalone HPL wallet ↗</a><div id="mobileLogoutHome"></div><div id="mobileHelpHome"></div><div id="mobileLastRoundHome"></div><div id="mobileHistoryHome"></div><div id="mobileStatusHome"></div><p class="notice">Wallet connection uses MetaMask Connect, copyright ConsenSys Software Inc. <a href="./assets/metamask-connect-notices.txt" target="_blank" rel="noopener" style="color:var(--muted)">Third-party notices</a></p><p class="notice">V3 Alpha · Build 3.58 · Base Sepolia test tokens have no monetary value.</p></div>
 </dialog>
 <dialog id="testerGuide" aria-labelledby="testerGuideTitle">
   <div class="metric-label gold">HPL Games · Private Alpha · Base Sepolia</div>
@@ -669,7 +678,7 @@ async function collectLightning(p){
   try{
     const data=await edgeRequest("ball-drop-collect-lightning",{session_token:state.sessionToken,game_session_id:sessionId,pickup_index:p.index});
     if(state.gameSessionId!==sessionId || data.collected!==true) return;
-    state.claimedPickups.add(p.index);
+    state.claimedPickups.add(p.index);hplSound("lightning");
     state.lightningCollected=Math.max(state.lightningCollected,Number(data.lightning_collected||0));
     // Persistent charge is loaded from the owned wallet bank below.
     await refreshServerState();
@@ -684,7 +693,7 @@ function superBallReady(){
 }
 function armSuperBall(){
   if(!superBallReady()) return;
-  state.superArmed=true;
+  state.superArmed=true;hplSound("super");
   $("superBallBtn").textContent="Armed — click the board";
   $("apiStatus").textContent="Super Ball armed. Choose where to drop it by clicking the board.";
 }
@@ -736,7 +745,7 @@ function applyPaddle(b,previousX,previousY,w){
   if(!state.rules?.paddles || b.paddleHit || previousY>185 || b.y<185 || b.y===previousY) return;
   const x=previousX+(b.x-previousX)*(185-previousY)/(b.y-previousY);
   const paddle=paddlesAt(w).find(p=>Math.abs(x-p.x)<=paddleHalfWidth()+7);
-  if(paddle){b.value*=paddle.mult;b.paddleHit=true;state.paddleFlashes[paddle.index]=Date.now();}
+  if(paddle){b.value*=paddle.mult;b.paddleHit=true;hplSound("paddle",paddle.mult);state.paddleFlashes[paddle.index]=Date.now();}
 }
 let lastBallCheckpoint=0;
 function checkpoint(){
@@ -831,7 +840,7 @@ function recordBallScore(ball){
 function landBall(b,w){
   if(b.dead || state.frozenResult) return;
   const buckets=bucketValues(),lane=Math.max(0,Math.min(buckets.length-1,Math.floor(b.x/(w/buckets.length))));
-  state.bucketFlashes[lane]={at:Date.now()};
+  state.bucketFlashes[lane]={at:Date.now()};hplSound(b.superBall?"super":"bucket",lane);
   b.historyOrder=++state.landingSequence;
   b.finalPoints=Math.floor((b.value || state.rules?.base || 100)*buckets[lane]);
   if(!b.pendingApproval){state.score+=b.finalPoints;state.balls++;b.credited=true;recordBallScore(b);}
@@ -856,7 +865,7 @@ function stepBall(b,w,h,dt){
       const nx=dx/d,ny=dy/d;
       b.x=p.x+nx*10.6;b.y=p.y+ny*10.6;
       const approach=b.vx*nx+b.vy*ny;
-      if(approach<0){
+      if(approach<0){hplSound("peg",p.x);
         b.vx-=1.65*approach*nx;b.vy-=1.65*approach*ny;
         if(Math.abs(b.vx)<12) b.vx+=(nx>=0?1:-1)*24;
       }
@@ -1648,7 +1657,7 @@ function dropAt(chosenPosition){
   const duration=Math.max(0,Math.floor((end-new Date(state.startedAt || state.round.starts_at).getTime())/1000));
   if(state.normalDrops>=duration*state.rules.rate) return;
   chosenPosition=Math.max(0,Math.min(1,chosenPosition));
-  state.lastDropAt=now;state.normalDrops++;
+  state.lastDropAt=now;state.normalDrops++;hplSound("drop");
   const w=boardWidth();
   state.ballsOnBoard.push({x:20+chosenPosition*(w-40),y:70,vx:(Math.random()-.5)*24,vy:70,value:state.rules.base,paddleHit:false});
   if(doubleDropActive()){
@@ -2236,253 +2245,4 @@ async function waitRewardClaim(hash,address,wallet,token,epoch,provider){
    if(!claimed)throw new Error("No game reward claim for this wallet in the receipt. Keep the saved hash for troubleshooting.");
    clearRewardClaim(wallet,address);return receipt;
   }
-  rewardState.notice="Claim sent · waiting for confirmation…";renderGameRewards();
-  await new Promise(resolve=>setTimeout(resolve,2000));
- }
- rewardState.notice="Still pending. Receipt saved; use Check claim confirmation later.";return null;
-}
-async function refreshConfirmedGameClaim(receipt,wallet,token,epoch,provider){
- if(!/^0x[0-9a-f]+$/i.test(receipt.blockNumber||"")){rewardState.notice="Claim confirmed · use Refresh rewards and Refresh wallet.";renderGameRewards();return;}
- const generation=++reflectionState.balanceGeneration;
- const current=()=>epoch===purchaseState.epoch && wallet===state.wallet && token===state.sessionToken && generation===reflectionState.balanceGeneration;
- rewardState.notice="Claim confirmed · updating rewards and wallet balance…";renderGameRewards();
- let rewardsUpdated=false,balanceUpdated=false;
- for(let attempt=0;attempt<3;attempt++){
-  if(!current())return;
-  const [rewardRead,balanceRead]=await Promise.allSettled([
-   rewardsUpdated?Promise.resolve(null):rewardSnapshot(wallet,provider,receipt.blockNumber),
-   balanceUpdated?Promise.resolve(null):reflectionSnapshot(wallet,provider,receipt.blockNumber)
-  ]);
-  if(!current())return;
-  if(rewardRead.status==="fulfilled" && rewardRead.value){
-   applyRewardSnapshot(rewardRead.value);rewardState.error="";rewardsUpdated=rewardRead.value.sources.every(r=>r.loaded);
-  }
-  if(balanceRead.status==="fulfilled" && balanceRead.value){
-   Object.assign(reflectionState,balanceRead.value,{loaded:true,error:"",lastRefresh:Date.now()});
-   purchaseState.balance=balanceRead.value.balance;purchaseState.balanceError=false;balanceUpdated=true;renderPurchaseCost();renderReflections();
-  }
-  if(rewardsUpdated && balanceUpdated){rewardState.notice="Claim confirmed · wallet balance updated.";renderGameRewards();return;}
-  renderGameRewards();
-  if(attempt<2)await new Promise(resolve=>setTimeout(resolve,1500));
- }
- if(current()){rewardState.notice="Claim confirmed · refresh delayed. Use Refresh rewards or Refresh wallet; your claim is saved onchain.";renderGameRewards();}
-}
-async function claimGameRewards(){
- if(!state.sessionToken || !state.wallet || !state.provider || rewardState.busy || rewardState.readBusy || tradeState.busy || purchaseState.busy || reflectionState.claimBusy)return;
- const wallet=state.wallet,token=state.sessionToken,epoch=purchaseState.epoch,provider=state.provider,requested=nextRewardTarget();
- let receipt=null;rewardState.busy=true;rewardState.error="";rewardState.notice="Checking your rewards…";renderGameRewards();renderReflections();updatePurchaseButton();
- try{
-  await assertPurchaseWallet(wallet,epoch);
-  const saved=nextSavedRewardClaim();
-  if(saved){receipt=await waitRewardClaim(saved.hash,saved.address,wallet,token,epoch,provider);return;}
-  const snapshot=await rewardSnapshot(wallet,provider);
-  if(epoch!==purchaseState.epoch || wallet!==state.wallet || token!==state.sessionToken)return;
-  applyRewardSnapshot(snapshot);
-  const target=requested || nextRewardTarget(),source=snapshot.sources.find(s=>s.address===target?.address);
-  if(!source?.loaded)throw new Error("Rewards could not be verified. Try Refresh rewards.");
-  if(source.paused || !source.feeExempt)throw new Error("Claims temporarily unavailable for these rewards.");
-  if(source.amount<=0n)throw new Error("No rewards to claim here yet.");
-  const address=source.address,key=rewardClaimKey(wallet,address);localStorage.setItem(key,"");localStorage.removeItem(key);
-  const tx={from:wallet,to:address,data:"0x4e71d92d",value:"0x0"};
-  await walletRpc(provider,"eth_call",[tx,"latest"]);await assertPurchaseWallet(wallet,epoch);
-  rewardState.notice=`Confirm the ${source.label.toLowerCase()} claim in MetaMask.`;renderGameRewards();
-  const hash=await provider.request({method:"eth_sendTransaction",params:[tx]});
-  if(!/^0x[0-9a-f]{64}$/i.test(hash))throw new Error("Wallet returned an invalid claim hash.");
-  try{localStorage.setItem(key,hash);}catch{if(epoch===purchaseState.epoch)rewardState.notice=`Save this claim hash: ${hash}`;}
-  if(epoch!==purchaseState.epoch || wallet!==state.wallet || token!==state.sessionToken)return;
-  rewardState.pendingByAddress[address]=hash;rewardState.pending=nextSavedRewardClaim();
-  receipt=await waitRewardClaim(hash,address,wallet,token,epoch,provider);
- }catch(error){if(epoch===purchaseState.epoch && wallet===state.wallet && token===state.sessionToken)rewardState.error=error.code===4001?"Claim cancelled.":error.message;}
- finally{if(epoch===purchaseState.epoch){
-  if(receipt){await refreshConfirmedGameClaim(receipt,wallet,token,epoch,provider);if(epoch===purchaseState.epoch){rewardHistory.generation++;rewardHistory.busy=false;void refreshRewardHistory();}}
-  if(epoch===purchaseState.epoch){rewardState.busy=false;renderGameRewards();renderReflections();updatePurchaseButton();}
- }}
-}
-$("claimGameRewardsBtn").addEventListener("click",()=>void claimGameRewards());
-$("refreshGameRewardsBtn").addEventListener("click",()=>{rewardState.notice="";void refreshGameRewards();if($("walletOverlay").open)void refreshRewardHistory();});
-// Only poll while the full wallet is open; no per-ball or extra Supabase requests.
-setInterval(()=>{if($("walletOverlay").open && document.visibilityState!=="hidden" && state.sessionToken && Date.now()-rewardState.lastRefresh>=30000)void refreshGameRewards();renderGameRewards();},30000);
-
-const rewardHistory={rows:[],loaded:false,busy:false,error:"",offset:0,more:false,generation:0};
-function renderRewardHistory(){
- const list=$("rewardHistoryList");list.replaceChildren();
- $("refreshRewardHistoryBtn").disabled=!state.sessionToken||rewardHistory.busy;
- $("moreRewardHistoryBtn").hidden=!state.sessionToken||!rewardHistory.more;
- $("moreRewardHistoryBtn").disabled=rewardHistory.busy;
- $("rewardHistoryStatus").textContent=!state.wallet?"Connect your wallet to view rewards history.":rewardHistory.error||(rewardHistory.busy?"Loading reward history…":!rewardHistory.loaded?"Open your wallet or refresh to load rewards history.":!rewardHistory.rows.length?"No game rewards earned yet. Your confirmed awards will appear here.":`${rewardHistory.rows.length} reward records shown · newest first. Time shown is when each reward was awarded.`);
- for(const row of rewardHistory.rows){
-  const item=document.createElement("div");item.className="reward-history-row";item.dataset.status=row.status;
-  const left=document.createElement("div"),title=document.createElement("strong"),date=document.createElement("small");
-  title.textContent=row.round_number!==null?`${row.tournament?"Tournament ending at round":"Ball Drop · Round"} ${row.round_number}`:`Ball Drop · Reward event ${row.event_id}`;
-  const when=new Date(row.awarded_at);date.textContent=Number.isFinite(when.getTime())?when.toLocaleString(undefined,{year:"numeric",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",second:"2-digit",timeZoneName:"short"}):"Award date unavailable";
-  left.appendChild(title);left.appendChild(date);
-  const right=document.createElement("div"),amount=document.createElement("strong"),status=document.createElement("small");right.className="reward-history-amount";
-  amount.textContent=`${formatBalance(BigInt(row.amount))} HPL`;
-  status.textContent=({claimed:"Claimed",unclaimed:"Unclaimed",expired:"Expired",reclaimed:"Expired · reclaimed"})[row.status]||"Status unavailable";
-  right.appendChild(amount);right.appendChild(status);item.appendChild(left);item.appendChild(right);list.appendChild(item);
- }
-}
-async function refreshRewardHistory(older=false){
- if(!state.sessionToken||!state.wallet||rewardHistory.busy)return;
- const wallet=state.wallet,token=state.sessionToken,generation=++rewardHistory.generation;
- const offset=older?rewardHistory.offset:0;
- rewardHistory.busy=true;rewardHistory.error="";renderRewardHistory();
- try{
-  const data=await edgeRequest("game-reward-history",{session_token:token,offset});
-  if(generation!==rewardHistory.generation||wallet!==state.wallet||token!==state.sessionToken)return;
-  if(!Array.isArray(data.rows)||data.rows.some(r=>typeof r.id!=="string"||!/^\d+$/.test(r.amount)||!Number.isFinite(Date.parse(r.awarded_at))))throw new Error("Invalid reward history. Please refresh.");
-  const rows=new Map((older?rewardHistory.rows:[]).map(r=>[r.id,r]));for(const row of data.rows)rows.set(row.id,row);
-  rewardHistory.rows=[...rows.values()].sort((a,b)=>b.awarded_at.localeCompare(a.awarded_at)||a.id.localeCompare(b.id));
-  rewardHistory.offset=data.next_offset;rewardHistory.more=data.has_more===true;rewardHistory.loaded=true;
- }catch(error){if(generation===rewardHistory.generation)rewardHistory.error=error.message;}
- finally{if(generation===rewardHistory.generation){rewardHistory.busy=false;renderRewardHistory();}}
-}
-$("refreshRewardHistoryBtn").addEventListener("click",()=>void refreshRewardHistory());
-$("moreRewardHistoryBtn").addEventListener("click",()=>void refreshRewardHistory(true));
-
-function resetWallet(){
-  rewardHistory.generation++;Object.assign(rewardHistory,{rows:[],loaded:false,busy:false,error:"",offset:0,more:false});renderRewardHistory();
-  walletAuthGeneration++;forgetWalletSession();rewardSidebarRefreshKey=null;
-  $("logoutBtn").hidden=true;
-  Object.assign(rewardState,{loaded:false,readBusy:false,busy:false,amount:null,sources:[],pendingByAddress:{},paused:false,feeExempt:false,pending:null,error:"",notice:"",lastRefresh:0});
-  clearTimeout(tradeState.timer);tradeState.quoteVersion++;tradeState.quoting=false;tradeState.busy=false;tradeState.quote=null;tradeState.phase="";
-  purchaseState.cart={1:0,2:0,3:0};
-  Object.assign(reflectionState,{loaded:false,readBusy:false,claimBusy:false,amount:null,balance:null,feeExempt:false,paused:false,excluded:false,pending:null,error:"",notice:"",lastRefresh:0,balanceGeneration:0});
-  purchaseState.epoch++;purchaseState.busy=false;purchaseState.pending=null;purchaseState.balance=null;purchaseState.balanceError=false;purchaseState.refreshAfterCredit=false;purchaseState.unitPrice=250000000000000000000n;purchaseState.quoteBusy=false;$("purchaseReceiptHash").value="";$("purchaseStatus").textContent="Add powerups to your cart.";updatePurchaseButton();
-  state.liveResults=null;state.lastLiveAt=0;state.liveSessionId=null;
-  displayedRewardWindow=null;$("tournamentCard").hidden=true;$("liveLeaderboardTitle").textContent="Current round leaderboard";$("liveLeaderboard").textContent="Waiting for players.";
-  $("liveStatus").textContent="Connect your wallet to see current standings.";$("yourLiveResult").hidden=true;
-  state.roundResults=null;state.standingsError=null;state.lastStandingsAt=0;state.standingsPhase=null;
-  $("leaderboardTitle").textContent="Round results";$("leaderboard").textContent="Standings appear after submissions close.";
-  $("yourRoundResult").hidden=true;$("position").textContent="—";$("positionLabel").textContent="Current position";
-  state.roundBallStats={superScores:[],bonusPoints:0,bonusBalls:0,trackedPoints:0};state.lightningCollected=0;
-  state.recentScores=[];state.landingSequence=0;renderBallHistory();
-  dismissRoundEnd();roundEndState.data=null;roundEndState.wallet=null;roundEndState.shown.clear();$("lastRoundBtn").hidden=true;
-  state.sessionToken=null;state.gameSessionId=null;state.wallet=null;state.round=null;renderRewardHistory();
-  resetRoundFunding();
-  state.lightningMagnetUntil=0;state.lightningMagnetInventory=null;state.lightningMagnetActivations=0;state.paddleExtenderUntil=0;state.paddleExtenderInventory=null;state.paddleExtenderActivations=0;state.doubleDropUntil=0;state.doubleDropInventory=null;state.doubleDropActivations=0;state.powerupsActivated=0;state.powerupBusy=false;
-  state.lightningCharge=0;state.superBalls=0;state.superArmed=false;state.superBusy=false;state.serverStateReadable=false;state.serverScore=null;state.ballsOnBoard=[];state.score=0;state.rules=null;state.claimedPickups=new Set();state.collectingPickups=new Set();$("superBallBtn").disabled=true;
-  $("walletBtn").textContent="Connect Wallet";$("connection").textContent="Reconnect wallet";
-  $("statusDot").classList.remove("live");setPowerupButtons(false);updatePurchaseButton();renderReflections();renderGameRewards();
-}
-let walletReturnFocus=null;
-let walletSectionOpenStates=[];
-function openWalletOverlay(){if($("mobilePanel").open)$("mobilePanel").close();setMobileNav("wallet");const modal=$("walletOverlay");if(modal.open)return;walletReturnFocus=document.activeElement;modal.showModal();modal.scrollTop=0;$("walletOverlayControls").appendChild($("walletControls"));walletSectionOpenStates=[...document.querySelectorAll("#walletControls > details")].map(el=>({el,open:el.open}));for(const {el} of walletSectionOpenStates)el.open=true;$("quickWalletSummary").hidden=false;document.body.classList.add("wallet-open");$("closeWalletBtn").focus();void refreshReflections();void refreshGameRewards();void refreshRewardHistory();}
-function restoreWalletPanel(){for(const {el,open} of walletSectionOpenStates)el.open=open;walletSectionOpenStates=[];setMobileNav("game");$("walletHome").appendChild($("walletControls"));$("quickWalletSummary").hidden=true;document.body.classList.remove("wallet-open");walletReturnFocus?.focus?.();}
-$("myWalletBtn").addEventListener("click",openWalletOverlay);$("walletReturnBtn").addEventListener("click",openWalletOverlay);$("closeWalletBtn").addEventListener("click",()=>$("walletOverlay").close());$("walletOverlay").addEventListener("close",restoreWalletPanel);
-$("copyWalletFeedbackBtn").addEventListener("click",async()=>{const text=$("walletFeedback").value.trim();if(!text){$("walletFeedbackStatus").textContent="Write your feedback first.";return;}try{await navigator.clipboard.writeText(`HPL Wallet Alpha feedback\n${text}`);$("walletFeedbackStatus").textContent="Copied. Paste it into your message to the alpha organizer.";}catch{$("walletFeedback").focus();$("walletFeedback").select();$("walletFeedbackStatus").textContent="Select and copy your feedback to share it.";}});
-let fullscreenBusy=false;
-function isGameFullscreen(){return !!(document.fullscreenElement || document.webkitFullscreenElement);}
-function syncFullscreenUI(){
- const active=isGameFullscreen();
- $("fullscreenBtn").textContent=active?"Exit full screen":"Full screen";
- $("mobileFullscreenBtn").innerHTML='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="'+(active?'M4 9h5V4M20 9h-5V4M4 15h5v5M20 15h-5v5':'M9 4H4v5M15 4h5v5M4 15v5h5M20 15v5h-5')+'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
- for(const id of ["fullscreenBtn","mobileFullscreenBtn"]){const button=$(id);button.disabled=fullscreenBusy;button.setAttribute?.("aria-pressed",String(active));button.setAttribute?.("aria-label",active?"Exit full screen":"Enter full screen");button.title=active?"Exit full screen":"Enter full screen";}
- if(active)$("fullscreenHelpStatus").textContent="Full screen is on. Tap the fullscreen button again to exit. Your phone may reveal its navigation controls when you swipe an edge.";
- else if(!fullscreenBusy)$("fullscreenHelpStatus").textContent="Tap the fullscreen button at the top to try it. Your browser and phone control which system bars can hide.";
-}
-function showFullscreenProblem(message){$("fullscreenNoticeText").textContent=message;$("fullscreenNotice").hidden=false;$("fullscreenHelpStatus").textContent=message;}
-async function toggleGameFullscreen(){
- if(fullscreenBusy)return;
- const root=document.documentElement,active=isGameFullscreen();
- const enter=root?.requestFullscreen || root?.webkitRequestFullscreen;
- const exit=document.exitFullscreen || document.webkitExitFullscreen;
- if(!active && (!enter || document.fullscreenEnabled===false || (!root.requestFullscreen && document.webkitFullscreenEnabled===false))){showFullscreenProblem("This browser does not support fullscreen for the game. You can keep playing in the current view.");return;}
- if(active && !exit){showFullscreenProblem("Use your browser’s fullscreen exit control to return to the normal view.");return;}
- fullscreenBusy=true;syncFullscreenUI();$("fullscreenNotice").hidden=true;
- let problem="";
- try{
-  if(active)await exit.call(document);
-  else if(root.requestFullscreen)await enter.call(root,{navigationUI:"hide"});
-  else await enter.call(root);
- }catch{problem=active?"The browser could not exit fullscreen. Use its exit control or try again.":"This browser did not allow fullscreen. You can keep playing normally; hiding the phone’s system bars depends on the browser.";}
- finally{fullscreenBusy=false;syncFullscreenUI();if(problem)showFullscreenProblem(problem);resize();}
-}
-$("fullscreenBtn").addEventListener("click",()=>void toggleGameFullscreen());
-$("mobileFullscreenBtn").addEventListener("click",()=>void toggleGameFullscreen());
-$("dismissFullscreenNoticeBtn").addEventListener("click",()=>{$("fullscreenNotice").hidden=true;});
-for(const event of ["fullscreenchange","webkitfullscreenchange"])document.addEventListener?.(event,()=>{syncFullscreenUI();resize();});
-for(const event of ["fullscreenerror","webkitfullscreenerror"])document.addEventListener?.(event,()=>{showFullscreenProblem("This browser did not allow fullscreen. You can keep playing in the current view.");});
-syncFullscreenUI();
-
-const mobileMounts=[];
-let mobileMounted=false,mobilePanelReturnFocus=null,marketPreviouslyOpen=false;
-function setMobileNav(name){for(const key of ["game","market","wallet","standings","more"]){const el=$("mobile"+key[0].toUpperCase()+key.slice(1)+"Btn");if(key===name)el.setAttribute?.("aria-current","page");else el.removeAttribute?.("aria-current");}}
-function mountMobile(nodeId,homeId){const node=$(nodeId),marker=document.createComment("mobile home: "+nodeId);node.parentNode.insertBefore(marker,node);mobileMounts.push({node,marker});$(homeId).appendChild(node);}
-function syncMobileLayout(){
- const mobile=mobileGameLayout();
- if(mobile && !mobileMounted){
-  marketPreviouslyOpen=$("marketplacePanel").open;
-  for(const [node,home] of [["liveScoreCard","mobileScoreHome"],["doubleDropStatus","mobileActiveHome"],["paddleExtenderStatus","mobileActiveHome"],["lightningMagnetStatus","mobileActiveHome"],["marketplacePanel","mobileMarketHome"],["standingsCard","mobileStandingsHome"],["tournamentCard","mobileTournamentHome"],["ownedPowerups","mobilePowerupHome"],["logoutBtn","mobileLogoutHome"],["lastRoundBtn","mobileLastRoundHome"],["ballHistoryCard","mobileHistoryHome"],["apiStatus","mobileStatusHome"]])mountMobile(node,home);
-  const help=document.querySelector("#helpMenu .help-panel");help.id="mobileHelpPanel";mountMobile("mobileHelpPanel","mobileHelpHome");
-  $("marketplacePanel").open=true;mobileMounted=true;
- }else if(!mobile && mobileMounted){
-  if($("mobilePanel").open)$("mobilePanel").close();
-  for(const {node,marker} of mobileMounts){marker.parentNode.insertBefore(node,marker);marker.remove();}mobileMounts.length=0;$("marketplacePanel").open=marketPreviouslyOpen;mobileMounted=false;
- }
- resize();
-}
-function renderMobileRoundClock(){
- const phase=$("timerLabel").textContent,timer=$("timer").textContent,round=$("roundNumber").textContent;
- for(const el of document.querySelectorAll("[data-mobile-clock]"))el.textContent=state.round?`Round ${round} · ${phase} ${timer} · game continues`:"Connect your wallet to join a round";
-}
-function openMobilePanel(name){
- if(!mobileGameLayout())return;
- if($("walletOverlay").open)$("walletOverlay").close();
- mobilePanelReturnFocus=document.activeElement;
- const title={market:"Marketplace",standings:"Standings",more:"More & help"}[name];if(!title)return;
- for(const key of ["market","standings","more"])$("mobile"+key[0].toUpperCase()+key.slice(1)+"Content").hidden=key!==name;
- $("mobilePanelTitle").textContent=title;setMobileNav(name);renderMobileRoundClock();
- if(!$("mobilePanel").open)$("mobilePanel").showModal();$("mobilePanel").scrollTop=0;$("closeMobilePanelBtn").focus();
- if(name==="market" && state.sessionToken)void refreshPurchaseQuote();
-}
-$("mobileGameBtn").addEventListener("click",()=>{if($("mobilePanel").open)$("mobilePanel").close();if($("walletOverlay").open)$("walletOverlay").close();setMobileNav("game");});
-for(const name of ["market","standings","more"])$("mobile"+name[0].toUpperCase()+name.slice(1)+"Btn").addEventListener("click",()=>openMobilePanel(name));
-$("mobileWalletBtn").addEventListener("click",()=>{renderMobileRoundClock();openWalletOverlay();});
-$("mobileConnectBtn").addEventListener("click",()=>{if($("mobilePanel").open)$("mobilePanel").close();$("walletBtn").click();});
-$("closeMobilePanelBtn").addEventListener("click",()=>$("mobilePanel").close());
-$("mobilePanel").addEventListener("close",()=>{if(!$("walletOverlay").open)setMobileNav("game");mobilePanelReturnFocus?.focus?.();});
-if(typeof window.matchMedia==="function"){window.addEventListener("resize",syncMobileLayout);window.visualViewport?.addEventListener("resize",resize);syncMobileLayout();setInterval(renderMobileRoundClock,1000);}
-
-$("reflectionsSection").addEventListener("toggle",()=>{if($("reflectionsSection").open && !$("walletOverlay").open)void refreshReflections();});
-$("gameRewardsSection").addEventListener("toggle",()=>{if($("gameRewardsSection").open && !$("walletOverlay").open)void refreshGameRewards();});
-$("rewardHistorySection").addEventListener("toggle",()=>{if($("rewardHistorySection").open && !rewardHistory.loaded && !$("walletOverlay").open)void refreshRewardHistory();});
-const testerGuideKey="hpl-v3-tester-guide-v1";
-function openTesterGuide(){ if($("mobilePanel").open)$("mobilePanel").close();$("helpMenu").open=false;if(!$("testerGuide").open)$("testerGuide").showModal(); }
-function dismissTesterGuide(){try{localStorage.setItem(testerGuideKey,"seen");}catch{}$("testerGuide").close();}
-$("testerGuideBtn").addEventListener("click",openTesterGuide);
-$("startAlphaBtn").addEventListener("click",dismissTesterGuide);
-$("closeTesterGuideBtn").addEventListener("click",dismissTesterGuide);
-$("testerGuide").addEventListener("cancel",event=>{event.preventDefault();dismissTesterGuide();});
-try{if(localStorage.getItem(testerGuideKey)!=="seen")openTesterGuide();}catch{openTesterGuide();}
-refreshTestingStatus().then(()=>connectBackend()).catch(error=>{$("apiStatus").textContent=`Round preview unavailable: ${error.message}. Connect your wallet to join.`;});
-refreshTestingStatus().then(()=>{if(!testingPaused)void restoreWalletSession();});
-drawBoard();
-
-let displayedRewardWindow=null;
-function renderRewardWindowClock(){const w=displayedRewardWindow;if(!w)return;const seconds=Math.max(0,Math.ceil((new Date(w.ends_at).getTime()-serverNow())/1000));$('tournamentClock').textContent=w.status==='open'?(seconds?Math.floor(seconds/60)+'m '+(seconds%60)+'s remaining':'Window ended · accepting final scores and preparing rewards'):w.status==='complete'?'Rewards reserved · claim from your wallet':w.status==='skipped'?'No eligible payout in this window':'Rewards are being confirmed';}
-function applyRewardWindow(w){displayedRewardWindow=w.active?w:null;$('tournamentCard').hidden=!w.active;if(!w.active)return;$('tournamentTitle').textContent=w.mode==='hour'?'One-hour tournament':'Round prizes';$('tournamentPool').textContent=formatBalance(w.pool||'0')+' HPL reward pot';$('tournamentMine').textContent=w.your_result?'Your total: '+w.your_result.score+' · position '+w.your_result.placement:'Score above zero to join the standings.';$('tournamentScores').textContent=(w.entries||[]).map(r=>r.placement+'. '+r.wallet.slice(0,6)+'…'+r.wallet.slice(-4)+' · '+r.score).join('\n')||'Waiting for positive scores.';renderRewardWindowClock();}
-setInterval(renderRewardWindowClock,1000);
-
-async function refreshTestingStatus(){try{const response=await fetch(CONFIG.url+'/rest/v1/rpc/hpl_testing_status',{method:'POST',headers:{apikey:CONFIG.key,'Content-Type':'application/json'},body:'{}',signal:AbortSignal.timeout(5000),cache:'no-store'});if(!response.ok)throw Error('Testing status unavailable');const data=await response.json();testingPaused=data.paused!==false;window.hplRuntimeMode=data.runtime_mode;}catch{testingPaused=true;}let banner=document.getElementById('alphaTestingPause');if(!banner){banner=document.createElement('div');banner.id='alphaTestingPause';banner.className='notice';banner.setAttribute('role','status');banner.style.cssText='position:sticky;top:0;z-index:100;text-align:center;margin:0;border-radius:0';document.body.prepend(banner);}banner.hidden=!testingPaused&&window.hplRuntimeMode!=='idle';renderClaimSections();banner.textContent=!testingPaused?'Alpha standby · workers wake when an approved wallet is active.':'Alpha testing is paused · automatic blockchain reads are stopped. Testing will resume when the administrator enables it.';}
-setInterval(()=>{if(document.visibilityState!=='hidden')void refreshTestingStatus();},20000);
-
-
-const HPL_ACTIVITY_SOURCE='game';
-// Presence is recorded in Supabase only; this code never calls a blockchain RPC.
-let hplLastInteraction=Date.now(),hplLastHeartbeat=0,hplHeartbeatBusy=false;
-function hplClientActive(){return document.visibilityState!=='hidden'&&(Date.now()-hplLastInteraction<120000||tradeState.busy||rewardState.busy||reflectionState.claimBusy||purchaseState.busy);}
-async function hplActivityHeartbeat(force=false){if(testingPaused||!state.sessionToken||!hplClientActive()||hplHeartbeatBusy||(!force&&Date.now()-hplLastHeartbeat<25000))return;const token=state.sessionToken;hplHeartbeatBusy=true;try{const response=await fetch(CONFIG.url+'/functions/v1/alpha-activity',{method:'POST',headers:{apikey:CONFIG.key,'Content-Type':'application/json'},body:JSON.stringify({session_token:token,source:HPL_ACTIVITY_SOURCE}),signal:AbortSignal.timeout(6000),cache:'no-store'});if(response.ok&&state.sessionToken===token){hplLastHeartbeat=Date.now();const activity=await response.json();if(activity.paused===true)testingPaused=true;}}catch{/* Retry on the next foreground heartbeat; no blockchain request is made. */}finally{hplHeartbeatBusy=false;}}
-function hplNoteActivity(){hplLastInteraction=Date.now();void hplActivityHeartbeat();}
-for(const event of ['pointerdown','pointermove','keydown','touchstart'])document.addEventListener(event,hplNoteActivity,{passive:true,capture:true});
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState!=='hidden')hplNoteActivity();});
-setInterval(()=>void hplActivityHeartbeat(),30000);
-
-</script>
-
-</body>
-</html>
-
-
-
-
+  rewar
