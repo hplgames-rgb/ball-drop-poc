@@ -418,19 +418,19 @@
 </dialog>
 <dialog id="testerGuide" aria-labelledby="testerGuideTitle">
   <div class="metric-label gold">HPL Games · Private Alpha · Base Sepolia</div>
-  <h2 id="testerGuideTitle">Welcome to Ball Drop!</h2>
+  <h2 id="testerGuideTitle">Welcome to HPL Games Alpha!</h2><p id="guideProgress" class="mini" aria-live="polite"></p>
   <p>Play, try the powerups, and help us test the HPL economy. Everything here uses test tokens. Your feedback helps shape the game.</p>
   <section><h3>1 · Get ready</h3><ol>
     <li>On your phone or tablet, Connect Wallet can open the MetaMask app. Approve there, then return to this game. On desktop, use the MetaMask extension or scan the connection QR code with MetaMask. Choose your allowlisted wallet.</li>
-    <li>Send your <strong>public wallet address</strong> to the Alpha organizer so it can be allowlisted. Never share your recovery phrase or private key.</li>
+    <li>Your application has been approved for this wallet. Never share your recovery phrase or private key.</li>
     <li>Ask the organizer for <strong>Base Sepolia test ETH</strong> for network fees and <strong>TEST-HPL</strong> for powerups. Ethereum Sepolia ETH is on a different network.</li>
-    <li>Close this guide and select <strong>Connect Wallet</strong>. Approve the Base Sepolia network prompt if shown, then sign the login message. Signing in does not spend tokens.</li>
+    <li>You are signed in with your approved wallet. Signing in does not spend tokens.</li>
   </ol><p class="mini">If access is denied, check that MetaMask is using the address you submitted. The organizer must allowlist that exact address.</p></section>
-  <section><h3>2 · Play a round</h3><p>Rounds last <strong>90 seconds</strong>, followed by a <strong>30-second intermission</strong>. Click or tap near the top of the board to choose where each ball drops. Bounce through pegs, chase moving multiplier paddles, and land in a bucket to score.</p><p>Collect lightning to fill your bank, up to <strong>5</strong>. Use <strong>Arm Super Ball</strong> when ready: the preview turns purple, and your next click chooses where the 10× ball drops. Unspent lightning carries into the next round. You can use up to <strong>2 super balls per round</strong>.</p></section>
+  <section><h3>2 · Play a round</h3><p>Rounds have a timed gameplay window followed by an intermission. Click or tap near the top of the board to choose where each ball drops. Bounce through pegs, chase moving multiplier paddles, and land in a bucket to score.</p><p>Collect lightning to fill your bank, up to <strong>5</strong>. Use <strong>Arm Super Ball</strong> when ready: the preview turns purple, and your next click chooses where the 10× ball drops. Unspent lightning carries into the next round. You can use up to <strong>2 super balls per round</strong>.</p></section>
   <section><h3>3 · Try the marketplace</h3><p>Scroll below the scoreboard and expand <strong>Marketplace</strong>. Use + and − to build your cart, check the total, then select <strong>Checkout</strong>. Purchases are available anytime; activate owned powerups during gameplay.</p><ul><li><strong>Double Drop:</strong> an extra green ball per click for 15 seconds.</li><li><strong>Paddle Extender:</strong> wider paddles for 8 seconds.</li><li><strong>Lightning Magnet:</strong> pulls nearby balls toward lightning for 25 seconds.</li></ul><p class="mini">Up to 2 powerup activations per round. Wide Ball and Extra Super Ball are coming soon. MetaMask may request a token approval before the purchase; wait for confirmation before trying again. If inventory is missing, open Help → Missing a powerup purchase?</p></section>
   <section><h3>4 · Claim and explore</h3><p>The round-end popup gathers the final scores. Half the round reward pool goes to the top scorer, or is split between tied winners. The other half is split equally among the remaining eligible players. With one player, or when everyone ties for first, that other half stays in the pool. A round without funding has no HPL payout.</p><p>Rewards need time to finalize. Open <strong>My Wallet</strong> to claim game rewards, claim reflections separately, or try buying and selling TEST-HPL. Claims and trades require MetaMask confirmation and test ETH for fees.</p><p class="mini">Player buys and sells include the 10% token tax. In-game powerup purchases are tax-free. A round award shown in the results is separate from your current claimable wallet balance.</p></section>
   <section><h3>5 · Tell us what happened</h3><p>Report confusing steps, delays, or unexpected results to the Alpha organizer. Include the build number, round number, browser, and what you expected. For a purchase or claim issue, include the public transaction hash. You can draft and copy feedback in <strong>My Wallet → Wallet feedback</strong>.</p><p class="mini">Reopen this guide anytime from <strong>Help → Welcome &amp; tester guide</strong>.</p></section>
-  <div class="guide-actions"><button id="startAlphaBtn" type="button" class="checkout-buy">Got it · Let’s play</button><button id="closeTesterGuideBtn" type="button" class="wallet-refresh">Close guide</button></div>
+  <div class="guide-actions"><button id="guideBackBtn" type="button" class="wallet-refresh">Back</button><button id="startAlphaBtn" type="button" class="checkout-buy">Next</button><button id="closeTesterGuideBtn" type="button" class="wallet-refresh">Skip tutorial</button></div>
 </dialog>
 <dialog id="roundEndDialog" aria-labelledby="roundEndTitle">
  <div class="round-end-header"><h2 id="roundEndTitle">Round end scores</h2><button id="closeRoundEndBtn" type="button" class="wallet-refresh" aria-label="Close round results">✕</button></div>
@@ -1448,6 +1448,8 @@ async function restoreWalletSession(){
     $("connection").textContent="Wallet restored";$("statusDot").classList.add("live");
     await startGameSession();
     if(generation!==walletAuthGeneration)return false;
+    maybeWelcomeAlpha();
+    if(generation!==walletAuthGeneration)return false;
     await refreshServerState();
     void refreshPurchaseQuote();void refreshReflections();void refreshGameRewards();
     return true;
@@ -1539,6 +1541,7 @@ async function authenticateWallet(){
 
     stage="Starting your round";
     await startGameSession();
+    maybeWelcomeAlpha();
     await refreshServerState();
     void refreshPurchaseQuote();
     void refreshReflections();
@@ -2447,14 +2450,17 @@ if(typeof window.matchMedia==="function"){window.addEventListener("resize",syncM
 $("reflectionsSection").addEventListener("toggle",()=>{if($("reflectionsSection").open && !$("walletOverlay").open)void refreshReflections();});
 $("gameRewardsSection").addEventListener("toggle",()=>{if($("gameRewardsSection").open && !$("walletOverlay").open)void refreshGameRewards();});
 $("rewardHistorySection").addEventListener("toggle",()=>{if($("rewardHistorySection").open && !rewardHistory.loaded && !$("walletOverlay").open)void refreshRewardHistory();});
-const testerGuideKey="hpl-v3-tester-guide-v1";
-function openTesterGuide(){ if($("mobilePanel").open)$("mobilePanel").close();$("helpMenu").open=false;if(!$("testerGuide").open)$("testerGuide").showModal(); }
-function dismissTesterGuide(){try{localStorage.setItem(testerGuideKey,"seen");}catch{}$("testerGuide").close();}
+const guideSections=Array.from($("testerGuide").querySelectorAll("section"));let guideStep=0;
+function guideStorageKey(){return state.wallet?"hpl-v3-onboarding-v2:"+state.wallet.toLowerCase():null;}
+function renderGuideStep(){guideSections.forEach((section,i)=>section.hidden=i!==guideStep);$("guideProgress").textContent="Step "+(guideStep+1)+" of "+guideSections.length;$("guideBackBtn").hidden=guideStep===0;$("startAlphaBtn").textContent=guideStep===guideSections.length-1?"Finish & play":"Next";}
+function openTesterGuide(){if($("mobilePanel").open)$("mobilePanel").close();$("helpMenu").open=false;guideStep=0;renderGuideStep();if(!$("testerGuide").open)$("testerGuide").showModal();}
+function dismissTesterGuide(){const key=guideStorageKey();if(key)try{localStorage.setItem(key,"complete");}catch{}$("testerGuide").close();}
+function maybeWelcomeAlpha(){const key=guideStorageKey();if(!key)return;try{if(localStorage.getItem(key)==="complete")return;}catch{}if(!$("testerGuide").open)openTesterGuide();}
 $("testerGuideBtn").addEventListener("click",openTesterGuide);
-$("startAlphaBtn").addEventListener("click",dismissTesterGuide);
+$("guideBackBtn").addEventListener("click",()=>{guideStep=Math.max(0,guideStep-1);renderGuideStep();});
+$("startAlphaBtn").addEventListener("click",()=>{if(guideStep<guideSections.length-1){guideStep++;renderGuideStep();}else dismissTesterGuide();});
 $("closeTesterGuideBtn").addEventListener("click",dismissTesterGuide);
 $("testerGuide").addEventListener("cancel",event=>{event.preventDefault();dismissTesterGuide();});
-try{if(localStorage.getItem(testerGuideKey)!=="seen")openTesterGuide();}catch{openTesterGuide();}
 refreshTestingStatus().then(()=>connectBackend()).catch(error=>{$("apiStatus").textContent=`Round preview unavailable: ${error.message}. Connect your wallet to join.`;});
 refreshTestingStatus().then(()=>{if(!testingPaused)void restoreWalletSession();});
 drawBoard();
