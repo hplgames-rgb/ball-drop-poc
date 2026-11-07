@@ -493,21 +493,11 @@ async function loadMetaMaskConnect(){
     const script=document.createElement("script");let finished=false;
     const finish=error=>{if(finished)return;finished=true;clearTimeout(timer);script.onload=null;script.onerror=null;if(error){script.remove();reject(error);}else resolve();};
     const timer=setTimeout(()=>finish(new Error("The mobile wallet connector took too long to load. Please try Connect Wallet again.")),20000);
-    const assetUrl=new URL("./assets/metamask-connect-2.1.1.js",document.baseURI);
-    // GitHub Pages may publish the HTML while omitting the bundled asset.
-    // Use the exact same repository file pinned to its commit as a fallback.
-    const fallbackUrl="https://cdn.jsdelivr.net/gh/hplgames-rgb/ball-drop-poc@54a1e466a077831b1dc916353331342cd4a5072c/v3-alpha/assets/metamask-connect-2.1.1.js";
-    script.src=assetUrl.href+"?v=3.55";script.async=true;
+    // Pin the mobile-headless build rather than a stale Pages copy.
+    const cdnUrl="https://cdn.jsdelivr.net/gh/hplgames-rgb/ball-drop-poc@54a1e466a077831b1dc916353331342cd4a5072c/v3-alpha/assets/metamask-connect-2.1.1.js";
+    script.src=cdnUrl+"?mobile=headless-1";script.async=true;
     script.onload=()=>finish();
-    script.onerror=()=>{
-      script.remove();
-      const fallback=document.createElement("script");
-      fallback.async=true;
-      fallback.src=fallbackUrl;
-      fallback.onload=()=>finish();
-      fallback.onerror=()=>finish(new Error("Could not load the MetaMask connector from GitHub Pages or its fallback CDN. Check network filtering or content blocking."));
-      document.head.appendChild(fallback);
-    };
+    script.onerror=()=>finish(new Error("The pinned MetaMask mobile connector could not load."));
     document.head.appendChild(script);
    });
   }
