@@ -19,7 +19,11 @@ const fs = require('fs');
     await connect.click({timeout:10000});
     await page.waitForTimeout(7000);
   } else logs.push('No Connect Wallet button located');
-  const result=await page.evaluate(()=>({modal:!!document.querySelector('mm-install-modal,mm-connect-modal,mm-select-modal'),body:document.body.innerText.slice(-1600),connector:!!window.HPLMetaMaskConnect?.createClient}));
+  const result=await page.evaluate(()=>{
+    const all=[];const visit=root=>{for(const el of root.querySelectorAll('*')){if(el.tagName.toLowerCase().startsWith('mm-'))all.push({tag:el.tagName,text:(el.shadowRoot?.textContent||el.textContent||'').slice(0,500)});if(el.shadowRoot)visit(el.shadowRoot)}};
+    visit(document);
+    return {modal:all.some(x=>/modal|connect|select/.test(x.tag.toLowerCase())&&/Scan to connect|Connect With Extension/i.test(x.text)),walletElements:all.slice(0,30),body:document.body.innerText.slice(-1600),connector:!!window.HPLMetaMaskConnect?.createClient};
+  });
   logs.push('result '+JSON.stringify(result));
   await page.screenshot({path:'mobile-wallet-diagnostics/android.png',fullPage:true});
   if(result.modal||/Scan to connect with the MetaMask mobile app|Connect With Extension/.test(result.body))throw Error('Desktop/QR MetaMask dialog detected on Android emulation');
