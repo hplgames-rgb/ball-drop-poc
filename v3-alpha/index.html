@@ -493,8 +493,18 @@ async function loadMetaMaskConnect(){
     const script=document.createElement("script");let finished=false;
     const finish=error=>{if(finished)return;finished=true;clearTimeout(timer);script.onload=null;script.onerror=null;if(error){script.remove();reject(error);}else resolve();};
     const timer=setTimeout(()=>finish(new Error("The mobile wallet connector took too long to load. Please try Connect Wallet again.")),20000);
-    script.src="./assets/metamask-connect-2.1.1.js?v=3.55";script.async=true;
-    script.onload=()=>finish();script.onerror=()=>finish(new Error("Could not load the mobile wallet connector. Check your connection and try again."));
+    const assetUrl=new URL("./assets/metamask-connect-2.1.1.js",document.baseURI);
+    script.src=assetUrl.href+"?v=3.55";script.async=true;
+    script.onload=()=>finish();
+    script.onerror=()=>{
+      script.remove();
+      const retry=document.createElement("script");
+      retry.async=true;
+      retry.src=assetUrl.href+"?v=3.55&retry=1";
+      retry.onload=()=>finish();
+      retry.onerror=()=>finish(new Error("Could not load the mobile wallet connector ("+assetUrl.pathname+"). Check browser content blocking or your connection, then try again."));
+      document.head.appendChild(retry);
+    };
     document.head.appendChild(script);
    });
   }
