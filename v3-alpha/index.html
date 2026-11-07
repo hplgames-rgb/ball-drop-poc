@@ -496,7 +496,7 @@ async function loadMetaMaskConnect(){
     const assetUrl=new URL("./assets/metamask-connect-2.1.1.js",document.baseURI);
     // GitHub Pages may publish the HTML while omitting the bundled asset.
     // Use the exact same repository file pinned to its commit as a fallback.
-    const fallbackUrl="https://cdn.jsdelivr.net/gh/hplgames-rgb/ball-drop-poc@e7d596863e522eecec4b555e1d4e0db7b9af2392/v3-alpha/assets/metamask-connect-2.1.1.js";
+    const fallbackUrl="https://cdn.jsdelivr.net/gh/hplgames-rgb/ball-drop-poc@54a1e466a077831b1dc916353331342cd4a5072c/v3-alpha/assets/metamask-connect-2.1.1.js";
     script.src=assetUrl.href+"?v=3.55";script.async=true;
     script.onload=()=>finish();
     script.onerror=()=>{
@@ -527,6 +527,16 @@ async function findWalletConnection(interactive=false,saved=null){
  const client=await loadMetaMaskConnect();
  if(!interactive){if(!client.getAccount())return null;return {provider:client.getProvider(),accounts:null};}
  $("apiStatus").textContent="Approve the connection in MetaMask, then return here. On desktop you can scan the QR code with MetaMask.";
+ const mobile=/Android|iPad|iPhone|iPod/i.test(navigator.userAgent)||(/Macintosh/i.test(navigator.userAgent)&&navigator.maxTouchPoints>1);
+ if(mobile && !client.__hplMobileUriHandler){
+  client.__hplMobileUriHandler=true;
+  client.on?.("display_uri",uri=>{
+   if(typeof uri==="string" && /^(metamask:\/\/|https:\/\/link\.metamask\.io\/)/i.test(uri)){
+    $("apiStatus").textContent="Opening MetaMask to approve your wallet connection…";
+    window.location.href=uri;
+   }
+  });
+ }
  const result=await client.connect({chainIds:[MARKET.chain]});
  return {provider:client.getProvider(),accounts:result.accounts};
 }
