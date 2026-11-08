@@ -27,7 +27,8 @@ const fs = require('fs');
   logs.push('result '+JSON.stringify(result));
   await page.screenshot({path:'mobile-wallet-diagnostics/android.png',fullPage:true});
   if(result.modal||/Scan to connect with the MetaMask mobile app|Connect With Extension/.test(result.body))throw Error('Desktop/QR MetaMask dialog detected on Android emulation');
-  if(!snapshot.connector)throw Error('MetaMask connector unavailable');
+  // The connector is lazy-loaded, so check availability after Connect Wallet.
+  if(!result.connector)throw Error('MetaMask connector unavailable after Connect Wallet');
  } finally {
   fs.writeFileSync('mobile-wallet-diagnostics/trace.txt',logs.join('\n'));
   await browser.close();
