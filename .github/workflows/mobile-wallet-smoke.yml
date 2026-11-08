@@ -6,6 +6,7 @@ on:
       - 'v3-alpha/index.html'
       - 'v3-alpha/assets/metamask-connect-2.1.1.js'
       - '.github/workflows/mobile-wallet-smoke.yml'
+      - '.github/scripts/mobile-wallet-smoke.cjs'
 jobs:
   android-chrome:
     runs-on: ubuntu-latest
