@@ -25,7 +25,7 @@ window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installProm
 async function showInstall(){if(installPrompt){await installPrompt.prompt();installPrompt=null;return;}if(!$('installDialog').open)$('installDialog').showModal();}
 $('installWallet').onclick=()=>void showInstall();$('installHelp').onclick=()=>{$('installDialog').showModal();};$('closeInstall').onclick=()=>$('installDialog').close();$('openMetaMask').onclick=async()=>{try{await navigator.clipboard.writeText(location.href.split('#')[0]);$('installStatus').textContent='Link copied. Paste it into the browser inside MetaMask.';}catch{$('installStatus').textContent='Copy this URL and open it inside MetaMask: '+location.href.split('#')[0];}};
 setInterval(()=>{if(document.visibilityState!=='hidden'){if(state.sessionToken&&Date.parse(state.expiresAt)<=Date.now()){disconnectWallet();walletMessage('Your alpha login expired. Connect again.');}void refreshTestingStatus();}},20000);
-setInterval(()=>{if(!testingPaused&&state.sessionToken&&document.visibilityState!=='hidden'&&activeTab==='balance')void refreshNative();},60000);
+setInterval(()=>{if(!testingPaused&&state.sessionToken&&document.visibilityState!=='hidden')void refreshNative();},30000);
 showTab(location.hash.slice(1));renderAll();void refreshTestingStatus();
 
 const HPL_ACTIVITY_SOURCE='wallet';
@@ -35,5 +35,15 @@ function hplClientActive(){return document.visibilityState!=='hidden'&&(Date.now
 async function hplActivityHeartbeat(force=false){if(testingPaused||!state.sessionToken||!hplClientActive()||hplHeartbeatBusy||(!force&&Date.now()-hplLastHeartbeat<25000))return;const token=state.sessionToken;hplHeartbeatBusy=true;try{const response=await fetch(CONFIG.url+'/functions/v1/alpha-activity',{method:'POST',headers:{apikey:CONFIG.key,'Content-Type':'application/json'},body:JSON.stringify({session_token:token,source:HPL_ACTIVITY_SOURCE}),signal:AbortSignal.timeout(6000),cache:'no-store'});if(response.ok&&state.sessionToken===token){hplLastHeartbeat=Date.now();const activity=await response.json();if(activity.paused===true)testingPaused=true;}}catch{/* Retry on the next foreground heartbeat; no blockchain request is made. */}finally{hplHeartbeatBusy=false;}}
 function hplNoteActivity(){hplLastInteraction=Date.now();void hplActivityHeartbeat();}
 for(const event of ['pointerdown','pointermove','keydown','touchstart'])document.addEventListener(event,hplNoteActivity,{passive:true,capture:true});
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState!=='hidden')hplNoteActivity();});
+document.addEventListener('visibilitychange',()=>{
+ if(document.visibilityState==='hidden')return;
+ hplNoteActivity();
+ if(!testingPaused && state.sessionToken && Date.parse(state.expiresAt)>Date.now())void refreshWallet();
+});
+const walletMusic=$('walletMusic');
+walletMusic.addEventListener('toggle',()=>{
+ const player=walletMusic.querySelector('iframe');
+ if(walletMusic.open)player.src='https://www.youtube.com/embed/fTAL0yl01qs';
+ else player.removeAttribute('src');
+});
 setInterval(()=>void hplActivityHeartbeat(),30000);
