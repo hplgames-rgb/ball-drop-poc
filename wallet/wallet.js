@@ -41,9 +41,24 @@ document.addEventListener('visibilitychange',()=>{
  if(!testingPaused && state.sessionToken && Date.parse(state.expiresAt)>Date.now())void refreshWallet();
 });
 const walletMusic=$('walletMusic');
-walletMusic.addEventListener('toggle',()=>{
- const player=walletMusic.querySelector('iframe');
- if(walletMusic.open)player.src='https://www.youtube.com/embed/fTAL0yl01qs';
- else player.removeAttribute('src');
+const walletMusicToggle=$('walletMusicToggle');
+const walletMusicPreference='hpl-wallet-music';
+let musicEnabled=true;
+try{musicEnabled=localStorage.getItem(walletMusicPreference)!=='off';}catch{}
+function playWalletMusic(){
+ if(musicEnabled)void walletMusic.play().catch(()=>{});
+}
+function startMusicOnInteraction(event){
+ if(!walletMusicToggle.contains(event.target) && walletMusic.paused)playWalletMusic();
+}
+walletMusic.addEventListener('play',()=>{walletMusicToggle.textContent='Pause music';});
+walletMusic.addEventListener('pause',()=>{walletMusicToggle.textContent='Play music';});
+walletMusicToggle.addEventListener('click',()=>{
+ musicEnabled=walletMusic.paused;
+ try{localStorage.setItem(walletMusicPreference,musicEnabled?'on':'off');}catch{}
+ if(musicEnabled)playWalletMusic();
+ else walletMusic.pause();
 });
+document.addEventListener('click',startMusicOnInteraction);
+playWalletMusic();
 setInterval(()=>void hplActivityHeartbeat(),30000);
