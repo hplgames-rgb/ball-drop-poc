@@ -395,7 +395,7 @@ async function claimGameRewards(){
 $("claimGameRewardsBtn").addEventListener("click",()=>void claimGameRewards());
 $("refreshGameRewardsBtn").addEventListener("click",()=>{rewardState.notice="";void refreshGameRewards();if((activeTab==="rewards" || activeTab==="history"))void refreshRewardHistory();});
 // Only poll while the full wallet is open; no per-ball or extra Supabase requests.
-setInterval(()=>{if(!testingPaused && (activeTab==="rewards" || activeTab==="history") && document.visibilityState!=="hidden" && state.sessionToken && Date.now()-rewardState.lastRefresh>=30000)void refreshGameRewards();renderGameRewards();},30000);
+setInterval(()=>{if(!testingPaused && document.visibilityState!=="hidden" && state.sessionToken && Date.now()-rewardState.lastRefresh>=30000)void refreshGameRewards();renderGameRewards();},30000);
 
 const rewardHistory={rows:[],loaded:false,busy:false,error:"",offset:0,more:false,generation:0};
 function renderRewardHistory(){
