@@ -51,8 +51,13 @@ function playWalletMusic(){
 function startMusicOnInteraction(event){
  if(!walletMusicToggle.contains(event.target) && walletMusic.paused)playWalletMusic();
 }
-walletMusic.addEventListener('play',()=>{walletMusicToggle.textContent='Pause music';});
-walletMusic.addEventListener('pause',()=>{walletMusicToggle.textContent='Play music';});
+function renderMusicToggle(){
+ const paused=walletMusic.paused || !!walletMusic.error;
+ walletMusicToggle.textContent=paused?'Play music':'Pause music';
+ walletMusicToggle.classList.toggle('primary',paused);
+}
+for(const event of ['play','pause','error'])walletMusic.addEventListener(event,renderMusicToggle);
+renderMusicToggle();
 walletMusicToggle.addEventListener('click',()=>{
  musicEnabled=walletMusic.paused;
  try{localStorage.setItem(walletMusicPreference,musicEnabled?'on':'off');}catch{}
