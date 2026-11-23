@@ -273,6 +273,8 @@ function renderGameRewards(){
  const total=known.reduce((sum,r)=>sum+r.amount,0n);
  $("gameRewardDollarValue").textContent=known.length?`${partial?"At least ":""}${simulatedDollar(total)}`:"—";
  $("gameRewardAmount").textContent=known.length?`${partial?"At least ":""}${formatBalance(total)} TEST-HPL`:"— TEST-HPL";
+ $("balanceRewardDollars").textContent=$("gameRewardDollarValue").textContent;
+ $("balanceRewardAmount").textContent=$("gameRewardAmount").textContent;
  const breakdown=$("gameRewardSources");breakdown.replaceChildren();
  if(REWARDS.currentAddress){
   for(const target of rewardTargets()){
