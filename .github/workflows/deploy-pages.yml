@@ -32,7 +32,7 @@ jobs:
           mkdir -p dist/admin
           cp admin/index.html dist/admin/index.html
           mkdir -p dist/wallet
-          cp wallet/index.html wallet/wallet.css wallet/wallet.js wallet/shared-wallet.js wallet/manifest.webmanifest wallet/icon.svg wallet/icon-192.png wallet/icon-512.png dist/wallet/
+          cp wallet/index.html wallet/wallet.css wallet/wallet.js wallet/shared-wallet.js wallet/manifest.webmanifest wallet/icon.svg wallet/icon-192.png wallet/icon-512.png wallet/exploration-theme.mp3 wallet/music-credit.txt dist/wallet/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
