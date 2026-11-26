@@ -2365,7 +2365,7 @@ function renderRewardHistory(){
  for(const row of rewardHistory.rows){
   const item=document.createElement("div");item.className="reward-history-row";item.dataset.status=row.status;
   const left=document.createElement("div"),title=document.createElement("strong"),date=document.createElement("small");
-  title.textContent=row.round_number!==null?`${row.tournament?"Tournament ending at round":"Ball Drop · Round"} ${row.round_number}`:`Ball Drop · Reward event ${row.event_id}`;
+  title.textContent=row.is_streak===true?"Streaks reward":row.round_number!==null?`${row.tournament?"Tournament ending at round":"Ball Drop · Round"} ${row.round_number}`:`Ball Drop · Reward event ${row.event_id}`;
   const when=new Date(row.awarded_at);date.textContent=Number.isFinite(when.getTime())?when.toLocaleString(undefined,{year:"numeric",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",second:"2-digit",timeZoneName:"short"}):"Award date unavailable";
   left.appendChild(title);left.appendChild(date);
   const right=document.createElement("div"),amount=document.createElement("strong"),status=document.createElement("small");right.className="reward-history-amount";
